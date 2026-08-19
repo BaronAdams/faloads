@@ -1,0 +1,25 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+*.iml
+
+# Platform folders are generated in CI (flutter create --platforms=android,ios .)
+# and are intentionally not committed — keep the repo to Dart source + config.
+/android/
+/ios/
+/macos/
+/windows/
+/linux/
+/web/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store

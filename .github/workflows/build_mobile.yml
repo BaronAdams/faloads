@@ -1,0 +1,73 @@
+name: Build mobile
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+env:
+  FLUTTER_CHANNEL: stable
+
+jobs:
+  analyze_test:
+    name: Analyze & test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+      # Platform folders (android/, ios/, ...) are generated, not committed —
+      # `flutter create .` on an existing project only fills in what's missing.
+      - run: flutter create --platforms=android,ios --org com.structcalc .
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+
+  build_android:
+    name: Build Android APK
+    needs: analyze_test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+      - run: flutter create --platforms=android,ios --org com.structcalc .
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: structcalc-android
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+  build_ios:
+    name: Build iOS (unsigned)
+    needs: analyze_test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+      - run: flutter create --platforms=android,ios --org com.structcalc .
+      - run: flutter pub get
+      # No Apple Developer signing identity is configured in this repo, so we
+      # build unsigned. To install on a physical iPhone, package the .app
+      # below as an .ipa (steps here) and sideload it with Sideloadly or
+      # AltStore, which sign it locally with your own free Apple ID.
+      - run: flutter build ios --release --no-codesign
+      - name: Package unsigned .ipa
+        run: |
+          set -e
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -r Runner.app Payload/
+          zip -r structcalc-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: structcalc-ios-unsigned
+          path: build/ios/iphoneos/structcalc-unsigned.ipa
+          if-no-files-found: error
