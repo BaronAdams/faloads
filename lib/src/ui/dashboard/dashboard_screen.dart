@@ -4,14 +4,26 @@ import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/empty_state.dart";
 import "../placeholder/coming_soon_screen.dart";
+import "../predim/predim_screen.dart";
 
 class _CalcEntry {
-  const _CalcEntry({required this.icon, required this.label, this.badge});
+  const _CalcEntry({
+    required this.icon,
+    required this.label,
+    required this.destination,
+    this.badge,
+  });
 
   final IconData icon;
   final String label;
   final String? badge;
+  final Widget Function() destination;
 }
+
+Widget _comingSoon(String label) => ComingSoonScreen(
+      title: label,
+      subtitle: "Le calcul « $label » arrive dans une prochaine phase du portage.",
+    );
 
 /// Dashboard / "Calculs" home (spec §2): two calculation families —
 /// Prédimensionnement (6 element types) and Descente de charges (poteau /
@@ -20,20 +32,53 @@ class _CalcEntry {
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
-  static const _predim = [
-    _CalcEntry(icon: Icons.view_column_outlined, label: "Poteau"),
-    _CalcEntry(icon: Icons.horizontal_rule, label: "Poutre"),
-    _CalcEntry(icon: Icons.view_agenda_outlined, label: "Voile"),
-    _CalcEntry(icon: Icons.grid_on_outlined, label: "Plancher"),
-    _CalcEntry(icon: Icons.exit_to_app_outlined, label: "Balcon"),
-    _CalcEntry(icon: Icons.stairs_outlined, label: "Escalier"),
+  static final List<_CalcEntry> _predim = [
+    _CalcEntry(
+      icon: Icons.view_column_outlined,
+      label: "Poteau",
+      destination: () => const PredimScreen(initialType: PredimElementType.poteau),
+    ),
+    _CalcEntry(
+      icon: Icons.horizontal_rule,
+      label: "Poutre",
+      destination: () => const PredimScreen(initialType: PredimElementType.poutre),
+    ),
+    _CalcEntry(
+      icon: Icons.view_agenda_outlined,
+      label: "Voile",
+      destination: () => const PredimScreen(initialType: PredimElementType.voile),
+    ),
+    _CalcEntry(
+      icon: Icons.grid_on_outlined,
+      label: "Plancher",
+      destination: () => const PredimScreen(initialType: PredimElementType.plancher),
+    ),
+    _CalcEntry(
+      icon: Icons.exit_to_app_outlined,
+      label: "Balcon",
+      destination: () => const PredimScreen(initialType: PredimElementType.balcon),
+    ),
+    _CalcEntry(
+      icon: Icons.stairs_outlined,
+      label: "Escalier",
+      destination: () => const PredimScreen(initialType: PredimElementType.escalier),
+    ),
   ];
 
-  static const _descente = [
-    _CalcEntry(icon: Icons.view_column_outlined, label: "Poteau isolé"),
-    _CalcEntry(icon: Icons.view_agenda_outlined, label: "Voile isolé"),
-    _CalcEntry(icon: Icons.grid_view_outlined, label: "Réseau de poutres"),
-    _CalcEntry(icon: Icons.apartment_outlined, label: "Bâtiment complet", badge: "Pro"),
+  static final List<_CalcEntry> _descente = [
+    _CalcEntry(icon: Icons.view_column_outlined, label: "Poteau isolé", destination: () => _comingSoon("Poteau isolé")),
+    _CalcEntry(icon: Icons.view_agenda_outlined, label: "Voile isolé", destination: () => _comingSoon("Voile isolé")),
+    _CalcEntry(
+      icon: Icons.grid_view_outlined,
+      label: "Réseau de poutres",
+      destination: () => _comingSoon("Réseau de poutres"),
+    ),
+    _CalcEntry(
+      icon: Icons.apartment_outlined,
+      label: "Bâtiment complet",
+      badge: "Pro",
+      destination: () => _comingSoon("Bâtiment complet"),
+    ),
   ];
 
   @override
@@ -141,12 +186,7 @@ class _CalcCard extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ComingSoonScreen(
-              title: entry.label,
-              subtitle: "Le calcul « ${entry.label} » arrive dans une prochaine phase du portage.",
-            ),
-          ),
+          MaterialPageRoute(builder: (_) => entry.destination()),
         ),
         child: Container(
           padding: const EdgeInsets.all(12),
