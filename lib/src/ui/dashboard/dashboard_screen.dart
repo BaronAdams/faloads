@@ -4,7 +4,9 @@ import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/empty_state.dart";
 import "../placeholder/coming_soon_screen.dart";
+import "../poteau/poteau_flow_screen.dart";
 import "../predim/predim_screen.dart";
+import "../voile/voile_flow_screen.dart";
 
 class _CalcEntry {
   const _CalcEntry({
@@ -66,8 +68,8 @@ class DashboardScreen extends StatelessWidget {
   ];
 
   static final List<_CalcEntry> _descente = [
-    _CalcEntry(icon: Icons.view_column_outlined, label: "Poteau isolé", destination: () => _comingSoon("Poteau isolé")),
-    _CalcEntry(icon: Icons.view_agenda_outlined, label: "Voile isolé", destination: () => _comingSoon("Voile isolé")),
+    _CalcEntry(icon: Icons.view_column_outlined, label: "Poteau isolé", destination: () => const PoteauFlowScreen()),
+    _CalcEntry(icon: Icons.view_agenda_outlined, label: "Voile isolé", destination: () => const VoileFlowScreen()),
     _CalcEntry(
       icon: Icons.grid_view_outlined,
       label: "Réseau de poutres",

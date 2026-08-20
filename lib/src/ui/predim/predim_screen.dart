@@ -2,9 +2,9 @@ import "package:flutter/material.dart";
 
 import "../../domain/domain.dart";
 import "../../theme/app_colors.dart";
-import "../../theme/app_theme.dart";
 import "../../widgets/number_field.dart";
 import "../../widgets/picker_field.dart";
+import "../../widgets/predim_result_panel.dart";
 import "../../widgets/segmented_chips.dart";
 
 enum PredimElementType { poteau, poutre, voile, plancher, balcon, escalier }
@@ -118,13 +118,13 @@ class _PredimScreenState extends State<PredimScreen> {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: fields),
           ),
           const SizedBox(height: 16),
-          _ResultPanel(result: result),
+          PredimResultPanel(result: result),
         ],
       ),
     );
   }
 
-  (List<Widget>, _PredimResult) _buildTypeContent() {
+  (List<Widget>, PredimResultData) _buildTypeContent() {
     switch (_type) {
       case PredimElementType.poteau:
         final r = predimPoteau(nEluKn: _poteauNelu, beton: _poteauBeton, reglement: _poteauReglement);
@@ -153,7 +153,7 @@ class _PredimScreenState extends State<PredimScreen> {
               onChanged: (v) => setState(() => _poteauReglement = v),
             ),
           ],
-          _PredimResult(
+          PredimResultData(
             big: "${r.sideCm.toStringAsFixed(0)} × ${r.sideCm.toStringAsFixed(0)} cm",
             sub: "A_min = ${r.aminCm2.toStringAsFixed(0)} cm² · fck = ${r.fckMpa} MPa",
             formula: "N_ELU ≤ 0.8 × Ac × fcd",
@@ -189,7 +189,7 @@ class _PredimScreenState extends State<PredimScreen> {
               onChanged: (v) => setState(() => _poutreAppui = v),
             ),
           ],
-          _PredimResult(
+          PredimResultData(
             big: "${r.bCm.toStringAsFixed(0)} × ${r.hCm.toStringAsFixed(0)} cm",
             sub: "M_max = ${r.mMaxKnM.toStringAsFixed(1)} kN.m",
             formula: "h ≈ L / ${_poutreAppui.coeffH.toStringAsFixed(0)},  b ≈ h / 2",
@@ -237,7 +237,7 @@ class _PredimScreenState extends State<PredimScreen> {
               onChanged: (v) => setState(() => _voileReglement = v),
             ),
           ],
-          _PredimResult(
+          PredimResultData(
             big: "${r.eMinCm.toStringAsFixed(0)} cm",
             sub: "A_min = ${r.aminCm2.toStringAsFixed(0)} cm² · fck = ${r.fckMpa} MPa",
             formula: "N_ELU ≤ 0.8 × (L × e) × fcd",
@@ -266,7 +266,7 @@ class _PredimScreenState extends State<PredimScreen> {
               onChanged: (v) => setState(() => _plancherType = v),
             ),
           ],
-          _PredimResult(
+          PredimResultData(
             big: r.label,
             sub: "Portée = ${_plancherPortee.toStringAsFixed(2)} m",
             formula: pleine
@@ -304,7 +304,7 @@ class _PredimScreenState extends State<PredimScreen> {
               onChanged: (v) => setState(() => _balconQ = v),
             ),
           ],
-          _PredimResult(
+          PredimResultData(
             big: "${r.epaisseurCm.toStringAsFixed(0)} cm",
             sub: "M_ELU = ${r.muKnM.toStringAsFixed(2)} kN.m/ml",
             formula: "e ≈ L_console / 10 — armature filante en fibre supérieure",
@@ -345,7 +345,7 @@ class _PredimScreenState extends State<PredimScreen> {
               onChanged: (v) => setState(() => _escalierLargeur = v),
             ),
           ],
-          _PredimResult(
+          PredimResultData(
             big: "${r.nMarches} marches · ${r.epaisseurCm.toStringAsFixed(0)} cm",
             sub: "g = ${r.gironCm.toStringAsFixed(1)} cm · h = ${r.hMarcheCm.toStringAsFixed(1)} cm · "
                 "Blondel = ${r.blondelCm.toStringAsFixed(1)} cm ${r.blondelOk ? '✓' : '⚠'}",
@@ -354,14 +354,6 @@ class _PredimScreenState extends State<PredimScreen> {
         );
     }
   }
-}
-
-class _PredimResult {
-  const _PredimResult({required this.big, required this.sub, required this.formula});
-
-  final String big;
-  final String sub;
-  final String formula;
 }
 
 class _TypeChip extends StatelessWidget {
@@ -408,36 +400,3 @@ class _TypeChip extends StatelessWidget {
   }
 }
 
-class _ResultPanel extends StatelessWidget {
-  const _ResultPanel({required this.result});
-
-  final _PredimResult result;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceRaised,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.accentBlue),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "SECTION RECOMMANDÉE",
-            style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, letterSpacing: 0.5, color: AppColors.accentBlue),
-          ),
-          const SizedBox(height: 8),
-          Text(result.big, style: AppTheme.monoTextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Text(result.sub, style: AppTheme.monoTextStyle(fontSize: 12, color: AppColors.textSecondary)),
-          const SizedBox(height: 10),
-          Text(result.formula, style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary, fontStyle: FontStyle.italic)),
-        ],
-      ),
-    );
-  }
-}

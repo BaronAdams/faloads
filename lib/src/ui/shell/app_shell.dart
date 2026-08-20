@@ -29,7 +29,7 @@ class _AppShellState extends State<AppShell> {
         const _Tab(label: "Mon compte", icon: Icons.person_outline, page: AccountScreen()),
     ];
 
-    final index = _index.clamp(0, tabs.length - 1);
+    final index = _index.clamp(0, tabs.length - 1).toInt();
 
     return Scaffold(
       body: IndexedStack(
