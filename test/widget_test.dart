@@ -55,17 +55,27 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final exception = tester.takeException();
-    if (exception != null) {
-      fail("Exception thrown while building the dashboard: $exception");
-    }
-
-    final allTexts = tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).toList();
-    // ignore: avoid_print
-    print("ALL TEXT WIDGETS FOUND (${allTexts.length}): $allTexts");
-
     expect(find.text("Prédimensionnement"), findsOneWidget);
-    expect(find.text("Descente de charges"), findsOneWidget, reason: "All texts were: $allTexts");
+
+    // The dashboard's content is taller than the test surface, and
+    // ListView — even with a plain `children:` list, not `.builder` — only
+    // mounts children within the current viewport (plus a small cache
+    // extent): everything below "Prédimensionnement" genuinely isn't built
+    // yet until scrolled into view. That's correct, ordinary Sliver
+    // behavior, not a bug — the earlier "0 widgets found" failures here
+    // were the test not scrolling, not the app failing to render.
+    await tester.scrollUntilVisible(
+      find.text("Descente de charges"),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text("Descente de charges"), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text("Projets récents"),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text("Projets récents"), findsOneWidget);
   });
 }
