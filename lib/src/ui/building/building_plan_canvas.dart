@@ -2,6 +2,7 @@ import "dart:math" as math;
 
 import "package:flutter/material.dart";
 
+import "../../domain/domain.dart";
 import "../../theme/app_colors.dart";
 import "building_state.dart";
 
