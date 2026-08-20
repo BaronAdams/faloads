@@ -4,7 +4,7 @@ import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/empty_state.dart";
 import "../beam_network/beam_network_flow_screen.dart";
-import "../placeholder/coming_soon_screen.dart";
+import "../building/building_flow_screen.dart";
 import "../poteau/poteau_flow_screen.dart";
 import "../predim/predim_screen.dart";
 import "../voile/voile_flow_screen.dart";
@@ -22,11 +22,6 @@ class _CalcEntry {
   final String? badge;
   final Widget Function() destination;
 }
-
-Widget _comingSoon(String label) => ComingSoonScreen(
-      title: label,
-      subtitle: "Le calcul « $label » arrive dans une prochaine phase du portage.",
-    );
 
 /// Dashboard / "Calculs" home (spec §2): two calculation families —
 /// Prédimensionnement (6 element types) and Descente de charges (poteau /
@@ -80,7 +75,7 @@ class DashboardScreen extends StatelessWidget {
       icon: Icons.apartment_outlined,
       label: "Bâtiment complet",
       badge: "Pro",
-      destination: () => _comingSoon("Bâtiment complet"),
+      destination: () => const BuildingFlowScreen(),
     ),
   ];
 
