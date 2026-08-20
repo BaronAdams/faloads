@@ -872,8 +872,12 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
     return Column(
       children: [
         _FloorBar(building: building, onChanged: widget.onChanged),
-        SizedBox(
-          height: 280,
+        // Proportional, not a fixed pixel height — a fixed SizedBox here
+        // previously overflowed on short viewports (e.g. the default test
+        // surface), since it didn't shrink to make room for the TabBar and
+        // FloorBar above it.
+        Expanded(
+          flex: 2,
           child: BuildingPlanCanvas(
             floor: floor,
             selection: building.selection,
@@ -890,6 +894,7 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
           tabs: const [Tab(text: "Poteaux"), Tab(text: "Poutres"), Tab(text: "Voiles")],
         ),
         Expanded(
+          flex: 3,
           child: TabBarView(
             controller: _tabController,
             children: [
