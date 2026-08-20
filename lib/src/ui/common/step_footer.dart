@@ -6,11 +6,7 @@ import "../../widgets/primary_cta.dart";
 /// Bottom nav bar shared by every multi-step flow (spec §2): "Précédent"
 /// from step 2 onward, "Suivant →" / "Terminer ✓" on the last step —
 /// always visible, including on the results screen.
-///
-/// Debounces the next/finish button for 350ms: a fast double-tap on the
-/// HTML prototype could fire two step-advances at once and skip a step —
-/// this reproduces the fix rather than the bug.
-class StepFooter extends StatefulWidget {
+class StepFooter extends StatelessWidget {
   const StepFooter({
     super.key,
     required this.showPrevious,
@@ -25,22 +21,6 @@ class StepFooter extends StatefulWidget {
   final VoidCallback onNext;
 
   @override
-  State<StepFooter> createState() => _StepFooterState();
-}
-
-class _StepFooterState extends State<StepFooter> {
-  DateTime? _lastNextTap;
-
-  void _handleNext() {
-    final now = DateTime.now();
-    if (_lastNextTap != null && now.difference(_lastNextTap!) < const Duration(milliseconds: 350)) {
-      return;
-    }
-    _lastNextTap = now;
-    widget.onNext();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),
@@ -50,9 +30,9 @@ class _StepFooterState extends State<StepFooter> {
       ),
       child: Row(
         children: [
-          if (widget.showPrevious) ...[
+          if (showPrevious) ...[
             OutlinedButton(
-              onPressed: widget.onPrevious,
+              onPressed: onPrevious,
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -64,7 +44,7 @@ class _StepFooterState extends State<StepFooter> {
             ),
             const SizedBox(width: 12),
           ],
-          Expanded(child: PrimaryCta(label: widget.nextLabel, onPressed: _handleNext)),
+          Expanded(child: PrimaryCta(label: nextLabel, onPressed: onNext)),
         ],
       ),
     );
