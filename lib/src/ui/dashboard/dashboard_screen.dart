@@ -175,7 +175,7 @@ class _CalcCard extends StatelessWidget {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.accentBlue.withValues(alpha: 0.18),
+                      color: AppColors.accentBlue.withOpacity(0.18),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(

@@ -22,7 +22,7 @@ class AppTheme {
   }
 
   static ThemeData get dark {
-    final base = ThemeData.dark(useMaterial3: true);
+    final base = ThemeData(brightness: Brightness.dark);
     final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
       bodyColor: AppColors.textPrimary,
       displayColor: AppColors.textPrimary,
@@ -43,15 +43,6 @@ class AppTheme {
         elevation: 0,
         centerTitle: false,
         foregroundColor: AppColors.textPrimary,
-      ),
-      cardTheme: CardThemeData(
-        color: AppColors.surface,
-        elevation: 0,
-        margin: EdgeInsets.zero,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-          side: const BorderSide(color: AppColors.border),
-        ),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.borderSubtle,

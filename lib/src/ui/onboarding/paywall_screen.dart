@@ -204,7 +204,7 @@ class _PlanCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.accentBlue.withValues(alpha: 0.18),
+                    color: AppColors.accentBlue.withOpacity(0.18),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
