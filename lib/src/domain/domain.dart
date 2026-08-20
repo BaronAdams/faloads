@@ -2,6 +2,7 @@
 /// "les isoler dans une couche domaine testable indépendamment de l'UI").
 library;
 
+export "beam_grid.dart";
 export "catalog.dart";
 export "combinations.dart";
 export "load_descent.dart";

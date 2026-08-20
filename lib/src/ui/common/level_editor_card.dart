@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../../domain/domain.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
+import "../../widgets/coating_row.dart";
 import "../../widgets/number_field.dart";
 import "../../widgets/picker_field.dart";
 import "level_form_state.dart";
@@ -173,7 +174,7 @@ class _LevelEditorCardState extends State<LevelEditorCard> {
                   ),
                   const SizedBox(height: 8),
                   for (final slot in level.coatings)
-                    _CoatingRow(
+                    CoatingRow(
                       key: ValueKey(slot.id),
                       coating: slot.coating,
                       onChanged: (c) {
@@ -212,59 +213,3 @@ class _LevelEditorCardState extends State<LevelEditorCard> {
   }
 }
 
-class _CoatingRow extends StatefulWidget {
-  const _CoatingRow({required this.coating, required this.onChanged, required this.onRemove});
-
-  final Coating coating;
-  final ValueChanged<Coating> onChanged;
-  final VoidCallback onRemove;
-
-  @override
-  State<_CoatingRow> createState() => _CoatingRowState();
-}
-
-class _CoatingRowState extends State<_CoatingRow> {
-  late final _nameController = TextEditingController(text: widget.coating.name);
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 3,
-            child: TextFormField(
-              controller: _nameController,
-              style: const TextStyle(fontSize: 13),
-              decoration: const InputDecoration(isDense: true, hintText: "Nom"),
-              onChanged: (v) => widget.onChanged(Coating(name: v, loadKnM2: widget.coating.loadKnM2)),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            flex: 2,
-            child: NumberField(
-              label: "",
-              unit: "kN/m²",
-              value: widget.coating.loadKnM2,
-              onChanged: (v) => widget.onChanged(Coating(name: widget.coating.name, loadKnM2: v)),
-            ),
-          ),
-          IconButton(
-            onPressed: widget.onRemove,
-            icon: const Icon(Icons.close, size: 16, color: AppColors.textTertiary),
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-          ),
-        ],
-      ),
-    );
-  }
-}

@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/empty_state.dart";
+import "../beam_network/beam_network_flow_screen.dart";
 import "../placeholder/coming_soon_screen.dart";
 import "../poteau/poteau_flow_screen.dart";
 import "../predim/predim_screen.dart";
@@ -73,7 +74,7 @@ class DashboardScreen extends StatelessWidget {
     _CalcEntry(
       icon: Icons.grid_view_outlined,
       label: "Réseau de poutres",
-      destination: () => _comingSoon("Réseau de poutres"),
+      destination: () => const BeamNetworkFlowScreen(),
     ),
     _CalcEntry(
       icon: Icons.apartment_outlined,
