@@ -56,7 +56,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: selected ? AppColors.accentBlue.withOpacity(0.14) : Colors.transparent,
+      color: selected ? AppColors.accentBlue.withValues(alpha: 0.14) : Colors.transparent,
       borderRadius: BorderRadius.circular(9),
       child: InkWell(
         borderRadius: BorderRadius.circular(9),

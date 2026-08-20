@@ -28,30 +28,30 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _index = 0;
 
   late final List<_Slide> _slides = [
-    _Slide(
+    const _Slide(
       icon: Icons.speed_outlined,
       title: "Des heures gagnées sur chaque descente de charges",
-      body: const _TimeCompareBody(),
+      body: _TimeCompareBody(),
     ),
-    _Slide(
+    const _Slide(
       icon: Icons.verified_outlined,
       title: "Conforme aux normes en vigueur",
-      body: const _ComplianceBadgesBody(),
+      body: _ComplianceBadgesBody(),
     ),
-    _Slide(
+    const _Slide(
       icon: Icons.checklist_outlined,
       title: "Tout ce qu'il faut pour une descente complète",
-      body: const _FeatureChecklistBody(),
+      body: _FeatureChecklistBody(),
     ),
-    _Slide(
+    const _Slide(
       icon: Icons.groups_outlined,
       title: "Déjà adopté par des ingénieurs sur le terrain",
-      body: const _TestimonialBody(),
+      body: _TestimonialBody(),
     ),
-    _Slide(
+    const _Slide(
       icon: Icons.bolt_outlined,
       title: "Prêt à gagner des heures ?",
-      body: const _FinalHookBody(),
+      body: _FinalHookBody(),
     ),
   ];
 
@@ -193,10 +193,10 @@ class _TimeCompareBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    return const Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: const [
+      children: [
         _TimeBar(label: "À la main", fraction: 1.0, valueLabel: "≈ 2 h", color: AppColors.textTertiary),
         SizedBox(height: 16),
         _TimeBar(label: "Avec StructCalc", fraction: 0.12, valueLabel: "≈ 15 min", color: AppColors.accentBlue),
