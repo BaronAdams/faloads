@@ -55,8 +55,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final exception = tester.takeException();
+    if (exception != null) {
+      fail("Exception thrown while building the dashboard: $exception");
+    }
+
+    final allTexts = tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).toList();
+    // ignore: avoid_print
+    print("ALL TEXT WIDGETS FOUND (${allTexts.length}): $allTexts");
+
     expect(find.text("Prédimensionnement"), findsOneWidget);
-    expect(find.text("Descente de charges"), findsOneWidget);
+    expect(find.text("Descente de charges"), findsOneWidget, reason: "All texts were: $allTexts");
     expect(find.text("Projets récents"), findsOneWidget);
   });
 }
