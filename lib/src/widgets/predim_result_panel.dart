@@ -43,7 +43,11 @@ class PredimResultPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(result.big, style: AppTheme.monoTextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
+          Text(
+            result.big,
+            key: const Key("predimResultBig"),
+            style: AppTheme.monoTextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+          ),
           const SizedBox(height: 6),
           Text(result.sub, style: AppTheme.monoTextStyle(fontSize: 12, color: AppColors.textSecondary)),
           const SizedBox(height: 10),

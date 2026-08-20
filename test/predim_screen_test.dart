@@ -51,7 +51,7 @@ void main() {
     await tester.pumpAndSettle();
 
     String resultText() =>
-        tester.widget<Text>(find.textContaining("×").first).data ?? "";
+        tester.widget<Text>(find.byKey(const Key("predimResultBig"))).data ?? "";
 
     final before = resultText();
     expect(before, isNotEmpty);
