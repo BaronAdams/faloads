@@ -44,8 +44,9 @@ void main() {
     expect(find.textContaining("Aire tributaire ="), findsOneWidget);
     await next(tester);
 
-    // Step 3 — Niveaux (épaisseur, not b×h)
-    expect(find.text("Épaisseur du voile"), findsOneWidget);
+    // Step 3 — Niveaux (épaisseur, not b×h). Both default levels start
+    // expanded, so the field label legitimately appears once per level.
+    expect(find.text("Épaisseur du voile"), findsNWidgets(2));
     await next(tester);
 
     // Step 4 — Récapitulatif

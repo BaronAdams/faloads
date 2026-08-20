@@ -66,7 +66,10 @@ void main() {
     await next(tester); // -> Nœud
     await next(tester); // -> Niveaux
 
-    expect(find.text("RDC"), findsOneWidget);
+    // The RDC card starts expanded, so "RDC" legitimately appears twice:
+    // once as the card's header label, once as the pre-filled "Nom du
+    // niveau" field's text (find.text matches EditableText content too).
+    expect(find.text("RDC"), findsWidgets);
     await tester.tap(find.text("Ajouter un niveau"));
     await tester.pumpAndSettle();
 

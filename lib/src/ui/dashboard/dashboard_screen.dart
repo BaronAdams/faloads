@@ -159,19 +159,32 @@ class _CalcGrid extends StatelessWidget {
   final List<_CalcEntry> entries;
   final int crossAxisCount;
 
+  static const double _spacing = 10;
+
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: entries.length,
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: crossAxisCount == 3 ? 0.95 : 1.7,
-      ),
-      itemBuilder: (context, i) => _CalcCard(entry: entries[i]),
+    // A plain Wrap instead of GridView.builder(shrinkWrap: true, ...): a
+    // shrink-wrapped, non-scrolling grid nested inside an already-scrolling
+    // ListView is a known-finicky combination (it forces an extra,
+    // sometimes unreliable layout pass) — Wrap sidesteps that entirely by
+    // never claiming to be a scrollable in the first place.
+    final aspectRatio = crossAxisCount == 3 ? 0.95 : 1.7;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - _spacing * (crossAxisCount - 1)) / crossAxisCount;
+        return Wrap(
+          spacing: _spacing,
+          runSpacing: _spacing,
+          children: [
+            for (final entry in entries)
+              SizedBox(
+                width: cardWidth,
+                height: cardWidth / aspectRatio,
+                child: _CalcCard(entry: entry),
+              ),
+          ],
+        );
+      },
     );
   }
 }
