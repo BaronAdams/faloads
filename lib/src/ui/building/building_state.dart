@@ -162,6 +162,14 @@ class FloorModel {
         () => BuildingPanelSlot(romanLabel: toRoman(row * nx + col + 1)),
       );
 
+  /// Read-only counterpart to [panelAt]: every grid cell defaults to an
+  /// existing, fully-configured slab panel (matching [NodeSlot]/[EdgeSlot]'s
+  /// "absent means default" convention), but a cell the user never tapped
+  /// shouldn't be silently inserted into [panels] just because a painter or
+  /// a results calculation happened to read it.
+  BuildingPanelSlot panelOrDefault(int col, int row) =>
+      panels[(col, row)] ?? BuildingPanelSlot(romanLabel: toRoman(row * nx + col + 1));
+
   FloorModel duplicate(String newLabel) {
     final copy = FloorModel(label: newLabel, nx: nx, ny: ny, spanXM: List.of(spanXM), spanYM: List.of(spanYM));
     copy.heightM = heightM;

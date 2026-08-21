@@ -296,25 +296,26 @@ class _StepModelisation extends StatelessWidget {
                 Text("Poteau ${nodeLabel(selection.col, selection.row)}", style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 16),
                 if (node.exists) ...[
-                  if (presets.isNotEmpty)
-                    PickerField(
-                      label: "Dimension type",
-                      value: node.presetName ?? "Personnalisé",
-                      options: [...presets.map((p) => p.name), "Personnalisé"],
-                      onChanged: (v) {
-                        setSheetState(() {
-                          if (v == "Personnalisé") {
-                            node.presetName = null;
-                          } else {
-                            final preset = presets.firstWhere((p) => p.name == v);
-                            node.presetName = v;
-                            node.sectionBCm = preset.aCm;
-                            node.sectionHCm = preset.bCm ?? preset.aCm;
-                          }
-                        });
-                        onChanged();
-                      },
-                    ),
+                  _DimensionTypeRow(
+                    category: PresetCategory.poteau,
+                    building: building,
+                    presetName: node.presetName,
+                    setSheetState: setSheetState,
+                    onApply: (v) {
+                      setSheetState(() {
+                        if (v == null) {
+                          node.presetName = null;
+                        } else {
+                          final preset = presets.firstWhere((p) => p.name == v);
+                          node.presetName = v;
+                          node.sectionBCm = preset.aCm;
+                          node.sectionHCm = preset.bCm ?? preset.aCm;
+                        }
+                      });
+                      onChanged();
+                    },
+                    onChanged: onChanged,
+                  ),
                   const SizedBox(height: 14),
                   Row(
                     children: [
@@ -407,25 +408,26 @@ class _StepModelisation extends StatelessWidget {
                 ),
                 if (edge.exists) ...[
                   const SizedBox(height: 16),
-                  if (presets.isNotEmpty)
-                    PickerField(
-                      label: "Dimension type",
-                      value: edge.presetName ?? "Personnalisé",
-                      options: [...presets.map((p) => p.name), "Personnalisé"],
-                      onChanged: (v) {
-                        setSheetState(() {
-                          if (v == "Personnalisé") {
-                            edge.presetName = null;
-                          } else {
-                            final preset = presets.firstWhere((p) => p.name == v);
-                            edge.presetName = v;
-                            edge.sectionBCm = preset.aCm;
-                            edge.sectionHCm = preset.bCm ?? preset.aCm;
-                          }
-                        });
-                        onChanged();
-                      },
-                    ),
+                  _DimensionTypeRow(
+                    category: category,
+                    building: building,
+                    presetName: edge.presetName,
+                    setSheetState: setSheetState,
+                    onApply: (v) {
+                      setSheetState(() {
+                        if (v == null) {
+                          edge.presetName = null;
+                        } else {
+                          final preset = presets.firstWhere((p) => p.name == v);
+                          edge.presetName = v;
+                          edge.sectionBCm = preset.aCm;
+                          edge.sectionHCm = preset.bCm ?? preset.aCm;
+                        }
+                      });
+                      onChanged();
+                    },
+                    onChanged: onChanged,
+                  ),
                   const SizedBox(height: 14),
                   if (edge.type == EdgeType.voile)
                     NumberField(
@@ -855,19 +857,23 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
   Widget build(BuildContext context) {
     final building = widget.building;
     final floor = building.currentFloor;
-    final beamLoads = computeBeamGridLoads(
-      spanXM: floor.spanXM,
-      spanYM: floor.spanYM,
-      panels: {
-        for (final entry in floor.panels.entries)
-          if (entry.value.exists)
-            entry.key: BeamPanelInput(
-              mode: PanelMode.complet,
-              pressureEluKnM2: entry.value.pressureEluKnM2,
-              pressureElsKnM2: entry.value.pressureElsKnM2,
-            ),
-      },
-    );
+    // A cell the user never tapped still defaults to an existing slab panel
+    // (see FloorModel.panelOrDefault) — iterating the whole grid instead of
+    // floor.panels.entries makes sure it still loads its bordering beams
+    // instead of silently contributing nothing.
+    final panelInputs = <(int, int), BeamPanelInput>{};
+    for (var c = 0; c < floor.nx; c++) {
+      for (var r = 0; r < floor.ny; r++) {
+        final panel = floor.panelOrDefault(c, r);
+        if (!panel.exists) continue;
+        panelInputs[(c, r)] = BeamPanelInput(
+          mode: PanelMode.complet,
+          pressureEluKnM2: panel.pressureEluKnM2,
+          pressureElsKnM2: panel.pressureElsKnM2,
+        );
+      }
+    }
+    final beamLoads = computeBeamGridLoads(spanXM: floor.spanXM, spanYM: floor.spanYM, panels: panelInputs);
 
     return Column(
       children: [
@@ -885,6 +891,8 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
               building.selection = s;
               widget.onChanged();
             },
+            showInfluenceSurfaces: true,
+            beamLoads: beamLoads,
           ),
         ),
         TabBar(
@@ -938,8 +946,8 @@ class _PoteauResultsTable extends StatelessWidget {
       final c = col + dc;
       final r = row + dr;
       if (c < 0 || c >= floor.nx || r < 0 || r >= floor.ny) continue;
-      final panel = floor.panels[(c, r)];
-      if (panel != null && panel.exists) result.add(panel);
+      final panel = floor.panelOrDefault(c, r);
+      if (panel.exists) result.add(panel);
     }
     return result;
   }
@@ -1007,20 +1015,88 @@ class _ResultsTable extends StatelessWidget {
   }
 }
 
+/// "Dimension type" picker for a node/edge sheet, plus an inline "+" to
+/// create a new preset without leaving the sheet (spec §7: "un
+/// gestionnaire... permet de créer des tailles nommées... et de les
+/// appliquer en un clic"). Always visible — even with zero presets saved
+/// yet, since that's exactly when the user needs the "+" most.
+class _DimensionTypeRow extends StatelessWidget {
+  const _DimensionTypeRow({
+    required this.category,
+    required this.building,
+    required this.presetName,
+    required this.onApply,
+    required this.onChanged,
+    required this.setSheetState,
+  });
+
+  final PresetCategory category;
+  final BuildingState building;
+  final String? presetName;
+
+  /// Called with the chosen preset's name, or null for "Personnalisé".
+  final ValueChanged<String?> onApply;
+  final VoidCallback onChanged;
+  final StateSetter setSheetState;
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = building.presets[category]!;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: presets.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.only(bottom: 10),
+                  child: Text(
+                    "Aucune dimension type enregistrée.",
+                    style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                  ),
+                )
+              : PickerField(
+                  label: "Dimension type",
+                  value: presetName ?? "Personnalisé",
+                  options: [...presets.map((p) => p.name), "Personnalisé"],
+                  onChanged: (v) => onApply(v == "Personnalisé" ? null : v),
+                ),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: "Nouvelle dimension type",
+          icon: const Icon(Icons.add_box_outlined, color: AppColors.accentBlue),
+          onPressed: () async {
+            await showDialog<void>(
+              context: context,
+              builder: (dialogContext) => _PresetManagerDialog(building: building, onChanged: onChanged, initialCategory: category),
+            );
+            setSheetState(() {});
+          },
+        ),
+      ],
+    );
+  }
+}
+
 // --- Dimension preset manager -----------------------------------------------
 
 class _PresetManagerDialog extends StatefulWidget {
-  const _PresetManagerDialog({required this.building, required this.onChanged});
+  const _PresetManagerDialog({
+    required this.building,
+    required this.onChanged,
+    this.initialCategory = PresetCategory.poteau,
+  });
 
   final BuildingState building;
   final VoidCallback onChanged;
+  final PresetCategory initialCategory;
 
   @override
   State<_PresetManagerDialog> createState() => _PresetManagerDialogState();
 }
 
 class _PresetManagerDialogState extends State<_PresetManagerDialog> {
-  PresetCategory _category = PresetCategory.poteau;
+  late PresetCategory _category = widget.initialCategory;
   final _nameController = TextEditingController();
   final _aController = TextEditingController(text: "25");
   final _bController = TextEditingController(text: "40");
