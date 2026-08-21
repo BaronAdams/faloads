@@ -86,8 +86,13 @@ void main() {
 
     expect(find.text("Poutre principale"), findsOneWidget);
 
-    // Go back and switch to the slab-only système.
+    // Go back and switch to the slab-only système. The illustrated option
+    // cards are tall enough that the second one starts out tucked behind
+    // the fixed footer bar, so it needs scrolling into view before it's
+    // safe to tap.
     await tester.tap(find.text("Précédent"));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text("Poteaux + Dalles"));
     await tester.pumpAndSettle();
     await tester.tap(find.text("Poteaux + Dalles"));
     await tester.pumpAndSettle();
