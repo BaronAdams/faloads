@@ -47,6 +47,7 @@ void main() {
     // Step 3 — Niveaux (épaisseur, not b×h). Both default levels start
     // expanded, so the field label legitimately appears once per level.
     expect(find.text("Épaisseur du voile"), findsNWidgets(2));
+    expect(find.text("Vue profil"), findsOneWidget);
     await next(tester);
 
     // Step 4 — Récapitulatif

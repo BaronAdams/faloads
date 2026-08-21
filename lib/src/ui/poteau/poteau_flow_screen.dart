@@ -3,10 +3,12 @@ import "package:flutter/material.dart";
 import "../../domain/domain.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
+import "../../widgets/building_profile_view.dart";
 import "../../widgets/number_field.dart";
 import "../../widgets/picker_field.dart";
 import "../../widgets/predim_result_panel.dart";
 import "../../widgets/segmented_chips.dart";
+import "../../widgets/system_illustration.dart";
 import "../common/level_editor_card.dart";
 import "../common/level_form_state.dart";
 import "../common/step_footer.dart";
@@ -19,6 +21,13 @@ extension SystemeTypeX on SystemeType {
         SystemeType.poutresEtDalles => "Poteaux + Poutres + Dalles",
         SystemeType.dallesSeules => "Poteaux + Dalles",
       };
+
+  String get description => switch (this) {
+        SystemeType.poutresEtDalles => "La dalle repose sur les poutres.",
+        SystemeType.dallesSeules => "La dalle porte directement sur les poteaux.",
+      };
+
+  bool get withBeams => this == SystemeType.poutresEtDalles;
 }
 
 const List<String> _betonOptions = ["C20/25", "C25/30", "C30/37", "C35/45"];
@@ -189,14 +198,11 @@ class _StepSysteme extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SegmentedChips<SystemeType>(
-          label: "Système porteur",
-          options: SystemeType.values,
-          optionLabel: (s) => s.label,
-          value: systeme,
-          onChanged: onSystemeChanged,
-        ),
-        const SizedBox(height: 18),
+        const Text("Système porteur", style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        const SizedBox(height: 8),
+        for (final s in SystemeType.values)
+          _SystemOptionCard(type: s, selected: systeme == s, onTap: () => onSystemeChanged(s)),
+        const SizedBox(height: 4),
         SegmentedChips<Reglement>(
           label: "Règlement",
           options: Reglement.values,
@@ -207,6 +213,53 @@ class _StepSysteme extends StatelessWidget {
         const SizedBox(height: 18),
         PickerField(label: "Béton", value: beton, options: _betonOptions, onChanged: onBetonChanged),
       ],
+    );
+  }
+}
+
+/// One "système porteur" option: a plan-view illustration of its tributary
+/// quadrants (with beam bands overlaid when the system routes loads
+/// through poutres) above the title/description — spec §4 step 1.
+class _SystemOptionCard extends StatelessWidget {
+  const _SystemOptionCard({required this.type, required this.selected, required this.onTap});
+
+  final SystemeType type;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accentBlue.withValues(alpha: 0.06) : AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: selected ? AppColors.accentBlue : AppColors.border, width: selected ? 2 : 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 132,
+                width: double.infinity,
+                decoration: BoxDecoration(color: AppColors.background, borderRadius: BorderRadius.circular(8)),
+                clipBehavior: Clip.antiAlias,
+                child: SystemIllustration(withBeams: type.withBeams),
+              ),
+              const SizedBox(height: 12),
+              Text(type.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 4),
+              Text(type.description, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary, height: 1.45)),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -391,7 +444,17 @@ class _StepNiveaux extends StatelessWidget {
           label: const Text("Ajouter un niveau"),
         ),
         const SizedBox(height: 20),
-        _ProfileView(levels: levels),
+        BuildingProfileView(
+          shape: ProfileElementShape.column,
+          levels: [
+            for (final level in levels)
+              ProfileLevelDrawing(
+                label: level.label,
+                heightM: level.heightM,
+                sectionLabel: "${level.extraOr("b", 25).toStringAsFixed(0)}×${level.extraOr("h", 25).toStringAsFixed(0)}",
+              ),
+          ],
+        ),
       ],
     );
   }
@@ -431,43 +494,6 @@ class _ColumnSectionEditor extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ProfileView extends StatelessWidget {
-  const _ProfileView({required this.levels});
-
-  final List<LevelFormState> levels;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text("Profil du bâtiment", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
-          const SizedBox(height: 10),
-          for (final level in levels)
-            Container(
-              height: (level.heightM * 18).clamp(16, 90).toDouble(),
-              margin: const EdgeInsets.only(bottom: 2),
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              decoration: BoxDecoration(color: AppColors.surfaceRaised, border: Border.all(color: AppColors.border)),
-              alignment: Alignment.centerLeft,
-              child: Text(
-                "${level.label} · ${level.heightM.toStringAsFixed(2)} m",
-                style: AppTheme.monoTextStyle(fontSize: 11, color: AppColors.textSecondary),
-              ),
-            ),
-        ],
-      ),
     );
   }
 }

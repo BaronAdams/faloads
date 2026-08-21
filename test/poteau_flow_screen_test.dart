@@ -33,8 +33,11 @@ void main() {
   testWidgets("walks all 5 steps and shows a predim result at the end", (tester) async {
     await pumpFlowFromAHomeScreen(tester);
 
-    // Step 1 — Système
+    // Step 1 — Système (each option shows a plan-view illustration)
     expect(find.text("Système porteur"), findsOneWidget);
+    expect(find.text("Poteaux + Poutres + Dalles"), findsOneWidget);
+    expect(find.text("Poteaux + Dalles"), findsOneWidget);
+    expect(find.byType(CustomPaint), findsWidgets);
     await next(tester);
 
     // Step 2 — Nœud
@@ -42,8 +45,9 @@ void main() {
     expect(find.textContaining("POTEAU"), findsOneWidget); // position badge
     await next(tester);
 
-    // Step 3 — Niveaux
+    // Step 3 — Niveaux, with a live elevation profile below the cards
     expect(find.text("Ajouter un niveau"), findsOneWidget);
+    expect(find.text("Vue profil"), findsOneWidget);
     await next(tester);
 
     // Step 4 — Récapitulatif

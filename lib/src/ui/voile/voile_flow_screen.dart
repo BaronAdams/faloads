@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../../domain/domain.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
+import "../../widgets/building_profile_view.dart";
 import "../../widgets/number_field.dart";
 import "../../widgets/picker_field.dart";
 import "../../widgets/predim_result_panel.dart";
@@ -338,6 +339,18 @@ class _StepNiveaux extends StatelessWidget {
           onPressed: onAdd,
           icon: const Icon(Icons.add, size: 16),
           label: const Text("Ajouter un niveau"),
+        ),
+        const SizedBox(height: 20),
+        BuildingProfileView(
+          shape: ProfileElementShape.wall,
+          levels: [
+            for (final level in levels)
+              ProfileLevelDrawing(
+                label: level.label,
+                heightM: level.heightM,
+                sectionLabel: "${level.extraOr("epaisseur", 20).toStringAsFixed(0)} cm",
+              ),
+          ],
         ),
       ],
     );
