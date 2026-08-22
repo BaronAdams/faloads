@@ -134,9 +134,12 @@ void main() {
     // The default 3×2 grid has never been tapped cell-by-cell, but every
     // cell still defaults to an existing slab panel (FloorModel.
     // panelOrDefault), so the Poteaux tab (shown by default) must already
-    // carry real N_ELU rows instead of the "nothing modelled yet" message.
+    // carry a real row for its first loaded poteau instead of the "nothing
+    // modelled yet" message. Checking the first row rather than the
+    // ListView's trailing caption — the list doesn't scroll on its own,
+    // and an unscrolled item further down isn't guaranteed to be mounted.
     expect(find.text("Aucun poteau chargé sur cet étage."), findsNothing);
-    expect(find.text("N_ELU (kN)"), findsOneWidget);
+    expect(find.text("1A"), findsOneWidget);
 
     // Same for the Poutres tab, and tapping a beam on the results canvas
     // (which now draws the panels' bisector-split influence surfaces)
@@ -144,7 +147,7 @@ void main() {
     await tester.tap(find.text("Poutres"));
     await tester.pumpAndSettle();
     expect(find.text("Aucune poutre chargée sur cet étage."), findsNothing);
-    expect(find.text("q_ELU (kN/m)"), findsOneWidget);
+    expect(find.text("Poutre 1·1"), findsOneWidget);
 
     final canvasOrigin = tester.getTopLeft(find.byKey(const Key("buildingPlanCanvasPaint")));
     await tester.tapAt(canvasOrigin + const Offset(159, 75)); // top edge of panel (0,0)
