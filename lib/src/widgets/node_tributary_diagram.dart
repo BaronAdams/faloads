@@ -88,7 +88,7 @@ class _NodeTributaryPainter extends CustomPainter {
       );
     }
 
-    canvas.drawRect(Rect.fromLTWH(_cx - 8, _cy - 8, 16, 16), Paint()..color = AppColors.accentBlue);
+    canvas.drawRect(const Rect.fromLTWH(_cx - 8, _cy - 8, 16, 16), Paint()..color = AppColors.accentBlue);
 
     _label(canvas, Offset(_cx - gp / 2, _designH - 14), "L1");
     _label(canvas, Offset(_cx + dp / 2, _designH - 14), "L2");
