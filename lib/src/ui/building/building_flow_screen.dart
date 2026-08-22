@@ -844,13 +844,16 @@ class _StepResultats extends StatefulWidget {
   State<_StepResultats> createState() => _StepResultatsState();
 }
 
-// 0.20 (not smaller) so the collapsed sheet always has room for its handle
-// + tab bar without a RenderFlex overflow, even on a short viewport.
-const List<double> _resultsSheetSnaps = [0.20, 0.5, 0.85];
-
 class _StepResultatsState extends State<_StepResultats> with SingleTickerProviderStateMixin {
   late final _tabController = TabController(length: 3, vsync: this);
   final _sheetController = DraggableScrollableController();
+
+  // The collapsed sheet's handle + tab bar need about this much room —
+  // computing the minimum size as a fraction of the *actual* available
+  // height (see build()) instead of a fixed fraction keeps it from
+  // RenderFlex-overflowing on a short viewport, where a flat fraction like
+  // 0.20 can resolve to fewer pixels than the content needs.
+  static const _collapsedContentPx = 92.0;
 
   @override
   void dispose() {
@@ -859,18 +862,16 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
     super.dispose();
   }
 
-  void _onHandleDragUpdate(DragUpdateDetails details, double stackHeight) {
-    if (stackHeight <= 0) return;
-    final next = (_sheetController.size - details.delta.dy / stackHeight).clamp(
-      _resultsSheetSnaps.first,
-      _resultsSheetSnaps.last,
-    );
+  void _onHandleDragUpdate(DragUpdateDetails details, double stackHeight, List<double> snaps) {
+    if (!_sheetController.isAttached || stackHeight <= 0) return;
+    final next = (_sheetController.size - details.delta.dy / stackHeight).clamp(snaps.first, snaps.last);
     _sheetController.jumpTo(next.toDouble());
   }
 
-  void _onHandleDragEnd(DragEndDetails details) {
+  void _onHandleDragEnd(DragEndDetails details, List<double> snaps) {
+    if (!_sheetController.isAttached) return;
     final current = _sheetController.size;
-    final nearest = _resultsSheetSnaps.reduce((a, b) => (current - a).abs() < (current - b).abs() ? a : b);
+    final nearest = snaps.reduce((a, b) => (current - a).abs() < (current - b).abs() ? a : b);
     _sheetController.animateTo(nearest, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
   }
 
@@ -907,6 +908,8 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
         Expanded(
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final minFraction = (_collapsedContentPx / constraints.maxHeight).clamp(0.10, 0.4).toDouble();
+              final snaps = [minFraction, 0.5, 0.85];
               return Stack(
                 children: [
                   Positioned.fill(
@@ -923,9 +926,9 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
                   ),
                   DraggableScrollableSheet(
                     controller: _sheetController,
-                    initialChildSize: _resultsSheetSnaps.first,
-                    minChildSize: _resultsSheetSnaps.first,
-                    maxChildSize: _resultsSheetSnaps.last,
+                    initialChildSize: minFraction,
+                    minChildSize: minFraction,
+                    maxChildSize: snaps.last,
                     builder: (sheetContext, scrollController) {
                       return DecoratedBox(
                         decoration: const BoxDecoration(
@@ -942,8 +945,8 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
                             // (the tables scroll on their own within their tab).
                             GestureDetector(
                               behavior: HitTestBehavior.opaque,
-                              onVerticalDragUpdate: (details) => _onHandleDragUpdate(details, constraints.maxHeight),
-                              onVerticalDragEnd: _onHandleDragEnd,
+                              onVerticalDragUpdate: (details) => _onHandleDragUpdate(details, constraints.maxHeight, snaps),
+                              onVerticalDragEnd: (details) => _onHandleDragEnd(details, snaps),
                               child: Container(
                                 key: const Key("resultsSheetHandle"),
                                 height: 24,
