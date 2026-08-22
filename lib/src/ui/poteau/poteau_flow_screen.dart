@@ -4,6 +4,7 @@ import "../../domain/domain.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
 import "../../widgets/building_profile_view.dart";
+import "../../widgets/node_tributary_diagram.dart";
 import "../../widgets/number_field.dart";
 import "../../widgets/picker_field.dart";
 import "../../widgets/predim_result_panel.dart";
@@ -297,7 +298,7 @@ class _StepNoeud extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Center(child: _NodeSchematic(l1: l1, l2: l2, l3: l3, l4: l4)),
+        NodeTributaryDiagram(l1: l1, l2: l2, l3: l3, l4: l4, withBeams: showBeamFields),
         const SizedBox(height: 12),
         Center(
           child: Container(
@@ -351,60 +352,6 @@ class _StepNoeud extends StatelessWidget {
             ],
           ),
         ],
-      ],
-    );
-  }
-}
-
-/// Static (non-draggable) schematic of the 4 tributary spans around the
-/// column — a simplified stand-in for the prototype's draggable-handle
-/// plan view; the numeric fields below it carry the real interaction.
-class _NodeSchematic extends StatelessWidget {
-  const _NodeSchematic({required this.l1, required this.l2, required this.l3, required this.l4});
-
-  final double l1, l2, l3, l4;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 220,
-      height: 220,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(color: AppColors.accentBlue, borderRadius: BorderRadius.circular(4)),
-            child: const Center(child: Icon(Icons.crop_square, size: 16, color: Colors.white)),
-          ),
-          Positioned(left: 0, child: _SpanLabel("L1", l1, Icons.arrow_back)),
-          Positioned(right: 0, child: _SpanLabel("L2", l2, Icons.arrow_forward)),
-          Positioned(top: 0, child: _SpanLabel("L3", l3, Icons.arrow_upward)),
-          Positioned(bottom: 0, child: _SpanLabel("L4", l4, Icons.arrow_downward)),
-        ],
-      ),
-    );
-  }
-}
-
-class _SpanLabel extends StatelessWidget {
-  const _SpanLabel(this.label, this.value, this.icon);
-
-  final String label;
-  final double value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppColors.textTertiary),
-        Text(
-          "$label · ${value.toStringAsFixed(1)}m",
-          style: AppTheme.monoTextStyle(fontSize: 10.5, color: AppColors.textSecondary),
-        ),
       ],
     );
   }

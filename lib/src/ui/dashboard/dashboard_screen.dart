@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/empty_state.dart";
+import "../../widgets/struct_icon.dart";
 import "../beam_network/beam_network_flow_screen.dart";
 import "../building/building_flow_screen.dart";
 import "../poteau/poteau_flow_screen.dart";
@@ -11,13 +12,15 @@ import "../voile/voile_flow_screen.dart";
 
 class _CalcEntry {
   const _CalcEntry({
-    required this.icon,
+    required this.iconKind,
     required this.label,
     required this.destination,
+    this.iconColor = AppColors.accentBlue,
     this.badge,
   });
 
-  final IconData icon;
+  final StructIconKind iconKind;
+  final Color iconColor;
   final String label;
   final String? badge;
   final Widget Function() destination;
@@ -32,47 +35,57 @@ class DashboardScreen extends StatelessWidget {
 
   static final List<_CalcEntry> _predim = [
     _CalcEntry(
-      icon: Icons.view_column_outlined,
+      iconKind: StructIconKind.column,
       label: "Poteau",
       destination: () => const PredimScreen(initialType: PredimElementType.poteau),
     ),
     _CalcEntry(
-      icon: Icons.horizontal_rule,
+      iconKind: StructIconKind.beam,
+      iconColor: AppColors.accentAmber,
       label: "Poutre",
       destination: () => const PredimScreen(initialType: PredimElementType.poutre),
     ),
     _CalcEntry(
-      icon: Icons.view_agenda_outlined,
+      iconKind: StructIconKind.wall,
+      iconColor: AppColors.accentTeal,
       label: "Voile",
       destination: () => const PredimScreen(initialType: PredimElementType.voile),
     ),
     _CalcEntry(
-      icon: Icons.grid_on_outlined,
+      iconKind: StructIconKind.slab,
+      iconColor: AppColors.accentTeal,
       label: "Plancher",
       destination: () => const PredimScreen(initialType: PredimElementType.plancher),
     ),
     _CalcEntry(
-      icon: Icons.exit_to_app_outlined,
+      iconKind: StructIconKind.balcony,
+      iconColor: AppColors.accentTeal,
       label: "Balcon",
       destination: () => const PredimScreen(initialType: PredimElementType.balcon),
     ),
     _CalcEntry(
-      icon: Icons.stairs_outlined,
+      iconKind: StructIconKind.stairs,
       label: "Escalier",
       destination: () => const PredimScreen(initialType: PredimElementType.escalier),
     ),
   ];
 
   static final List<_CalcEntry> _descente = [
-    _CalcEntry(icon: Icons.view_column_outlined, label: "Poteau isolé", destination: () => const PoteauFlowScreen()),
-    _CalcEntry(icon: Icons.view_agenda_outlined, label: "Voile isolé", destination: () => const VoileFlowScreen()),
+    _CalcEntry(iconKind: StructIconKind.column, label: "Poteau isolé", destination: () => const PoteauFlowScreen()),
     _CalcEntry(
-      icon: Icons.grid_view_outlined,
+      iconKind: StructIconKind.wall,
+      iconColor: AppColors.accentTeal,
+      label: "Voile isolé",
+      destination: () => const VoileFlowScreen(),
+    ),
+    _CalcEntry(
+      iconKind: StructIconKind.beamGrid,
+      iconColor: AppColors.accentAmber,
       label: "Réseau de poutres",
       destination: () => const BeamNetworkFlowScreen(),
     ),
     _CalcEntry(
-      icon: Icons.apartment_outlined,
+      iconKind: StructIconKind.building,
       label: "Bâtiment complet",
       badge: "Pro",
       destination: () => const BuildingFlowScreen(),
@@ -211,7 +224,7 @@ class _CalcCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(entry.icon, color: AppColors.accentBlue, size: 22),
+                  StructIcon(kind: entry.iconKind, color: entry.iconColor, size: 22),
                   const SizedBox(height: 10),
                   Text(
                     entry.label,

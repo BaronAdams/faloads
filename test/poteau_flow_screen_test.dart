@@ -40,9 +40,10 @@ void main() {
     expect(find.byType(CustomPaint), findsWidgets);
     await next(tester);
 
-    // Step 2 — Nœud
+    // Step 2 — Nœud, with the tributary-quadrants + poutres plan diagram
     expect(find.text("L1 — Gauche"), findsOneWidget);
     expect(find.textContaining("POTEAU"), findsOneWidget); // position badge
+    expect(find.byType(CustomPaint), findsWidgets);
     await next(tester);
 
     // Step 3 — Niveaux, with a live elevation profile below the cards
