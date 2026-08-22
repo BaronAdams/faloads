@@ -844,13 +844,34 @@ class _StepResultats extends StatefulWidget {
   State<_StepResultats> createState() => _StepResultatsState();
 }
 
+// 0.20 (not smaller) so the collapsed sheet always has room for its handle
+// + tab bar without a RenderFlex overflow, even on a short viewport.
+const List<double> _resultsSheetSnaps = [0.20, 0.5, 0.85];
+
 class _StepResultatsState extends State<_StepResultats> with SingleTickerProviderStateMixin {
   late final _tabController = TabController(length: 3, vsync: this);
+  final _sheetController = DraggableScrollableController();
 
   @override
   void dispose() {
     _tabController.dispose();
+    _sheetController.dispose();
     super.dispose();
+  }
+
+  void _onHandleDragUpdate(DragUpdateDetails details, double stackHeight) {
+    if (stackHeight <= 0) return;
+    final next = (_sheetController.size - details.delta.dy / stackHeight).clamp(
+      _resultsSheetSnaps.first,
+      _resultsSheetSnaps.last,
+    );
+    _sheetController.jumpTo(next.toDouble());
+  }
+
+  void _onHandleDragEnd(DragEndDetails details) {
+    final current = _sheetController.size;
+    final nearest = _resultsSheetSnaps.reduce((a, b) => (current - a).abs() < (current - b).abs() ? a : b);
+    _sheetController.animateTo(nearest, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
   }
 
   @override
@@ -878,38 +899,87 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
     return Column(
       children: [
         _FloorBar(building: building, onChanged: widget.onChanged),
-        // Proportional, not a fixed pixel height — a fixed SizedBox here
-        // previously overflowed on short viewports (e.g. the default test
-        // surface), since it didn't shrink to make room for the TabBar and
-        // FloorBar above it.
+        // The plan fills the whole remaining area; the results panel is a
+        // draggable sheet over it (starts collapsed to a handle + tab bar
+        // so the plan and its surfaces d'influence stay fully visible,
+        // and can be pulled up to read the tables) instead of a fixed
+        // Column split that permanently ate into the plan's space.
         Expanded(
-          flex: 2,
-          child: BuildingPlanCanvas(
-            floor: floor,
-            selection: building.selection,
-            onSelect: (s) {
-              building.selection = s;
-              widget.onChanged();
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: BuildingPlanCanvas(
+                      floor: floor,
+                      selection: building.selection,
+                      onSelect: (s) {
+                        building.selection = s;
+                        widget.onChanged();
+                      },
+                      showInfluenceSurfaces: true,
+                      beamLoads: beamLoads,
+                    ),
+                  ),
+                  DraggableScrollableSheet(
+                    controller: _sheetController,
+                    initialChildSize: _resultsSheetSnaps.first,
+                    minChildSize: _resultsSheetSnaps.first,
+                    maxChildSize: _resultsSheetSnaps.last,
+                    builder: (sheetContext, scrollController) {
+                      return DecoratedBox(
+                        decoration: const BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                          boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 16, offset: Offset(0, -3))],
+                        ),
+                        child: Column(
+                          children: [
+                            // Drives the sheet directly via _sheetController — a
+                            // DraggableScrollableSheet only resizes from scroll
+                            // notifications on a Scrollable using the builder's
+                            // scrollController, and nothing below needs that
+                            // (the tables scroll on their own within their tab).
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onVerticalDragUpdate: (details) => _onHandleDragUpdate(details, constraints.maxHeight),
+                              onVerticalDragEnd: _onHandleDragEnd,
+                              child: Container(
+                                key: const Key("resultsSheetHandle"),
+                                height: 24,
+                                alignment: Alignment.center,
+                                color: Colors.transparent,
+                                child: Container(
+                                  width: 36,
+                                  height: 4,
+                                  decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
+                                ),
+                              ),
+                            ),
+                            TabBar(
+                              controller: _tabController,
+                              labelColor: AppColors.accentBlue,
+                              unselectedLabelColor: AppColors.textTertiary,
+                              tabs: const [Tab(text: "Poteaux"), Tab(text: "Poutres"), Tab(text: "Voiles")],
+                            ),
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  _PoteauResultsTable(floor: floor),
+                                  _EdgeResultsTable(floor: floor, beamLoads: beamLoads, type: EdgeType.poutre),
+                                  _EdgeResultsTable(floor: floor, beamLoads: beamLoads, type: EdgeType.voile),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
             },
-            showInfluenceSurfaces: true,
-            beamLoads: beamLoads,
-          ),
-        ),
-        TabBar(
-          controller: _tabController,
-          labelColor: AppColors.accentBlue,
-          unselectedLabelColor: AppColors.textTertiary,
-          tabs: const [Tab(text: "Poteaux"), Tab(text: "Poutres"), Tab(text: "Voiles")],
-        ),
-        Expanded(
-          flex: 3,
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              _PoteauResultsTable(floor: floor),
-              _EdgeResultsTable(floor: floor, beamLoads: beamLoads, type: EdgeType.poutre),
-              _EdgeResultsTable(floor: floor, beamLoads: beamLoads, type: EdgeType.voile),
-            ],
           ),
         ),
       ],

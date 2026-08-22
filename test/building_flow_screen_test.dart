@@ -127,31 +127,39 @@ void main() {
     expect(find.text("Direction du vent"), findsOneWidget);
 
     await next(tester); // -> Résultats
+    // The results panel is a draggable sheet starting collapsed to a
+    // handle + tab bar, so the plan (with its bisector-split surfaces
+    // d'influence) stays fully visible underneath by default.
     expect(find.text("Poteaux"), findsWidgets);
     expect(find.text("Poutres"), findsOneWidget);
     expect(find.text("Voiles"), findsOneWidget);
 
-    // The default 3×2 grid has never been tapped cell-by-cell, but every
-    // cell still defaults to an existing slab panel (FloorModel.
-    // panelOrDefault), so the Poteaux tab (shown by default) must already
-    // carry a real row for its first loaded poteau instead of the "nothing
-    // modelled yet" message. Checking the first row rather than the
-    // ListView's trailing caption — the list doesn't scroll on its own,
-    // and an unscrolled item further down isn't guaranteed to be mounted.
-    expect(find.text("Aucun poteau chargé sur cet étage."), findsNothing);
-    expect(find.text("1A"), findsOneWidget);
-
-    // Same for the Poutres tab, and tapping a beam on the results canvas
-    // (which now draws the panels' bisector-split influence surfaces)
-    // must not throw.
-    await tester.tap(find.text("Poutres"));
-    await tester.pumpAndSettle();
-    expect(find.text("Aucune poutre chargée sur cet étage."), findsNothing);
-    expect(find.text("Poutre 1·1"), findsOneWidget);
-
+    // Tapping a beam on the still-mostly-uncovered plan must not throw.
     final canvasOrigin = tester.getTopLeft(find.byKey(const Key("buildingPlanCanvasPaint")));
     await tester.tapAt(canvasOrigin + const Offset(159, 75)); // top edge of panel (0,0)
     await tester.pumpAndSettle();
+
+    await tester.tap(find.text("Poutres"));
+    await tester.pumpAndSettle();
+
+    // Drag the sheet's handle up to read the tables underneath.
+    await tester.drag(find.byKey(const Key("resultsSheetHandle")), const Offset(0, -400));
+    await tester.pumpAndSettle();
+
+    // The default 3×2 grid has never been tapped cell-by-cell, but every
+    // cell still defaults to an existing slab panel (FloorModel.
+    // panelOrDefault), so the Poutres tab must already carry a real row
+    // instead of the "nothing modelled yet" message. Checking the first
+    // row rather than the ListView's trailing caption — the list doesn't
+    // scroll on its own, and an item further down isn't guaranteed to be
+    // mounted without scrolling to it.
+    expect(find.text("Aucune poutre chargée sur cet étage."), findsNothing);
+    expect(find.text("Poutre 1·1"), findsOneWidget);
+
+    await tester.tap(find.text("Poteaux"));
+    await tester.pumpAndSettle();
+    expect(find.text("Aucun poteau chargé sur cet étage."), findsNothing);
+    expect(find.text("1A"), findsOneWidget);
 
     await tester.tap(find.textContaining("Terminer"));
     await tester.pumpAndSettle();
