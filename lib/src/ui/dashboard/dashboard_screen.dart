@@ -105,14 +105,14 @@ class DashboardScreen extends StatelessWidget {
             subtitle: "Dimensionner un élément seul, sans modélisation",
           ),
           const SizedBox(height: 10),
-          _CalcGrid(entries: _predim, crossAxisCount: 3),
+          _CalcGrid(entries: _predim, crossAxisCount: 3, annotation: StructIconAnnotation.dimensions),
           const SizedBox(height: 24),
           const _SectionTitle(
             title: "Descente de charges",
             subtitle: "Cheminement complet des charges jusqu'aux fondations",
           ),
           const SizedBox(height: 10),
-          _CalcGrid(entries: _descente, crossAxisCount: 2),
+          _CalcGrid(entries: _descente, crossAxisCount: 2, annotation: StructIconAnnotation.load),
           const SizedBox(height: 24),
           const _SectionTitle(title: "Projets récents"),
           const SizedBox(height: 10),
@@ -162,10 +162,11 @@ class _SectionTitle extends StatelessWidget {
 }
 
 class _CalcGrid extends StatelessWidget {
-  const _CalcGrid({required this.entries, required this.crossAxisCount});
+  const _CalcGrid({required this.entries, required this.crossAxisCount, required this.annotation});
 
   final List<_CalcEntry> entries;
   final int crossAxisCount;
+  final StructIconAnnotation annotation;
 
   static const double _spacing = 10;
 
@@ -188,7 +189,7 @@ class _CalcGrid extends StatelessWidget {
               SizedBox(
                 width: cardWidth,
                 height: cardWidth / aspectRatio,
-                child: _CalcCard(entry: entry),
+                child: _CalcCard(entry: entry, annotation: annotation),
               ),
           ],
         );
@@ -198,9 +199,10 @@ class _CalcGrid extends StatelessWidget {
 }
 
 class _CalcCard extends StatelessWidget {
-  const _CalcCard({required this.entry});
+  const _CalcCard({required this.entry, required this.annotation});
 
   final _CalcEntry entry;
+  final StructIconAnnotation annotation;
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +226,7 @@ class _CalcCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  StructIcon(kind: entry.iconKind, color: entry.iconColor, size: 22),
+                  StructIcon(kind: entry.iconKind, color: entry.iconColor, size: 22, annotation: annotation),
                   const SizedBox(height: 10),
                   Text(
                     entry.label,

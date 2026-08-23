@@ -298,7 +298,15 @@ class _StepNoeud extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        NodeTributaryDiagram(l1: l1, l2: l2, l3: l3, l4: l4, withBeams: showBeamFields),
+        NodeTributaryDiagram(
+          l1: l1,
+          l2: l2,
+          l3: l3,
+          l4: l4,
+          withBeams: showBeamFields,
+          poutrePrincipaleBCm: poutrePrincipaleB,
+          poutreSecondaireBCm: poutreSecondaireB,
+        ),
         const SizedBox(height: 12),
         Center(
           child: Container(
