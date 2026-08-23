@@ -114,9 +114,9 @@ class BuildingPlanCanvas extends StatelessWidget {
       color: AppColors.background,
       child: InteractiveViewer(
         constrained: false,
-        minScale: 0.4,
+        minScale: 0.12,
         maxScale: 3,
-        boundaryMargin: const EdgeInsets.all(200),
+        boundaryMargin: const EdgeInsets.all(400),
         child: GestureDetector(
           onTapUp: (details) => onSelect(_hitTest(details.localPosition, geometry)),
           child: SizedBox(

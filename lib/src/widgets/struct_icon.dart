@@ -5,12 +5,14 @@ import "../theme/app_colors.dart";
 /// The structural element (or assembly) a [StructIcon] depicts.
 enum StructIconKind { column, beam, wall, slab, balcony, stairs, beamGrid, building }
 
-/// Small abstract glyph for a structural element — a filled square for a
-/// poteau, a bar for a poutre, a tall bar for a voile, and so on — instead
-/// of a generic Material icon that doesn't actually say "column" or "wall".
-/// Ported from the design prototype's icon set (renderIcon: 'column',
-/// 'beam', 'wall', 'building'), extended with matching glyphs for the
-/// element types the prototype didn't need an icon for.
+/// Small 2.5D (isometric-shaded) glyph for a structural element — a block
+/// for a poteau, an elongated bar for a poutre, a tall slab for a voile,
+/// and so on — instead of a generic Material icon that doesn't actually
+/// say "column" or "wall". Ported from the design prototype's icon set
+/// (renderIcon: 'column', 'beam', 'wall', 'building'), extended with
+/// matching glyphs for the element types the prototype didn't need an
+/// icon for, and given a light/base/dark 3-face shading so each glyph
+/// reads as a small extruded block rather than a flat shape.
 class StructIcon extends StatelessWidget {
   const StructIcon({super.key, required this.kind, this.size = 22, this.color = AppColors.accentBlue});
 
@@ -44,61 +46,48 @@ class _StructIconPainter extends CustomPainter {
     switch (kind) {
       case StructIconKind.column:
         {
-          _rrect(canvas, const Rect.fromLTWH(5, 5, 8, 8), 1.5, color);
+          _isoBox(canvas, const Rect.fromLTWH(4, 8, 7, 7), 2.4, color);
           break;
         }
       case StructIconKind.beam:
         {
-          _rrect(canvas, const Rect.fromLTWH(2, 6, 14, 3), 1, color);
-          _rrect(canvas, const Rect.fromLTWH(2, 10, 14, 1.4), 0.7, color.withValues(alpha: 0.5));
+          _isoBox(canvas, const Rect.fromLTWH(2, 9.5, 12, 3.6), 2.2, color);
           break;
         }
       case StructIconKind.wall:
         {
-          _rrect(canvas, const Rect.fromLTWH(6, 3, 6, 12), 1, color);
+          _isoBox(canvas, const Rect.fromLTWH(6, 4, 5, 11), 2.2, color);
           break;
         }
       case StructIconKind.slab:
         {
-          _rrect(canvas, const Rect.fromLTWH(2, 2, 14, 14), 2, color.withValues(alpha: 0.16));
-          final stroke = Paint()
-            ..color = color
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1;
-          canvas.drawRect(const Rect.fromLTWH(2, 2, 14, 14), stroke);
-          canvas.drawLine(const Offset(9, 2), const Offset(9, 16), stroke);
-          canvas.drawLine(const Offset(2, 9), const Offset(16, 9), stroke);
+          _isoBox(canvas, const Rect.fromLTWH(2, 11.5, 12, 2.6), 2, color);
           break;
         }
       case StructIconKind.balcony:
         {
-          _rrect(canvas, const Rect.fromLTWH(2, 2, 3, 14), 1, color);
-          _rrect(canvas, const Rect.fromLTWH(5, 9.5, 11, 3), 1, color);
+          _isoBox(canvas, const Rect.fromLTWH(2, 3, 3, 12), 1.8, color);
+          _isoBox(canvas, const Rect.fromLTWH(5, 10.5, 10, 2.6), 1.8, color);
           canvas.drawLine(
-            const Offset(5, 6),
-            const Offset(16, 6),
+            const Offset(5, 7),
+            const Offset(15, 7),
             Paint()
-              ..color = color.withValues(alpha: 0.6)
-              ..strokeWidth = 1.2,
+              ..color = color.withValues(alpha: 0.55)
+              ..strokeWidth = 1.1,
           );
           break;
         }
       case StructIconKind.beamGrid:
         {
-          final stroke = Paint()
-            ..color = color
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1.4;
-          canvas.drawRect(const Rect.fromLTWH(2, 2, 14, 14), stroke);
-          canvas.drawLine(const Offset(9, 2), const Offset(9, 16), stroke);
-          canvas.drawLine(const Offset(2, 9), const Offset(16, 9), stroke);
+          _isoBox(canvas, const Rect.fromLTWH(2, 10, 14, 2), 1.8, color);
+          _isoBox(canvas, const Rect.fromLTWH(8, 3, 2, 9), 1.8, color);
           break;
         }
       case StructIconKind.building:
         {
           for (var r = 0; r < 3; r++) {
             for (var c = 0; c < 3; c++) {
-              _rrect(canvas, Rect.fromLTWH(3 + c * 5, 3 + r * 5, 3.5, 3.5), 0.8, color);
+              _isoBox(canvas, Rect.fromLTWH(2.5 + c * 4.5, 3 + r * 4.5, 3, 3), 1.1, color);
             }
           }
           break;
@@ -110,8 +99,31 @@ class _StructIconPainter extends CustomPainter {
     canvas.restore();
   }
 
-  void _rrect(Canvas canvas, Rect rect, double radius, Color fill) {
-    canvas.drawRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)), Paint()..color = fill);
+  /// Draws [front] as a small extruded block: a lighter top face and a
+  /// darker side face (offset up-right by [depth]) around the base-colour
+  /// front face — the classic 3-face isometric shading that makes a flat
+  /// rectangle read as a 2.5D block.
+  void _isoBox(Canvas canvas, Rect front, double depth, Color base) {
+    final top = Color.lerp(base, Colors.white, 0.35)!;
+    final side = Color.lerp(base, Colors.black, 0.35)!;
+
+    final sidePath = Path()
+      ..moveTo(front.right, front.top)
+      ..lineTo(front.right + depth, front.top - depth)
+      ..lineTo(front.right + depth, front.bottom - depth)
+      ..lineTo(front.right, front.bottom)
+      ..close();
+    canvas.drawPath(sidePath, Paint()..color = side);
+
+    final topPath = Path()
+      ..moveTo(front.left, front.top)
+      ..lineTo(front.left + depth, front.top - depth)
+      ..lineTo(front.right + depth, front.top - depth)
+      ..lineTo(front.right, front.top)
+      ..close();
+    canvas.drawPath(topPath, Paint()..color = top);
+
+    canvas.drawRect(front, Paint()..color = base);
   }
 
   @override

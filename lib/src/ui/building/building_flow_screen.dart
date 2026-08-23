@@ -845,8 +845,7 @@ class _StepResultats extends StatefulWidget {
 }
 
 class _StepResultatsState extends State<_StepResultats> with SingleTickerProviderStateMixin {
-  late final _tabController = TabController(length: 3, vsync: this);
-  final _sheetController = DraggableScrollableController();
+  late final _tabController = TabController(length: 3, vsync: this)..addListener(_onTabChanged);
 
   // The collapsed sheet's handle + tab bar need about this much room —
   // computing the minimum size as a fraction of the *actual* available
@@ -857,22 +856,16 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
 
   @override
   void dispose() {
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
-    _sheetController.dispose();
     super.dispose();
   }
 
-  void _onHandleDragUpdate(DragUpdateDetails details, double stackHeight, List<double> snaps) {
-    if (!_sheetController.isAttached || stackHeight <= 0) return;
-    final next = (_sheetController.size - details.delta.dy / stackHeight).clamp(snaps.first, snaps.last);
-    _sheetController.jumpTo(next.toDouble());
-  }
-
-  void _onHandleDragEnd(DragEndDetails details, List<double> snaps) {
-    if (!_sheetController.isAttached) return;
-    final current = _sheetController.size;
-    final nearest = snaps.reduce((a, b) => (current - a).abs() < (current - b).abs() ? a : b);
-    _sheetController.animateTo(nearest, duration: const Duration(milliseconds: 220), curve: Curves.easeOut);
+  void _onTabChanged() {
+    // TabBar alone (no TabBarView) doesn't rebuild anything on its own —
+    // the currently-shown tab's rows are picked in build() from
+    // _tabController.index, so a tap needs an explicit rebuild here.
+    if (mounted) setState(() {});
   }
 
   @override
@@ -925,57 +918,55 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
                     ),
                   ),
                   DraggableScrollableSheet(
-                    controller: _sheetController,
                     initialChildSize: minFraction,
                     minChildSize: minFraction,
                     maxChildSize: snaps.last,
+                    snap: true,
+                    snapSizes: snaps,
                     builder: (sheetContext, scrollController) {
+                      final tabContent = switch (_tabController.index) {
+                        1 => _EdgeResultsTable(floor: floor, beamLoads: beamLoads, type: EdgeType.poutre),
+                        2 => _EdgeResultsTable(floor: floor, beamLoads: beamLoads, type: EdgeType.voile),
+                        _ => _PoteauResultsTable(floor: floor),
+                      };
                       return DecoratedBox(
                         decoration: const BoxDecoration(
                           color: AppColors.surface,
                           borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
                           boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 16, offset: Offset(0, -3))],
                         ),
-                        child: Column(
-                          children: [
-                            // Drives the sheet directly via _sheetController — a
-                            // DraggableScrollableSheet only resizes from scroll
-                            // notifications on a Scrollable using the builder's
-                            // scrollController, and nothing below needs that
-                            // (the tables scroll on their own within their tab).
-                            GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onVerticalDragUpdate: (details) => _onHandleDragUpdate(details, constraints.maxHeight, snaps),
-                              onVerticalDragEnd: (details) => _onHandleDragEnd(details, snaps),
-                              child: Container(
+                        // A single Scrollable using the builder's own
+                        // scrollController — this, not a hand-rolled drag
+                        // gesture, is what lets DraggableScrollableSheet
+                        // convert a drag into resizing (via its scroll
+                        // notifications); nesting a second scrollable per
+                        // tab (e.g. TabBarView's own pages) breaks that,
+                        // which is why the sheet didn't respond to a real
+                        // drag before.
+                        child: SingleChildScrollView(
+                          controller: scrollController,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
                                 key: const Key("resultsSheetHandle"),
                                 height: 24,
                                 alignment: Alignment.center,
-                                color: Colors.transparent,
                                 child: Container(
                                   width: 36,
                                   height: 4,
                                   decoration: BoxDecoration(color: AppColors.border, borderRadius: BorderRadius.circular(2)),
                                 ),
                               ),
-                            ),
-                            TabBar(
-                              controller: _tabController,
-                              labelColor: AppColors.accentBlue,
-                              unselectedLabelColor: AppColors.textTertiary,
-                              tabs: const [Tab(text: "Poteaux"), Tab(text: "Poutres"), Tab(text: "Voiles")],
-                            ),
-                            Expanded(
-                              child: TabBarView(
+                              TabBar(
                                 controller: _tabController,
-                                children: [
-                                  _PoteauResultsTable(floor: floor),
-                                  _EdgeResultsTable(floor: floor, beamLoads: beamLoads, type: EdgeType.poutre),
-                                  _EdgeResultsTable(floor: floor, beamLoads: beamLoads, type: EdgeType.voile),
-                                ],
+                                labelColor: AppColors.accentBlue,
+                                unselectedLabelColor: AppColors.textTertiary,
+                                tabs: const [Tab(text: "Poteaux"), Tab(text: "Poutres"), Tab(text: "Voiles")],
                               ),
-                            ),
-                          ],
+                              tabContent,
+                            ],
+                          ),
                         ),
                       );
                     },
@@ -1058,32 +1049,44 @@ class _ResultsTable extends StatelessWidget {
   final String emptyMessage;
   final String valueLabel;
 
+  // Plain content, not its own scrollable — it's spliced into the
+  // Résultats sheet's single outer SingleChildScrollView (see
+  // _StepResultatsState.build()) so the whole sheet, header included,
+  // shares one Scrollable wired to the sheet's own scrollController. A
+  // second, independent scrollable per tab is exactly what stopped the
+  // sheet's built-in drag-to-resize from working — DraggableScrollableSheet
+  // only converts drag into resizing via scroll notifications on a
+  // Scrollable that uses its builder's scrollController.
   @override
   Widget build(BuildContext context) {
     if (rows.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(emptyMessage, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12.5, color: AppColors.textTertiary)),
-        ),
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(emptyMessage, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12.5, color: AppColors.textTertiary)),
       );
     }
-    return ListView(
+    return Padding(
       padding: const EdgeInsets.all(16),
-      children: [
-        for (final row in rows)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              children: [
-                Expanded(child: Text(row.$1, style: const TextStyle(fontSize: 13))),
-                Text(row.$2.toStringAsFixed(2), style: AppTheme.monoTextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-              ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final row in rows)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Expanded(child: Text(row.$1, style: const TextStyle(fontSize: 13))),
+                  Text(row.$2.toStringAsFixed(2), style: AppTheme.monoTextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
             ),
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(valueLabel, style: const TextStyle(fontSize: 10.5, color: AppColors.textTertiary)),
           ),
-        const SizedBox(height: 8),
-        Text(valueLabel, style: const TextStyle(fontSize: 10.5, color: AppColors.textTertiary)),
-      ],
+        ],
+      ),
     );
   }
 }
