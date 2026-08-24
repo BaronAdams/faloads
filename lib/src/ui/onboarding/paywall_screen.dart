@@ -75,7 +75,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 price: _period == _Period.annual ? "9,60 €/mois · facturé annuellement" : "12 €/mois",
                 features: const [
                   "Tout le Gratuit",
-                  "Réseau de poutres & bâtiment complet",
+                  "Bâtiment complet multi-étages",
                   "Projets illimités, étages dupliquables",
                   "Export PDF / Excel",
                 ],

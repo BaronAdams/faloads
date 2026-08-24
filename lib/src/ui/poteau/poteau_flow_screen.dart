@@ -67,7 +67,12 @@ class _PoteauFlowScreenState extends State<PoteauFlowScreen> {
     LevelFormState(label: "RDC"),
   ];
 
-  double get _aireTributaire => (_l1 + _l2) * (_l3 + _l4);
+  // Each poteau only picks up half of every adjacent span (spec §4 —
+  // matches the design prototype's colTotalArea = (spanG+spanD)/2 *
+  // (spanH+spanV)/2): the other half goes to the neighbouring poteau.
+  // Multiplying the full spans together instead (no /4) overstated the
+  // tributary area, and every load fed by it, 4×.
+  double get _aireTributaire => (_l1 + _l2) / 2 * ((_l3 + _l4) / 2);
 
   List<LevelCumulativeResult> get _results => cumulateLoadDescent(
         levelsTopToBottom: _levels.map((l) => l.toLevelInput()).toList(),

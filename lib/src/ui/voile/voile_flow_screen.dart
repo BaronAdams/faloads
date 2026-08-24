@@ -55,7 +55,12 @@ class _VoileFlowScreenState extends State<VoileFlowScreen> {
     LevelFormState(label: "RDC"),
   ];
 
-  double get _aireTributaire => _longueur * (_porteeAvant + _porteeArriere);
+  // The voile only picks up half of each adjacent span (spec §5 — matches
+  // the design prototype's voileTotalArea = longueur * (spanAv/2 +
+  // spanAr/2)): the other half goes to whatever is on the far side.
+  // Multiplying by the full sum instead (no /2) overstated the tributary
+  // area, and every load fed by it, 2×.
+  double get _aireTributaire => _longueur * ((_porteeAvant + _porteeArriere) / 2);
 
   List<WindLevelCumulativeResult> get _results => cumulateWallLoadDescent(
         levelsTopToBottom: _levels.map((l) => l.toLevelInput()).toList(),

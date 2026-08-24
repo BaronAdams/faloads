@@ -4,7 +4,6 @@ import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/empty_state.dart";
 import "../../widgets/struct_icon.dart";
-import "../beam_network/beam_network_flow_screen.dart";
 import "../building/building_flow_screen.dart";
 import "../poteau/poteau_flow_screen.dart";
 import "../predim/predim_screen.dart";
@@ -28,8 +27,8 @@ class _CalcEntry {
 
 /// Dashboard / "Calculs" home (spec §2): two calculation families —
 /// Prédimensionnement (6 element types) and Descente de charges (poteau /
-/// voile / réseau de poutres / bâtiment complet) — plus a recent-projects
-/// list that starts empty.
+/// voile / bâtiment complet) — plus a recent-projects list that starts
+/// empty.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -77,12 +76,6 @@ class DashboardScreen extends StatelessWidget {
       iconColor: AppColors.accentTeal,
       label: "Voile isolé",
       destination: () => const VoileFlowScreen(),
-    ),
-    _CalcEntry(
-      iconKind: StructIconKind.beamGrid,
-      iconColor: AppColors.accentAmber,
-      label: "Réseau de poutres",
-      destination: () => const BeamNetworkFlowScreen(),
     ),
     _CalcEntry(
       iconKind: StructIconKind.building,

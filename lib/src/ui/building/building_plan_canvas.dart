@@ -115,7 +115,7 @@ class BuildingPlanCanvas extends StatelessWidget {
       child: InteractiveViewer(
         constrained: false,
         minScale: 0.12,
-        maxScale: 3,
+        maxScale: 10,
         boundaryMargin: const EdgeInsets.all(400),
         child: GestureDetector(
           onTapUp: (details) => onSelect(_hitTest(details.localPosition, geometry)),
@@ -308,7 +308,9 @@ class _BuildingPlanPainter extends CustomPainter {
   void _paintInfluenceSurfaces(Canvas canvas, List<double> xs, List<double> ys) {
     final sel = selection;
     Set<String>? highlightedSides;
-    if (sel is EdgeSelection) {
+    // A deleted poutre/voile carries no real load — selecting its dashed
+    // placeholder must not light up influence regions as if it still did.
+    if (sel is EdgeSelection && (floor.edges[sel.key]?.exists ?? true)) {
       highlightedSides = <String>{};
       for (final c in beamLoads?[sel.key]?.contributions ?? const []) {
         final side = _sideForBeamKey(sel.key, c.panelCol, c.panelRow);
@@ -325,6 +327,13 @@ class _BuildingPlanPainter extends CustomPainter {
         final split = _splitPanelRect(rect);
 
         void paintSide(List<Offset> points, BeamKey edgeKey, String side) {
+          if (!(floor.edges[edgeKey]?.exists ?? true)) {
+            // No beam actually carries this region any more — a flat
+            // neutral fill instead of the amber/teal "there's a loaded
+            // poutre/voile here" colour a deleted one used to keep.
+            _paintSplitRegion(canvas, points, AppColors.textTertiary, highlighted: false, dimmed: true);
+            return;
+          }
           final highlighted = highlightedSides?.contains("$c,$r,$side") ?? false;
           _paintSplitRegion(canvas, points, _edgeColorFor(edgeKey), highlighted: highlighted, dimmed: dimming);
         }
@@ -342,7 +351,9 @@ class _BuildingPlanPainter extends CustomPainter {
       }
     }
 
-    if (sel is NodeSelection) {
+    // A deleted poteau doesn't actually pick up any of its former
+    // quadrants' load — same reasoning as the deleted-edge guard above.
+    if (sel is NodeSelection && (floor.nodes[(sel.col, sel.row)]?.exists ?? true)) {
       for (final (dc, dr) in const [(-1, -1), (0, -1), (-1, 0), (0, 0)]) {
         final c = sel.col + dc;
         final r = sel.row + dr;

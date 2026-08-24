@@ -37,19 +37,9 @@ class StructIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final painter = CustomPaint(
+    return CustomPaint(
       size: Size.square(size),
       painter: _StructIconPainter(kind: kind, color: color, annotation: annotation),
-    );
-    if (kind != StructIconKind.stairs) return painter;
-    // Stairs stays the built-in Material glyph (already unambiguous) with
-    // just the annotation painted over it, instead of a hand-drawn stair.
-    return SizedBox.square(
-      dimension: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [Icon(Icons.stairs_outlined, size: size, color: color), painter],
-      ),
     );
   }
 }
@@ -126,13 +116,19 @@ class _StructIconPainter extends CustomPainter {
           break;
         }
       case StructIconKind.stairs:
-        break; // handled by StructIcon.build via Icons.stairs_outlined
+        {
+          // 4 ascending iso boxes, same run each, increasing rise — an
+          // isometric "escalier" instead of the flat Material glyph.
+          box(const Rect.fromLTWH(2, 12, 3.2, 3), 1.6);
+          box(const Rect.fromLTWH(5.2, 9, 3.2, 6), 1.6);
+          box(const Rect.fromLTWH(8.4, 6, 3.2, 9), 1.6);
+          box(const Rect.fromLTWH(11.6, 3, 3.2, 12), 1.6);
+          break;
+        }
     }
 
     if (annotation != StructIconAnnotation.none) {
-      final bounds = kind == StructIconKind.stairs
-          ? const Rect.fromLTWH(3, 3, 12, 12)
-          : fronts.reduce((a, b) => a.expandToInclude(b));
+      final bounds = fronts.reduce((a, b) => a.expandToInclude(b));
       switch (annotation) {
         case StructIconAnnotation.dimensions:
           {
