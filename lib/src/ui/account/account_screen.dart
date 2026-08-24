@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/empty_state.dart";
+import "../../widgets/project_tile.dart";
 import "../onboarding/paywall_screen.dart";
 
 /// Mon compte tab — only reachable while logged in (spec §2): subscription
@@ -82,7 +83,7 @@ class AccountScreen extends StatelessWidget {
                     message: "Vos calculs sauvegardés apparaîtront ici.",
                   )
                 : Column(
-                    children: [for (final p in app.recentProjects) ListTile(title: Text(p))],
+                    children: [for (final p in app.recentProjects) ProjectTile(project: p)],
                   ),
           ),
           const SizedBox(height: 20),
