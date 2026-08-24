@@ -3,12 +3,15 @@ import "package:flutter/material.dart";
 import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/primary_cta.dart";
+import "../../widgets/stagger_in.dart";
 import "../shell/app_shell.dart";
 import "onboarding_screen.dart";
 
 /// Entry screen: states StructCalc's value proposition across its two
 /// calculation modes (isolated element vs. full building) before the user
-/// commits to onboarding.
+/// commits to onboarding. Every element stagger-animates in on first
+/// appearance (spec follow-up: "l'onboarding n'est pas assez riche en
+/// animations").
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
 
@@ -21,63 +24,87 @@ class LandingScreen extends StatelessWidget {
           child: Column(
             children: [
               const Spacer(),
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceRaised,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: const Icon(
-                  Icons.architecture_outlined,
-                  color: AppColors.accentBlue,
-                  size: 30,
-                ),
+              const PopIn(
+                delay: Duration(milliseconds: 60),
+                child: _LogoBadge(),
               ),
               const SizedBox(height: 24),
-              const Text(
-                "StructCalc",
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+              const StaggerIn(
+                delay: Duration(milliseconds: 180),
+                child: Text(
+                  "StructCalc",
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
+                ),
               ),
               const SizedBox(height: 10),
-              const Text(
-                "Descente de charges et prédimensionnement en béton armé,"
-                " sur chantier ou au bureau.",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14.5,
-                  color: AppColors.textSecondary,
-                  height: 1.4,
+              const StaggerIn(
+                delay: Duration(milliseconds: 260),
+                child: Text(
+                  "Descente de charges et prédimensionnement en béton armé,"
+                  " sur chantier ou au bureau.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14.5,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
                 ),
               ),
               const SizedBox(height: 28),
-              const _ModeRow(),
+              const StaggerIn(delay: Duration(milliseconds: 340), child: _ModeRow()),
               const Spacer(),
-              PrimaryCta(
-                label: "Commencer",
-                onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-                  );
-                },
+              StaggerIn(
+                delay: const Duration(milliseconds: 440),
+                child: PrimaryCta(
+                  label: "Commencer",
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const OnboardingScreen()),
+                    );
+                  },
+                ),
               ),
               const SizedBox(height: 12),
-              TextButton(
-                onPressed: () {
-                  final app = AppScope.of(context);
-                  app.completeOnboarding();
-                  app.logIn();
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const AppShell()),
-                    (route) => false,
-                  );
-                },
-                child: const Text("J'ai déjà un compte"),
+              StaggerIn(
+                delay: const Duration(milliseconds: 500),
+                child: TextButton(
+                  onPressed: () {
+                    final app = AppScope.of(context);
+                    app.completeOnboarding();
+                    app.logIn();
+                    Navigator.of(context).pushAndRemoveUntil(
+                      MaterialPageRoute(builder: (_) => const AppShell()),
+                      (route) => false,
+                    );
+                  },
+                  child: const Text("J'ai déjà un compte"),
+                ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _LogoBadge extends StatelessWidget {
+  const _LogoBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 64,
+      height: 64,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: const Icon(
+        Icons.architecture_outlined,
+        color: AppColors.accentBlue,
+        size: 30,
       ),
     );
   }

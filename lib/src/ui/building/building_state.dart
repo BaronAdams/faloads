@@ -175,6 +175,107 @@ class BuildingPanelSlot {
   }
 }
 
+/// A beam at a free angle relative to the X/Y grid axes — spec follow-up:
+/// "poutres obliques (à un certain angle par rapport à l'axe X ou Y)". Kept
+/// as a separate overlay rather than folded into the grid's edges: the
+/// orthogonal grid drives every automatic tributary-area/load calculation
+/// in bâtiment complet, and an arbitrary-angle beam has no well-defined
+/// tributary split against it. Endpoints are plan coordinates in metres,
+/// same origin/axes as the grid (0,0 at node (0,0), same as spanXM/spanYM
+/// measured cumulatively).
+class ObliqueBeam {
+  ObliqueBeam({
+    required this.id,
+    required this.x1M,
+    required this.y1M,
+    required this.x2M,
+    required this.y2M,
+    this.sectionBCm = 20,
+    this.sectionHCm = 35,
+  });
+
+  final String id;
+  double x1M, y1M, x2M, y2M;
+  double sectionBCm;
+  double sectionHCm;
+
+  Map<String, dynamic> toJson() => {
+        "id": id,
+        "x1M": x1M,
+        "y1M": y1M,
+        "x2M": x2M,
+        "y2M": y2M,
+        "sectionBCm": sectionBCm,
+        "sectionHCm": sectionHCm,
+      };
+
+  static ObliqueBeam fromJson(Map<String, dynamic> json) => ObliqueBeam(
+        id: json["id"] as String,
+        x1M: (json["x1M"] as num).toDouble(),
+        y1M: (json["y1M"] as num).toDouble(),
+        x2M: (json["x2M"] as num).toDouble(),
+        y2M: (json["y2M"] as num).toDouble(),
+        sectionBCm: (json["sectionBCm"] as num).toDouble(),
+        sectionHCm: (json["sectionHCm"] as num).toDouble(),
+      );
+}
+
+/// A poteau positioned freely on the plan — on an oblique beam's axis, or
+/// anywhere else — instead of at a grid intersection (spec follow-up: "des
+/// poteaux suivant l'axe de ces poutres ou en position normale"). There's
+/// no grid to derive its tributary area/loading from automatically, so
+/// both are entered directly — the same manual-input spirit as Poteau
+/// isolé — rather than attempting an automatic split against arbitrary
+/// geometry.
+class ObliquePoteau {
+  ObliquePoteau({
+    required this.id,
+    required this.xM,
+    required this.yM,
+    this.sectionBCm = 25,
+    this.sectionHCm = 25,
+    this.aireTributaireM2 = 9.0,
+    this.gKnM2 = 5.0,
+    this.qKnM2 = 2.5,
+  });
+
+  final String id;
+  double xM, yM;
+  double sectionBCm;
+  double sectionHCm;
+  double aireTributaireM2;
+
+  /// Combined permanent load per m² (dalle + revêtements) — entered
+  /// directly since this poteau isn't tied to a specific slab panel.
+  double gKnM2;
+  double qKnM2;
+
+  double get nEluKn => eluCombination(gKn: gKnM2 * aireTributaireM2, qKn: qKnM2 * aireTributaireM2);
+  double get nElsKn => elsCombination(gKn: gKnM2 * aireTributaireM2, qKn: qKnM2 * aireTributaireM2);
+
+  Map<String, dynamic> toJson() => {
+        "id": id,
+        "xM": xM,
+        "yM": yM,
+        "sectionBCm": sectionBCm,
+        "sectionHCm": sectionHCm,
+        "aireTributaireM2": aireTributaireM2,
+        "gKnM2": gKnM2,
+        "qKnM2": qKnM2,
+      };
+
+  static ObliquePoteau fromJson(Map<String, dynamic> json) => ObliquePoteau(
+        id: json["id"] as String,
+        xM: (json["xM"] as num).toDouble(),
+        yM: (json["yM"] as num).toDouble(),
+        sectionBCm: (json["sectionBCm"] as num).toDouble(),
+        sectionHCm: (json["sectionHCm"] as num).toDouble(),
+        aireTributaireM2: (json["aireTributaireM2"] as num).toDouble(),
+        gKnM2: (json["gKnM2"] as num).toDouble(),
+        qKnM2: (json["qKnM2"] as num).toDouble(),
+      );
+}
+
 /// One floor's full modelling: grid spans, and every node/edge/panel slot
 /// on it. Floors are otherwise independent, but [duplicate] lets the user
 /// carry one floor's whole configuration to another (spec §7: "étages
@@ -185,7 +286,9 @@ class FloorModel {
         spanYM = spanYM ?? List.filled(ny, 4.0),
         nodes = {},
         edges = {},
-        panels = {};
+        panels = {},
+        obliqueBeams = [],
+        obliquePoteaux = [];
 
   String label;
   int nx;
@@ -197,6 +300,8 @@ class FloorModel {
   final Map<(int, int), NodeSlot> nodes;
   final Map<BeamKey, EdgeSlot> edges;
   final Map<(int, int), BuildingPanelSlot> panels;
+  final List<ObliqueBeam> obliqueBeams;
+  final List<ObliquePoteau> obliquePoteaux;
 
   NodeSlot nodeAt(int col, int row) => nodes.putIfAbsent((col, row), NodeSlot.new);
   EdgeSlot edgeAt(BeamKey key) => edges.putIfAbsent(key, EdgeSlot.new);
@@ -304,6 +409,29 @@ class FloorModel {
       panel.coatings.addAll(v.coatings.map((s) => CoatingSlot(s.coating)));
       copy.panels[entry.key] = panel;
     }
+    for (final b in obliqueBeams) {
+      copy.obliqueBeams.add(ObliqueBeam(
+        id: b.id,
+        x1M: b.x1M,
+        y1M: b.y1M,
+        x2M: b.x2M,
+        y2M: b.y2M,
+        sectionBCm: b.sectionBCm,
+        sectionHCm: b.sectionHCm,
+      ));
+    }
+    for (final p in obliquePoteaux) {
+      copy.obliquePoteaux.add(ObliquePoteau(
+        id: p.id,
+        xM: p.xM,
+        yM: p.yM,
+        sectionBCm: p.sectionBCm,
+        sectionHCm: p.sectionHCm,
+        aireTributaireM2: p.aireTributaireM2,
+        gKnM2: p.gKnM2,
+        qKnM2: p.qKnM2,
+      ));
+    }
     return copy;
   }
 
@@ -320,6 +448,8 @@ class FloorModel {
         "nodes": {for (final e in nodes.entries) "${e.key.$1},${e.key.$2}": e.value.toJson()},
         "edges": {for (final e in edges.entries) "${e.key.isHorizontal},${e.key.line},${e.key.segment}": e.value.toJson()},
         "panels": {for (final e in panels.entries) "${e.key.$1},${e.key.$2}": e.value.toJson()},
+        "obliqueBeams": obliqueBeams.map((b) => b.toJson()).toList(),
+        "obliquePoteaux": obliquePoteaux.map((p) => p.toJson()).toList(),
       };
 
   static FloorModel fromJson(Map<String, dynamic> json) {
@@ -345,6 +475,12 @@ class FloorModel {
       final parts = entry.key.split(",");
       floor.panels[(int.parse(parts[0]), int.parse(parts[1]))] = BuildingPanelSlot.fromJson(entry.value as Map<String, dynamic>);
     }
+    for (final b in (json["obliqueBeams"] as List? ?? const [])) {
+      floor.obliqueBeams.add(ObliqueBeam.fromJson(b as Map<String, dynamic>));
+    }
+    for (final p in (json["obliquePoteaux"] as List? ?? const [])) {
+      floor.obliquePoteaux.add(ObliquePoteau.fromJson(p as Map<String, dynamic>));
+    }
     return floor;
   }
 }
@@ -368,6 +504,16 @@ class PanelSelection extends BuildingSelection {
   const PanelSelection(this.col, this.row);
   final int col;
   final int row;
+}
+
+class ObliqueBeamSelection extends BuildingSelection {
+  const ObliqueBeamSelection(this.id);
+  final String id;
+}
+
+class ObliquePoteauSelection extends BuildingSelection {
+  const ObliquePoteauSelection(this.id);
+  final String id;
 }
 
 /// Top-level state for the bâtiment complet flow: every floor and the

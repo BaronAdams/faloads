@@ -6,6 +6,13 @@ import "../../domain/domain.dart";
 import "../../theme/app_colors.dart";
 import "building_state.dart";
 
+/// Which oblique element a canvas tap should place next — spec follow-up:
+/// "poutres obliques ... et des poteaux suivant l'axe de ces poutres ou en
+/// position normale". [beamFirstPoint]/[beamSecondPoint] split the beam's
+/// two-tap placement so the canvas knows to keep showing a "pick the next
+/// point" marker between taps.
+enum ObliquePlacementMode { none, beamFirstPoint, beamSecondPoint, poteau }
+
 /// Converts a floor's independent travée spans (metres) into pixel
 /// positions for painting, with a fixed [padding] margin — the spec's
 /// ≥60px requirement for the circled axis labels at the plan's edges.
@@ -28,6 +35,15 @@ class BuildingPlanGeometry {
   }
 
   Size get contentSize => Size(xPositions.last + padding, yPositions.last + padding);
+
+  /// Plan-coordinate metres (same origin/axes as spanXM/spanYM, cumulative
+  /// from node (0,0)) to a canvas pixel offset — used by oblique beams and
+  /// poteaux, which aren't confined to grid intersections.
+  Offset pixelForMeters(double xM, double yM) => Offset(padding + xM * scale, padding + yM * scale);
+
+  /// Inverse of [pixelForMeters] — turns a raw tap position back into plan
+  /// metres, for placing a new oblique beam/poteau where the user tapped.
+  Offset metersForPixel(Offset local) => Offset((local.dx - padding) / scale, (local.dy - padding) / scale);
 }
 
 double _distanceToSegment(Offset p, Offset a, Offset b) {
@@ -91,6 +107,9 @@ class BuildingPlanCanvas extends StatelessWidget {
     required this.onSelect,
     this.showInfluenceSurfaces = false,
     this.beamLoads,
+    this.placementMode = ObliquePlacementMode.none,
+    this.pendingFirstPointM,
+    this.onPlacementTap,
   });
 
   final FloorModel floor;
@@ -107,6 +126,18 @@ class BuildingPlanCanvas extends StatelessWidget {
   /// [showInfluenceSurfaces] is true.
   final Map<BeamKey, BeamLoadResult>? beamLoads;
 
+  /// When not [ObliquePlacementMode.none], taps place a new oblique beam
+  /// endpoint / poteau (via [onPlacementTap], given in plan metres) instead
+  /// of running the normal node/edge/panel hit test.
+  final ObliquePlacementMode placementMode;
+
+  /// The oblique beam's first endpoint, once tapped — drawn as a marker so
+  /// the user can see where the beam will start from while picking the
+  /// second point.
+  final Offset? pendingFirstPointM;
+
+  final ValueChanged<Offset>? onPlacementTap;
+
   @override
   Widget build(BuildContext context) {
     final geometry = BuildingPlanGeometry(floor: floor);
@@ -118,7 +149,9 @@ class BuildingPlanCanvas extends StatelessWidget {
         maxScale: 10,
         boundaryMargin: const EdgeInsets.all(400),
         child: GestureDetector(
-          onTapUp: (details) => onSelect(_hitTest(details.localPosition, geometry)),
+          onTapUp: (details) => placementMode == ObliquePlacementMode.none
+              ? onSelect(_hitTest(details.localPosition, geometry))
+              : onPlacementTap?.call(geometry.metersForPixel(details.localPosition)),
           child: SizedBox(
             width: geometry.contentSize.width,
             height: geometry.contentSize.height,
@@ -131,6 +164,7 @@ class BuildingPlanCanvas extends StatelessWidget {
                 selection: selection,
                 showInfluenceSurfaces: showInfluenceSurfaces,
                 beamLoads: beamLoads,
+                pendingFirstPointM: pendingFirstPointM,
               ),
             ),
           ),
@@ -153,6 +187,12 @@ class BuildingPlanCanvas extends StatelessWidget {
       }
     }
 
+    for (final poteau in floor.obliquePoteaux) {
+      if ((pos - geom.pixelForMeters(poteau.xM, poteau.yM)).distance <= nodeHitRadius) {
+        return ObliquePoteauSelection(poteau.id);
+      }
+    }
+
     for (var line = 0; line <= floor.ny; line++) {
       for (var seg = 0; seg < floor.nx; seg++) {
         final a = Offset(xs[seg], ys[line]);
@@ -169,6 +209,14 @@ class BuildingPlanCanvas extends StatelessWidget {
         if (_distanceToSegment(pos, a, b) <= edgeHitRadius) {
           return EdgeSelection((isHorizontal: false, line: line, segment: seg));
         }
+      }
+    }
+
+    for (final beam in floor.obliqueBeams) {
+      final a = geom.pixelForMeters(beam.x1M, beam.y1M);
+      final b = geom.pixelForMeters(beam.x2M, beam.y2M);
+      if (_distanceToSegment(pos, a, b) <= edgeHitRadius) {
+        return ObliqueBeamSelection(beam.id);
       }
     }
 
@@ -189,6 +237,7 @@ class _BuildingPlanPainter extends CustomPainter {
     required this.selection,
     this.showInfluenceSurfaces = false,
     this.beamLoads,
+    this.pendingFirstPointM,
   });
 
   final FloorModel floor;
@@ -196,6 +245,7 @@ class _BuildingPlanPainter extends CustomPainter {
   final BuildingSelection? selection;
   final bool showInfluenceSurfaces;
   final Map<BeamKey, BeamLoadResult>? beamLoads;
+  final Offset? pendingFirstPointM;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -262,6 +312,50 @@ class _BuildingPlanPainter extends CustomPainter {
       for (var r = 0; r <= floor.ny; r++) {
         _paintNode(canvas, c, r, Offset(xs[c], ys[r]));
       }
+    }
+
+    for (final beam in floor.obliqueBeams) {
+      _paintObliqueBeam(canvas, beam);
+    }
+    for (final poteau in floor.obliquePoteaux) {
+      _paintObliquePoteau(canvas, poteau);
+    }
+    if (pendingFirstPointM != null) {
+      final p = geometry.pixelForMeters(pendingFirstPointM!.dx, pendingFirstPointM!.dy);
+      canvas.drawCircle(p, 7, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2);
+      canvas.drawCircle(p, 3, Paint()..color = Colors.white);
+    }
+  }
+
+  void _paintObliqueBeam(Canvas canvas, ObliqueBeam beam) {
+    final a = geometry.pixelForMeters(beam.x1M, beam.y1M);
+    final b = geometry.pixelForMeters(beam.x2M, beam.y2M);
+    final isSelected = selection is ObliqueBeamSelection && (selection as ObliqueBeamSelection).id == beam.id;
+    canvas.drawLine(a, b, Paint()..color = AppColors.accentAmber.withValues(alpha: 0.35)..strokeWidth = 11..strokeCap = StrokeCap.round);
+    canvas.drawLine(
+      a,
+      b,
+      Paint()
+        ..color = isSelected ? Colors.white : AppColors.accentAmber
+        ..strokeWidth = isSelected ? 6 : 5
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  void _paintObliquePoteau(Canvas canvas, ObliquePoteau poteau) {
+    final center = geometry.pixelForMeters(poteau.xM, poteau.yM);
+    final isSelected = selection is ObliquePoteauSelection && (selection as ObliquePoteauSelection).id == poteau.id;
+    // A diamond instead of the grid poteau's square — visually flags it as
+    // "not on the grid" at a glance.
+    final path = Path()
+      ..moveTo(center.dx, center.dy - 11)
+      ..lineTo(center.dx + 11, center.dy)
+      ..lineTo(center.dx, center.dy + 11)
+      ..lineTo(center.dx - 11, center.dy)
+      ..close();
+    canvas.drawPath(path, Paint()..color = isSelected ? Colors.white : AppColors.accentBlue);
+    if (isSelected) {
+      canvas.drawPath(path, Paint()..color = Colors.white..style = PaintingStyle.stroke..strokeWidth = 2);
     }
   }
 

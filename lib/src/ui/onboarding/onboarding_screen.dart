@@ -3,6 +3,7 @@ import "package:flutter/material.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
 import "../../widgets/primary_cta.dart";
+import "../../widgets/stagger_in.dart";
 import "paywall_screen.dart";
 
 class _Slide {
@@ -100,7 +101,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 controller: _controller,
                 itemCount: _slides.length,
                 onPageChanged: (i) => setState(() => _index = i),
-                itemBuilder: (context, i) => _SlideView(slide: _slides[i]),
+                itemBuilder: (context, i) => AnimatedBuilder(
+                  animation: _controller,
+                  // A subtle carousel "come into focus" effect: the page
+                  // being scrolled away from shrinks/fades slightly instead
+                  // of just sliding off — .page is only readable once the
+                  // PageView has laid itself out, hence the fallback below.
+                  builder: (context, child) {
+                    final page = _controller.hasClients && _controller.position.haveDimensions
+                        ? (_controller.page ?? _index.toDouble())
+                        : _index.toDouble();
+                    final delta = (page - i).abs().clamp(0.0, 1.0);
+                    return Opacity(
+                      opacity: 1 - delta * 0.6,
+                      child: Transform.scale(scale: 1 - delta * 0.08, child: child),
+                    );
+                  },
+                  child: _SlideView(key: ValueKey(i), slide: _slides[i]),
+                ),
               ),
             ),
             _ProgressDots(count: _slides.length, index: _index),
@@ -121,7 +139,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 }
 
 class _SlideView extends StatelessWidget {
-  const _SlideView({required this.slide});
+  const _SlideView({super.key, required this.slide});
 
   final _Slide slide;
 
@@ -132,27 +150,35 @@ class _SlideView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              color: AppColors.surfaceRaised,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.border),
+          PopIn(
+            delay: const Duration(milliseconds: 40),
+            child: Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceRaised,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border),
+              ),
+              child: Icon(slide.icon, color: AppColors.accentBlue, size: 24),
             ),
-            child: Icon(slide.icon, color: AppColors.accentBlue, size: 24),
           ),
           const SizedBox(height: 20),
-          Text(
-            slide.title,
-            style: const TextStyle(
-              fontSize: 21,
-              fontWeight: FontWeight.w700,
-              height: 1.25,
+          StaggerIn(
+            delay: const Duration(milliseconds: 140),
+            child: Text(
+              slide.title,
+              style: const TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.w700,
+                height: 1.25,
+              ),
             ),
           ),
           const SizedBox(height: 24),
-          Expanded(child: slide.body),
+          Expanded(
+            child: StaggerIn(delay: const Duration(milliseconds: 220), child: slide.body),
+          ),
         ],
       ),
     );
@@ -236,11 +262,16 @@ class _TimeBar extends StatelessWidget {
         const SizedBox(height: 8),
         ClipRRect(
           borderRadius: BorderRadius.circular(6),
-          child: LinearProgressIndicator(
-            value: fraction,
-            minHeight: 10,
-            backgroundColor: AppColors.surfaceRaised,
-            valueColor: AlwaysStoppedAnimation(color),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: fraction),
+            duration: const Duration(milliseconds: 900),
+            curve: Curves.easeOutCubic,
+            builder: (context, value, _) => LinearProgressIndicator(
+              value: value,
+              minHeight: 10,
+              backgroundColor: AppColors.surfaceRaised,
+              valueColor: AlwaysStoppedAnimation(color),
+            ),
           ),
         ),
       ],
@@ -265,9 +296,11 @@ class _ComplianceBadgesBody extends StatelessWidget {
     return Wrap(
       spacing: 10,
       runSpacing: 10,
-      children: _badges
-          .map(
-            (b) => Container(
+      children: [
+        for (final (i, b) in _badges.indexed)
+          PopIn(
+            delay: Duration(milliseconds: 60 * i),
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: AppColors.surface,
@@ -283,8 +316,8 @@ class _ComplianceBadgesBody extends StatelessWidget {
                 ],
               ),
             ),
-          )
-          .toList(),
+          ),
+      ],
     );
   }
 }
@@ -306,9 +339,12 @@ class _FeatureChecklistBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       shrinkWrap: true,
-      children: _features
-          .map(
-            (f) => Padding(
+      children: [
+        for (final (i, f) in _features.indexed)
+          StaggerIn(
+            delay: Duration(milliseconds: 60 * i),
+            offset: const Offset(24, 0),
+            child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 7),
               child: Row(
                 children: [
@@ -318,8 +354,8 @@ class _FeatureChecklistBody extends StatelessWidget {
                 ],
               ),
             ),
-          )
-          .toList(),
+          ),
+      ],
     );
   }
 }
@@ -351,9 +387,18 @@ class _TestimonialBody extends StatelessWidget {
         const SizedBox(height: 18),
         const Row(
           children: [
-            Expanded(child: _StatBlock(value: "2 400+", label: "ingénieurs")),
-            Expanded(child: _StatBlock(value: "38 000+", label: "calculs effectués")),
-            Expanded(child: _StatBlock(value: "4.8/5", label: "note moyenne")),
+            Expanded(
+              child: PopIn(delay: Duration(milliseconds: 80), child: _StatBlock(value: "2 400+", label: "ingénieurs")),
+            ),
+            Expanded(
+              child: PopIn(
+                delay: Duration(milliseconds: 160),
+                child: _StatBlock(value: "38 000+", label: "calculs effectués"),
+              ),
+            ),
+            Expanded(
+              child: PopIn(delay: Duration(milliseconds: 240), child: _StatBlock(value: "4.8/5", label: "note moyenne")),
+            ),
           ],
         ),
       ],

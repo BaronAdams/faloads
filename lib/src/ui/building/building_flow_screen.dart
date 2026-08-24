@@ -161,11 +161,61 @@ class _BuildingFlowScreenState extends State<BuildingFlowScreen> {
 
 // --- Step 1: Modélisation ------------------------------------------------
 
-class _StepModelisation extends StatelessWidget {
+class _StepModelisation extends StatefulWidget {
   const _StepModelisation({required this.building, required this.onChanged});
 
   final BuildingState building;
   final VoidCallback onChanged;
+
+  @override
+  State<_StepModelisation> createState() => _StepModelisationState();
+}
+
+class _StepModelisationState extends State<_StepModelisation> {
+  ObliquePlacementMode _placementMode = ObliquePlacementMode.none;
+  Offset? _pendingFirstPointM;
+
+  BuildingState get building => widget.building;
+  VoidCallback get onChanged => widget.onChanged;
+
+  void _cancelPlacement() => setState(() {
+        _placementMode = ObliquePlacementMode.none;
+        _pendingFirstPointM = null;
+      });
+
+  void _onPlacementTap(Offset pointM) {
+    switch (_placementMode) {
+      case ObliquePlacementMode.beamFirstPoint:
+        setState(() {
+          _pendingFirstPointM = pointM;
+          _placementMode = ObliquePlacementMode.beamSecondPoint;
+        });
+        break;
+      case ObliquePlacementMode.beamSecondPoint:
+        final first = _pendingFirstPointM!;
+        final beam = ObliqueBeam(
+          id: "ob${DateTime.now().microsecondsSinceEpoch}",
+          x1M: first.dx,
+          y1M: first.dy,
+          x2M: pointM.dx,
+          y2M: pointM.dy,
+        );
+        building.currentFloor.obliqueBeams.add(beam);
+        building.selection = ObliqueBeamSelection(beam.id);
+        _cancelPlacement();
+        onChanged();
+        break;
+      case ObliquePlacementMode.poteau:
+        final poteau = ObliquePoteau(id: "op${DateTime.now().microsecondsSinceEpoch}", xM: pointM.dx, yM: pointM.dy);
+        building.currentFloor.obliquePoteaux.add(poteau);
+        building.selection = ObliquePoteauSelection(poteau.id);
+        _cancelPlacement();
+        onChanged();
+        break;
+      case ObliquePlacementMode.none:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -174,6 +224,18 @@ class _StepModelisation extends StatelessWidget {
       children: [
         _FloorBar(building: building, onChanged: onChanged),
         _GridSummaryBar(floor: floor, onEdit: () => _openGridSheet(context)),
+        _ObliqueToolbar(
+          mode: _placementMode,
+          onStartBeam: () => setState(() {
+            _placementMode = ObliquePlacementMode.beamFirstPoint;
+            building.selection = null;
+          }),
+          onStartPoteau: () => setState(() {
+            _placementMode = ObliquePlacementMode.poteau;
+            building.selection = null;
+          }),
+          onCancel: _cancelPlacement,
+        ),
         Expanded(
           child: BuildingPlanCanvas(
             floor: floor,
@@ -182,6 +244,9 @@ class _StepModelisation extends StatelessWidget {
               building.selection = s;
               onChanged();
             },
+            placementMode: _placementMode,
+            pendingFirstPointM: _pendingFirstPointM,
+            onPlacementTap: _onPlacementTap,
           ),
         ),
         if (building.selection != null)
@@ -324,6 +389,12 @@ class _StepModelisation extends StatelessWidget {
         break;
       case PanelSelection():
         _openPanelSheet(context, selection);
+        break;
+      case ObliqueBeamSelection():
+        _openObliqueBeamSheet(context, selection);
+        break;
+      case ObliquePoteauSelection():
+        _openObliquePoteauSheet(context, selection);
         break;
     }
   }
@@ -669,6 +740,208 @@ class _StepModelisation extends StatelessWidget {
       ),
     );
   }
+
+  void _openObliqueBeamSheet(BuildContext context, ObliqueBeamSelection selection) {
+    final floor = building.currentFloor;
+    final beam = floor.obliqueBeams.firstWhere((b) => b.id == selection.id);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 20 + MediaQuery.of(sheetContext).viewInsets.bottom),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Poutre oblique", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text(
+                  "Longueur ${(Offset(beam.x2M, beam.y2M) - Offset(beam.x1M, beam.y1M)).distance.toStringAsFixed(2)} m",
+                  style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: NumberField(
+                        label: "Section b",
+                        unit: "cm",
+                        value: beam.sectionBCm,
+                        min: 10,
+                        onChanged: (v) {
+                          setSheetState(() => beam.sectionBCm = v);
+                          onChanged();
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: NumberField(
+                        label: "Section h",
+                        unit: "cm",
+                        value: beam.sectionHCm,
+                        min: 10,
+                        onChanged: (v) {
+                          setSheetState(() => beam.sectionHCm = v);
+                          onChanged();
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    floor.obliqueBeams.removeWhere((b) => b.id == beam.id);
+                    building.selection = null;
+                    Navigator.of(sheetContext).pop();
+                    onChanged();
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
+                  label: const Text("Supprimer cette poutre", style: TextStyle(color: AppColors.danger)),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _openObliquePoteauSheet(BuildContext context, ObliquePoteauSelection selection) {
+    final floor = building.currentFloor;
+    final poteau = floor.obliquePoteaux.firstWhere((p) => p.id == selection.id);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          return Padding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 20 + MediaQuery.of(sheetContext).viewInsets.bottom),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("Poteau oblique", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 4),
+                  const Text(
+                    "Positionné librement — hors grille, donc l'aire tributaire et les charges se saisissent directement.",
+                    style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary, height: 1.35),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: NumberField(
+                          label: "Section b",
+                          unit: "cm",
+                          value: poteau.sectionBCm,
+                          min: 10,
+                          onChanged: (v) {
+                            setSheetState(() => poteau.sectionBCm = v);
+                            onChanged();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: NumberField(
+                          label: "Section h",
+                          unit: "cm",
+                          value: poteau.sectionHCm,
+                          min: 10,
+                          onChanged: (v) {
+                            setSheetState(() => poteau.sectionHCm = v);
+                            onChanged();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  NumberField(
+                    label: "Aire tributaire",
+                    unit: "m²",
+                    value: poteau.aireTributaireM2,
+                    min: 0.1,
+                    onChanged: (v) {
+                      setSheetState(() => poteau.aireTributaireM2 = v);
+                      onChanged();
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: NumberField(
+                          label: "G (permanent)",
+                          unit: "kN/m²",
+                          value: poteau.gKnM2,
+                          min: 0,
+                          onChanged: (v) {
+                            setSheetState(() => poteau.gKnM2 = v);
+                            onChanged();
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: NumberField(
+                          label: "Q (exploitation)",
+                          unit: "kN/m²",
+                          value: poteau.qKnM2,
+                          min: 0,
+                          onChanged: (v) {
+                            setSheetState(() => poteau.qKnM2 = v);
+                            onChanged();
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceRaised,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        const Expanded(child: Text("N_ELU", style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary))),
+                        Text(
+                          "${poteau.nEluKn.toStringAsFixed(1)} kN",
+                          style: AppTheme.monoTextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.accentBlue),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      floor.obliquePoteaux.removeWhere((p) => p.id == poteau.id);
+                      building.selection = null;
+                      Navigator.of(sheetContext).pop();
+                      onChanged();
+                    },
+                    icon: const Icon(Icons.delete_outline, size: 16, color: AppColors.danger),
+                    label: const Text("Supprimer ce poteau", style: TextStyle(color: AppColors.danger)),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
 
 /// Lets the user merge (col,row) with an adjacent panel once the beam that
@@ -870,6 +1143,68 @@ class _GridSummaryBar extends StatelessWidget {
   }
 }
 
+/// Arms/cancels placing an oblique beam or poteau (spec follow-up: "poutres
+/// obliques ... et des poteaux suivant l'axe de ces poutres ou en position
+/// normale") — the orthogonal grid stays exactly as it is; these are drawn
+/// as a free overlay on top of it, so nothing about the grid's own
+/// automatic tributary-area/load calculation is affected.
+class _ObliqueToolbar extends StatelessWidget {
+  const _ObliqueToolbar({
+    required this.mode,
+    required this.onStartBeam,
+    required this.onStartPoteau,
+    required this.onCancel,
+  });
+
+  final ObliquePlacementMode mode;
+  final VoidCallback onStartBeam;
+  final VoidCallback onStartPoteau;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final hint = switch (mode) {
+      ObliquePlacementMode.beamFirstPoint => "Touchez le 1ᵉʳ point de la poutre oblique",
+      ObliquePlacementMode.beamSecondPoint => "Touchez le 2ᵉ point de la poutre oblique",
+      ObliquePlacementMode.poteau => "Touchez l'emplacement du poteau",
+      ObliquePlacementMode.none => null,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+      child: hint == null
+          ? Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onStartBeam,
+                    icon: const Icon(Icons.trending_up, size: 15),
+                    label: const Text("Poutre oblique"),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onStartPoteau,
+                    icon: const Icon(Icons.add_box_outlined, size: 15),
+                    label: const Text("Poteau oblique"),
+                  ),
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: Text(hint, style: const TextStyle(fontSize: 12.5, color: AppColors.accentBlue, fontWeight: FontWeight.w600)),
+                ),
+                TextButton(onPressed: onCancel, child: const Text("Annuler")),
+              ],
+            ),
+    );
+  }
+}
+
 class _SelectedElementBar extends StatelessWidget {
   const _SelectedElementBar({required this.building, required this.onChanged, required this.onModify});
 
@@ -885,6 +1220,8 @@ class _SelectedElementBar extends StatelessWidget {
       NodeSelection(:final col, :final row) => "Poteau ${nodeLabel(col, row)}",
       EdgeSelection(:final key) => edgeLabel(key, floor.edges[key]?.type ?? EdgeType.poutre),
       PanelSelection(:final col, :final row) => "Panneau ${floor.panels[(col, row)]?.displayLabel ?? ''}",
+      ObliqueBeamSelection() => "Poutre oblique",
+      ObliquePoteauSelection() => "Poteau oblique",
     };
 
     return Container(
@@ -1140,6 +1477,9 @@ class _PoteauResultsTable extends StatelessWidget {
         final nElu = eluCombination(gKn: avgG * area, qKn: avgQ * area);
         rows.add((nodeLabel(c, r), nElu));
       }
+    }
+    for (final (i, poteau) in floor.obliquePoteaux.indexed) {
+      rows.add(("Poteau oblique ${i + 1}", poteau.nEluKn));
     }
     return _ResultsTable(rows: rows, emptyMessage: "Aucun poteau chargé sur cet étage.");
   }

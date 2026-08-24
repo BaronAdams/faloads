@@ -4,6 +4,7 @@ import "../../state/app_scope.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
 import "../../widgets/primary_cta.dart";
+import "../../widgets/stagger_in.dart";
 import "../shell/app_shell.dart";
 
 enum _Period { monthly, annual }
@@ -44,53 +45,73 @@ class _PaywallScreenState extends State<PaywallScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                "Choisissez votre formule",
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+              const StaggerIn(
+                child: Text(
+                  "Choisissez votre formule",
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                ),
               ),
               const SizedBox(height: 6),
-              const Text(
-                "Débloquez le bâtiment complet, le réseau de poutres et l'export.",
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              const StaggerIn(
+                delay: Duration(milliseconds: 60),
+                child: Text(
+                  "Débloquez le bâtiment complet et l'export.",
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
               ),
               const SizedBox(height: 20),
-              _PeriodToggle(
-                period: _period,
-                onChanged: (p) => setState(() => _period = p),
+              StaggerIn(
+                delay: const Duration(milliseconds: 120),
+                child: _PeriodToggle(
+                  period: _period,
+                  onChanged: (p) => setState(() => _period = p),
+                ),
               ),
               const SizedBox(height: 16),
-              const _PlanCard(
-                title: "Gratuit",
-                price: "0 €",
-                features: [
-                  "Prédimensionnement (tous types)",
-                  "Poteau isolé / voile isolé",
-                  "1 projet enregistré",
-                ],
-                highlighted: false,
+              const StaggerIn(
+                delay: Duration(milliseconds: 180),
+                child: _PlanCard(
+                  title: "Gratuit",
+                  price: "0 €",
+                  features: [
+                    "Prédimensionnement (tous types)",
+                    "Poteau isolé / voile isolé",
+                    "1 projet enregistré",
+                  ],
+                  highlighted: false,
+                ),
               ),
               const SizedBox(height: 12),
-              _PlanCard(
-                title: "Pro",
-                price: _period == _Period.annual ? "9,60 €/mois · facturé annuellement" : "12 €/mois",
-                features: const [
-                  "Tout le Gratuit",
-                  "Bâtiment complet multi-étages",
-                  "Projets illimités, étages dupliquables",
-                  "Export PDF / Excel",
-                ],
-                highlighted: true,
-                badge: _period == _Period.annual ? "-20%" : null,
+              StaggerIn(
+                delay: const Duration(milliseconds: 240),
+                child: _PlanCard(
+                  title: "Pro",
+                  price: _period == _Period.annual ? "9,60 €/mois · facturé annuellement" : "12 €/mois",
+                  features: const [
+                    "Tout le Gratuit",
+                    "Bâtiment complet multi-étages",
+                    "Projets illimités, étages dupliquables",
+                    "Export PDF / Excel",
+                  ],
+                  highlighted: true,
+                  badge: _period == _Period.annual ? "-20%" : null,
+                ),
               ),
               const SizedBox(height: 24),
-              PrimaryCta(
-                label: "Démarrer l'essai gratuit de 7 jours",
-                onPressed: () => _enterApp(context, subscribe: true),
+              StaggerIn(
+                delay: const Duration(milliseconds: 300),
+                child: PrimaryCta(
+                  label: "Démarrer l'essai gratuit de 7 jours",
+                  onPressed: () => _enterApp(context, subscribe: true),
+                ),
               ),
               const SizedBox(height: 10),
-              TextButton(
-                onPressed: () => _enterApp(context, subscribe: false),
-                child: const Text("Continuer gratuitement"),
+              StaggerIn(
+                delay: const Duration(milliseconds: 340),
+                child: TextButton(
+                  onPressed: () => _enterApp(context, subscribe: false),
+                  child: const Text("Continuer gratuitement"),
+                ),
               ),
             ],
           ),
