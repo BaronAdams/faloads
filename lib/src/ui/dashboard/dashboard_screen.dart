@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../../state/app_scope.dart";
+import "../../state/saved_project.dart";
 import "../../theme/app_colors.dart";
 import "../../widgets/empty_state.dart";
 import "../../widgets/struct_icon.dart";
@@ -123,12 +124,67 @@ class DashboardScreen extends StatelessWidget {
                   )
                 : Column(
                     children: [
-                      for (final p in app.recentProjects) ListTile(title: Text(p)),
+                      for (final p in app.recentProjects) _ProjectTile(project: p),
                     ],
                   ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProjectTile extends StatelessWidget {
+  const _ProjectTile({required this.project});
+
+  final SavedProject project;
+
+  static const _months = [
+    "janv.",
+    "févr.",
+    "mars",
+    "avr.",
+    "mai",
+    "juin",
+    "juil.",
+    "août",
+    "sept.",
+    "oct.",
+    "nov.",
+    "déc.",
+  ];
+
+  String get _dateLabel {
+    final d = project.savedAt;
+    return "${d.day} ${_months[d.month - 1]} ${d.year}";
+  }
+
+  StructIconKind get _iconKind => switch (project.type) {
+        SavedProjectType.poteau => StructIconKind.column,
+        SavedProjectType.voile => StructIconKind.wall,
+        SavedProjectType.batiment => StructIconKind.building,
+      };
+
+  Widget _reopen() => switch (project.type) {
+        SavedProjectType.poteau => PoteauFlowScreen(initialProject: project),
+        SavedProjectType.voile => VoileFlowScreen(initialProject: project),
+        SavedProjectType.batiment => BuildingFlowScreen(initialProject: project),
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: StructIcon(kind: _iconKind, color: AppColors.accentBlue, size: 20),
+      title: Text(project.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
+      subtitle: Text(
+        "${project.type.label} · $_dateLabel",
+        style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+      ),
+      trailing: IconButton(
+        icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.textTertiary),
+        onPressed: () => AppScope.of(context).deleteProject(project.id),
+      ),
+      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _reopen())),
     );
   }
 }

@@ -1,6 +1,8 @@
 import "package:flutter/material.dart";
 
 import "../../domain/domain.dart";
+import "../../state/app_scope.dart";
+import "../../state/saved_project.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
 import "../../widgets/building_profile_view.dart";
@@ -25,35 +27,47 @@ const List<String> _stepLabels = ["Système", "Aire tributaire", "Niveaux", "Ré
 /// définie par longueur + 2 portées en étape 2, et un cumul de F_vent
 /// (avec badge "Vent dominant") en résultats.
 class VoileFlowScreen extends StatefulWidget {
-  const VoileFlowScreen({super.key});
+  const VoileFlowScreen({super.key, this.initialProject});
+
+  /// Reopens a project saved earlier from the dashboard's "Projets
+  /// récents" instead of starting from a blank voile.
+  final SavedProject? initialProject;
 
   @override
   State<VoileFlowScreen> createState() => _VoileFlowScreenState();
 }
 
 class _VoileFlowScreenState extends State<VoileFlowScreen> {
+  late final _projectId = widget.initialProject?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+  late String _projectName = widget.initialProject?.name ?? "Voile sans nom";
   int _step = 0;
   int _maxReached = 0;
 
   // Step 1 — Système + Vent EC1
-  SystemeType _systeme = SystemeType.poutresEtDalles;
-  Reglement _reglement = Reglement.ec2;
-  String _beton = "C25/30";
-  String _ventZone = "II";
-  String _ventRegion = "Intérieure";
-  String _ventTerrain = "IIIb";
-  int _ventDirection = 0;
+  late SystemeType _systeme = _initial != null
+      ? SystemeType.values.byName(_initial!["systeme"] as String)
+      : SystemeType.poutresEtDalles;
+  late Reglement _reglement = _initial != null ? Reglement.values.byName(_initial!["reglement"] as String) : Reglement.ec2;
+  late String _beton = _initial?["beton"] as String? ?? "C25/30";
+  late String _ventZone = _initial?["ventZone"] as String? ?? "II";
+  late String _ventRegion = _initial?["ventRegion"] as String? ?? "Intérieure";
+  late String _ventTerrain = _initial?["ventTerrain"] as String? ?? "IIIb";
+  late int _ventDirection = (_initial?["ventDirection"] as num?)?.toInt() ?? 0;
 
   // Step 2 — Aire tributaire
-  double _longueur = 4.0; // wall's own length
-  double _porteeAvant = 3.0;
-  double _porteeArriere = 3.0;
+  late double _longueur = (_initial?["longueur"] as num?)?.toDouble() ?? 4.0; // wall's own length
+  late double _porteeAvant = (_initial?["porteeAvant"] as num?)?.toDouble() ?? 3.0;
+  late double _porteeArriere = (_initial?["porteeArriere"] as num?)?.toDouble() ?? 3.0;
 
   // Step 3 — Niveaux
-  final List<LevelFormState> _levels = [
-    LevelFormState(label: "R+1"),
-    LevelFormState(label: "RDC"),
-  ];
+  late final List<LevelFormState> _levels = _initial != null
+      ? (_initial!["levels"] as List).map((l) => LevelFormState.fromJson(l as Map<String, dynamic>)).toList()
+      : [
+          LevelFormState(label: "R+1"),
+          LevelFormState(label: "RDC"),
+        ];
+
+  Map<String, dynamic>? get _initial => widget.initialProject?.data;
 
   // The voile only picks up half of each adjacent span (spec §5 — matches
   // the design prototype's voileTotalArea = longueur * (spanAv/2 +
@@ -94,10 +108,69 @@ class _VoileFlowScreenState extends State<VoileFlowScreen> {
     setState(() => _levels.remove(level));
   }
 
+  Map<String, dynamic> _toJson() => {
+        "systeme": _systeme.name,
+        "reglement": _reglement.name,
+        "beton": _beton,
+        "ventZone": _ventZone,
+        "ventRegion": _ventRegion,
+        "ventTerrain": _ventTerrain,
+        "ventDirection": _ventDirection,
+        "longueur": _longueur,
+        "porteeAvant": _porteeAvant,
+        "porteeArriere": _porteeArriere,
+        "levels": _levels.map((l) => l.toJson()).toList(),
+      };
+
+  void _openSaveDialog(BuildContext context) {
+    final controller = TextEditingController(text: _projectName);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text("Enregistrer le projet"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(isDense: true, labelText: "Nom du projet"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text("Annuler")),
+          FilledButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              setState(() => _projectName = name.isEmpty ? _projectName : name);
+              AppScope.of(context).saveProject(
+                id: _projectId,
+                type: SavedProjectType.voile,
+                name: _projectName,
+                data: _toJson(),
+              );
+              Navigator.of(dialogContext).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Projet « $_projectName » enregistré")),
+              );
+            },
+            child: const Text("Enregistrer"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Voile isolé")),
+      appBar: AppBar(
+        title: const Text("Voile isolé"),
+        actions: [
+          IconButton(
+            tooltip: "Enregistrer le projet",
+            icon: const Icon(Icons.save_outlined),
+            onPressed: () => _openSaveDialog(context),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           StepperHeader(labels: _stepLabels, currentStep: _step, maxReachedStep: _maxReached, onStepTapped: _goTo),

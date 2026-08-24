@@ -1,6 +1,9 @@
 import "package:flutter/material.dart";
 
 import "../../domain/domain.dart";
+import "../../state/app_scope.dart";
+import "../../state/presets.dart";
+import "../../state/saved_project.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
 import "../../widgets/coating_row.dart";
@@ -30,14 +33,22 @@ const List<int> _directionOptions = [0, 90, 180, 270];
 /// results are still real, computed numbers; cross-floor accumulation is a
 /// natural fast-follow once that alignment invariant is decided on.
 class BuildingFlowScreen extends StatefulWidget {
-  const BuildingFlowScreen({super.key});
+  const BuildingFlowScreen({super.key, this.initialProject});
+
+  /// Reopens a project saved earlier from the dashboard's "Projets
+  /// récents" instead of starting from a blank building.
+  final SavedProject? initialProject;
 
   @override
   State<BuildingFlowScreen> createState() => _BuildingFlowScreenState();
 }
 
 class _BuildingFlowScreenState extends State<BuildingFlowScreen> {
-  final _building = BuildingState();
+  late final _building = widget.initialProject != null
+      ? BuildingState.fromJson(widget.initialProject!.data)
+      : BuildingState();
+  late final _projectId = widget.initialProject?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+  late String _projectName = widget.initialProject?.name ?? "Bâtiment sans nom";
   int _step = 0;
   int _maxReached = 0;
 
@@ -66,6 +77,11 @@ class _BuildingFlowScreenState extends State<BuildingFlowScreen> {
       appBar: AppBar(
         title: const Text("Bâtiment complet"),
         actions: [
+          IconButton(
+            tooltip: "Enregistrer le projet",
+            icon: const Icon(Icons.save_outlined),
+            onPressed: () => _openSaveDialog(context),
+          ),
           IconButton(
             tooltip: "Dimensions types",
             icon: const Icon(Icons.straighten),
@@ -102,7 +118,43 @@ class _BuildingFlowScreenState extends State<BuildingFlowScreen> {
   void _openPresetManager(BuildContext context) {
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => _PresetManagerDialog(building: _building, onChanged: _onChanged),
+      builder: (dialogContext) => _PresetManagerDialog(onChanged: _onChanged),
+    );
+  }
+
+  void _openSaveDialog(BuildContext context) {
+    final controller = TextEditingController(text: _projectName);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text("Enregistrer le projet"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(isDense: true, labelText: "Nom du projet"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text("Annuler")),
+          FilledButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              setState(() => _projectName = name.isEmpty ? _projectName : name);
+              AppScope.of(context).saveProject(
+                id: _projectId,
+                type: SavedProjectType.batiment,
+                name: _projectName,
+                data: _building.toJson(),
+              );
+              Navigator.of(dialogContext).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Projet « $_projectName » enregistré")),
+              );
+            },
+            child: const Text("Enregistrer"),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -286,7 +338,7 @@ class _StepModelisation extends StatelessWidget {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(18))),
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
-          final presets = building.presets[PresetCategory.poteau]!;
+          final presets = AppScope.of(sheetContext).presets[PresetCategory.poteau]!;
           return Padding(
             padding: EdgeInsets.fromLTRB(20, 18, 20, 20 + MediaQuery.of(sheetContext).viewInsets.bottom),
             child: Column(
@@ -298,7 +350,6 @@ class _StepModelisation extends StatelessWidget {
                 if (node.exists) ...[
                   _DimensionTypeRow(
                     category: PresetCategory.poteau,
-                    building: building,
                     presetName: node.presetName,
                     setSheetState: setSheetState,
                     onApply: (v) {
@@ -384,7 +435,7 @@ class _StepModelisation extends StatelessWidget {
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
           final category = edge.type == EdgeType.poutre ? PresetCategory.poutre : PresetCategory.voile;
-          final presets = building.presets[category]!;
+          final presets = AppScope.of(sheetContext).presets[category]!;
           return Padding(
             padding: EdgeInsets.fromLTRB(20, 18, 20, 20 + MediaQuery.of(sheetContext).viewInsets.bottom),
             child: Column(
@@ -410,7 +461,6 @@ class _StepModelisation extends StatelessWidget {
                   const SizedBox(height: 16),
                   _DimensionTypeRow(
                     category: category,
-                    building: building,
                     presetName: edge.presetName,
                     setSheetState: setSheetState,
                     onApply: (v) {
@@ -591,6 +641,14 @@ class _StepModelisation extends StatelessWidget {
                       label: const Text("Ajouter un revêtement"),
                     ),
                     const SizedBox(height: 18),
+                    _PanelGroupingSection(
+                      floor: floor,
+                      col: selection.col,
+                      row: selection.row,
+                      setSheetState: setSheetState,
+                      onChanged: onChanged,
+                    ),
+                    const SizedBox(height: 18),
                   ],
                   OutlinedButton.icon(
                     onPressed: () {
@@ -609,6 +667,88 @@ class _StepModelisation extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+}
+
+/// Lets the user merge (col,row) with an adjacent panel once the beam that
+/// used to separate them was deleted — spec follow-up: "si 2 panneaux sont
+/// collés sans une poutre au milieu, on ait la possibilité de les grouper /
+/// dégrouper". Shows nothing when there's genuinely no beamless neighbour
+/// and the panel isn't already grouped, so it doesn't clutter the sheet for
+/// the common (non-adjacent-to-a-gap) case.
+class _PanelGroupingSection extends StatelessWidget {
+  const _PanelGroupingSection({
+    required this.floor,
+    required this.col,
+    required this.row,
+    required this.setSheetState,
+    required this.onChanged,
+  });
+
+  final FloorModel floor;
+  final int col;
+  final int row;
+  final StateSetter setSheetState;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final panel = floor.panelAt(col, row);
+    final members = floor.groupMembers(col, row);
+    final isGrouped = panel.groupId != null;
+    final candidates = floor.ungroupedNeighbors(col, row).where((m) => !members.contains(m)).toList();
+
+    if (!isGrouped && candidates.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text("Groupement", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+        const SizedBox(height: 8),
+        if (isGrouped)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: AppColors.accentTeal.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.accentTeal.withValues(alpha: 0.4)),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    "Groupé avec ${members.length - 1} autre${members.length - 1 > 1 ? 's' : ''} panneau${members.length - 1 > 1 ? 'x' : ''}",
+                    style: const TextStyle(fontSize: 12.5),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setSheetState(() => floor.ungroupPanel(col, row));
+                    onChanged();
+                  },
+                  child: const Text("Dégrouper"),
+                ),
+              ],
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (nc, nr) in candidates)
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setSheetState(() => floor.groupPanels(col, row, nc, nr));
+                    onChanged();
+                  },
+                  icon: const Icon(Icons.call_merge, size: 15),
+                  label: Text("Grouper avec ${floor.panelOrDefault(nc, nr).displayLabel}"),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -1099,7 +1239,6 @@ class _ResultsTable extends StatelessWidget {
 class _DimensionTypeRow extends StatelessWidget {
   const _DimensionTypeRow({
     required this.category,
-    required this.building,
     required this.presetName,
     required this.onApply,
     required this.onChanged,
@@ -1107,7 +1246,6 @@ class _DimensionTypeRow extends StatelessWidget {
   });
 
   final PresetCategory category;
-  final BuildingState building;
   final String? presetName;
 
   /// Called with the chosen preset's name, or null for "Personnalisé".
@@ -1117,7 +1255,7 @@ class _DimensionTypeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final presets = building.presets[category]!;
+    final presets = AppScope.of(context).presets[category]!;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
@@ -1144,7 +1282,7 @@ class _DimensionTypeRow extends StatelessWidget {
           onPressed: () async {
             await showDialog<void>(
               context: context,
-              builder: (dialogContext) => _PresetManagerDialog(building: building, onChanged: onChanged, initialCategory: category),
+              builder: (dialogContext) => _PresetManagerDialog(onChanged: onChanged, initialCategory: category),
             );
             setSheetState(() {});
           },
@@ -1158,12 +1296,10 @@ class _DimensionTypeRow extends StatelessWidget {
 
 class _PresetManagerDialog extends StatefulWidget {
   const _PresetManagerDialog({
-    required this.building,
     required this.onChanged,
     this.initialCategory = PresetCategory.poteau,
   });
 
-  final BuildingState building;
   final VoidCallback onChanged;
   final PresetCategory initialCategory;
 
@@ -1187,7 +1323,7 @@ class _PresetManagerDialogState extends State<_PresetManagerDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final presets = widget.building.presets[_category]!;
+    final presets = AppScope.of(context).presets[_category]!;
     final isVoile = _category == PresetCategory.voile;
 
     return AlertDialog(
@@ -1225,7 +1361,7 @@ class _PresetManagerDialogState extends State<_PresetManagerDialog> {
                   trailing: IconButton(
                     icon: const Icon(Icons.close, size: 16, color: AppColors.textTertiary),
                     onPressed: () {
-                      setState(() => presets.remove(preset));
+                      AppScope.of(context).removePreset(_category, preset);
                       widget.onChanged();
                     },
                   ),
@@ -1284,10 +1420,8 @@ class _PresetManagerDialogState extends State<_PresetManagerDialog> {
     final a = double.tryParse(_aController.text);
     if (name.isEmpty || a == null) return;
     final b = _category == PresetCategory.voile ? null : double.tryParse(_bController.text);
-    setState(() {
-      widget.building.presets[_category]!.add(DimensionPreset(name: name, aCm: a, bCm: b));
-      _nameController.clear();
-    });
+    AppScope.of(context).addPreset(_category, DimensionPreset(name: name, aCm: a, bCm: b));
+    setState(() => _nameController.clear());
     widget.onChanged();
   }
 }

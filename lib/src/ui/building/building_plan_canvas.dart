@@ -223,10 +223,16 @@ class _BuildingPlanPainter extends CustomPainter {
     if (showInfluenceSurfaces) {
       _paintInfluenceSurfaces(canvas, xs, ys);
     } else {
+      final paintedGroups = <String>{};
       for (var c = 0; c < floor.nx; c++) {
         for (var r = 0; r < floor.ny; r++) {
           final panel = floor.panelOrDefault(c, r);
           if (!panel.exists) continue;
+          if (panel.groupId != null) {
+            if (!paintedGroups.add(panel.groupId!)) continue;
+            _paintPanelGroup(canvas, xs, ys, floor.groupMembers(c, r), panel);
+            continue;
+          }
           final rect = Rect.fromLTRB(xs[c], ys[r], xs[c + 1], ys[r + 1]);
           final isSelected = selection is PanelSelection && (selection as PanelSelection).col == c && (selection as PanelSelection).row == r;
           canvas.drawRect(
@@ -280,6 +286,32 @@ class _BuildingPlanPainter extends CustomPainter {
         ..strokeWidth = isSelected ? 6 : 5
         ..strokeCap = StrokeCap.round,
     );
+  }
+
+  /// Two or more panels grouped together (spec follow-up: "grouper /
+  /// dégrouper" panels stuck together with no beam between them) — unioned
+  /// into a single path so the shared boundary disappears and one label
+  /// covers the whole merged region, however its outline is shaped.
+  void _paintPanelGroup(Canvas canvas, List<double> xs, List<double> ys, List<(int, int)> members, BuildingPanelSlot panel) {
+    Path? union;
+    for (final (c, r) in members) {
+      final rectPath = Path()..addRect(Rect.fromLTRB(xs[c], ys[r], xs[c + 1], ys[r + 1]));
+      union = union == null ? rectPath : Path.combine(PathOperation.union, union, rectPath);
+    }
+    if (union == null) return;
+    final isSelected = selection is PanelSelection && members.contains(((selection as PanelSelection).col, (selection as PanelSelection).row));
+    canvas.drawPath(
+      union,
+      Paint()..color = isSelected ? Colors.white.withValues(alpha: 0.22) : AppColors.accentTeal.withValues(alpha: 0.12),
+    );
+    canvas.drawPath(
+      union,
+      Paint()
+        ..color = isSelected ? Colors.white : AppColors.accentTeal.withValues(alpha: 0.6)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = isSelected ? 2 : 1.2,
+    );
+    _drawCircleLabel(canvas, union.getBounds().center, panel.displayLabel, color: isSelected ? Colors.white : AppColors.accentTeal);
   }
 
   void _paintNode(Canvas canvas, int col, int row, Offset center) {

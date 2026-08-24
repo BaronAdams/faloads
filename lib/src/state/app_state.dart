@@ -1,9 +1,20 @@
-import "package:flutter/foundation.dart";
+import "dart:convert";
 
-/// Global, session-level app state: onboarding/paywall progress and the
+import "package:flutter/foundation.dart";
+import "package:shared_preferences/shared_preferences.dart";
+
+import "presets.dart";
+import "saved_project.dart";
+
+const _prefsPresetsKey = "structcalc.presets.v1";
+const _prefsProjectsKey = "structcalc.projects.v1";
+
+/// Global, session-level app state: onboarding/paywall progress, the
 /// signed-in/subscription flags that gate the "Mon compte" tab and premium
-/// export features. Kept intentionally small — each calculation flow owns
-/// its own step state locally (see phase 4-6).
+/// export features, the dimension-type presets shared by every bâtiment
+/// complet visit, and the saved/resumable projects shown on the dashboard.
+/// Presets and projects are persisted to disk (SharedPreferences, as JSON)
+/// — [loadPersisted] restores them once at app start.
 class AppState extends ChangeNotifier {
   bool _hasSeenOnboarding = false;
   bool _isLoggedIn = false;
@@ -13,9 +24,96 @@ class AppState extends ChangeNotifier {
   bool get isLoggedIn => _isLoggedIn;
   bool get isSubscribed => _isSubscribed;
 
-  /// Projects the user has actually created. Empty by default — the
+  /// Reusable dimension-type presets, per element category — created once
+  /// (typically from the bâtiment complet toolbar or a node/edge sheet)
+  /// and available from then on, everywhere, instead of resetting every
+  /// time that screen is reopened.
+  final Map<PresetCategory, List<DimensionPreset>> presets = {
+    for (final c in PresetCategory.values) c: <DimensionPreset>[],
+  };
+
+  /// Projects the user has actually saved. Empty by default — the
   /// dashboard must show its empty state rather than sample data.
-  final List<String> recentProjects = [];
+  final List<SavedProject> recentProjects = [];
+
+  bool _loaded = false;
+
+  /// Restores [presets] and [recentProjects] from disk. Call once, early
+  /// (see main.dart) — safe to call more than once, a no-op after the
+  /// first successful load.
+  Future<void> loadPersisted() async {
+    if (_loaded) return;
+    final prefs = await SharedPreferences.getInstance();
+
+    final presetsJson = prefs.getString(_prefsPresetsKey);
+    if (presetsJson != null) {
+      final decoded = jsonDecode(presetsJson) as Map<String, dynamic>;
+      for (final category in PresetCategory.values) {
+        final list = decoded[category.name] as List<dynamic>?;
+        if (list == null) continue;
+        presets[category]!.addAll(
+          list.map((e) => DimensionPreset.fromJson(e as Map<String, dynamic>)),
+        );
+      }
+    }
+
+    final projectsJson = prefs.getString(_prefsProjectsKey);
+    if (projectsJson != null) {
+      final decoded = jsonDecode(projectsJson) as List<dynamic>;
+      recentProjects.addAll(
+        decoded.map((e) => SavedProject.fromJson(e as Map<String, dynamic>)),
+      );
+    }
+
+    _loaded = true;
+    notifyListeners();
+  }
+
+  Future<void> _persistPresets() async {
+    final prefs = await SharedPreferences.getInstance();
+    final encoded = {
+      for (final c in PresetCategory.values) c.name: presets[c]!.map((p) => p.toJson()).toList(),
+    };
+    await prefs.setString(_prefsPresetsKey, jsonEncode(encoded));
+  }
+
+  Future<void> _persistProjects() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsProjectsKey, jsonEncode(recentProjects.map((p) => p.toJson()).toList()));
+  }
+
+  void addPreset(PresetCategory category, DimensionPreset preset) {
+    presets[category]!.add(preset);
+    notifyListeners();
+    _persistPresets();
+  }
+
+  void removePreset(PresetCategory category, DimensionPreset preset) {
+    presets[category]!.remove(preset);
+    notifyListeners();
+    _persistPresets();
+  }
+
+  /// Saves (or, if a project with [id] already exists, overwrites) one
+  /// resumable project. [data] is a JSON-compatible blob only the owning
+  /// flow screen interprets.
+  void saveProject({
+    required String id,
+    required SavedProjectType type,
+    required String name,
+    required Map<String, dynamic> data,
+  }) {
+    recentProjects.removeWhere((p) => p.id == id);
+    recentProjects.insert(0, SavedProject(id: id, type: type, name: name, savedAt: DateTime.now(), data: data));
+    notifyListeners();
+    _persistProjects();
+  }
+
+  void deleteProject(String id) {
+    recentProjects.removeWhere((p) => p.id == id);
+    notifyListeners();
+    _persistProjects();
+  }
 
   void completeOnboarding() {
     _hasSeenOnboarding = true;

@@ -67,4 +67,32 @@ class LevelFormState {
         gRevKnM2: gRevKnM2,
         qKnM2: qKnM2,
       );
+
+  Map<String, dynamic> toJson() => {
+        "label": label,
+        "heightM": heightM,
+        "slabTypeId": slabTypeId,
+        "slabThicknessM": slabThicknessM,
+        "usageId": usageId,
+        "coatings": coatings.map((s) => {"name": s.coating.name, "loadKnM2": s.coating.loadKnM2}).toList(),
+        "extra": extra,
+      };
+
+  static LevelFormState fromJson(Map<String, dynamic> json) {
+    final level = LevelFormState(
+      label: json["label"] as String,
+      heightM: (json["heightM"] as num).toDouble(),
+      slabTypeId: json["slabTypeId"] as String,
+      slabThicknessM: (json["slabThicknessM"] as num).toDouble(),
+      usageId: json["usageId"] as String,
+    );
+    for (final c in json["coatings"] as List) {
+      final cm = c as Map<String, dynamic>;
+      level.coatings.add(CoatingSlot(Coating(name: cm["name"] as String, loadKnM2: (cm["loadKnM2"] as num).toDouble())));
+    }
+    for (final e in (json["extra"] as Map<String, dynamic>).entries) {
+      level.extra[e.key] = (e.value as num).toDouble();
+    }
+    return level;
+  }
 }

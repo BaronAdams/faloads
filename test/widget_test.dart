@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:flutter_test/flutter_test.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
 import "package:structcalc/src/state/app_scope.dart";
 import "package:structcalc/src/state/app_state.dart";
@@ -8,6 +9,11 @@ import "package:structcalc/src/ui/shell/app_shell.dart";
 import "package:structcalc/main.dart";
 
 void main() {
+  // StructCalcApp.initState() fires AppState.loadPersisted(), which hits
+  // SharedPreferences — without a mock store, that platform channel call
+  // throws MissingPluginException under flutter test.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets("Landing screen renders and leads into onboarding", (tester) async {
     await tester.pumpWidget(const StructCalcApp());
     await tester.pumpAndSettle();

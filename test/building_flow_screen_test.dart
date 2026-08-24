@@ -1,21 +1,35 @@
 import "package:flutter/material.dart";
 import "package:flutter_test/flutter_test.dart";
+import "package:shared_preferences/shared_preferences.dart";
 
+import "package:structcalc/src/state/app_scope.dart";
+import "package:structcalc/src/state/app_state.dart";
 import "package:structcalc/src/theme/app_theme.dart";
 import "package:structcalc/src/ui/building/building_flow_screen.dart";
 
 void main() {
+  // addPreset()/removePreset() persist to SharedPreferences in the
+  // background — without a mock store, that platform channel call throws
+  // MissingPluginException under flutter test.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   Future<void> pumpFlowFromAHomeScreen(WidgetTester tester) async {
-    await tester.pumpWidget(MaterialApp(
-      theme: AppTheme.dark,
-      home: Builder(
-        builder: (context) => Scaffold(
-          body: Center(
-            child: ElevatedButton(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const BuildingFlowScreen()),
+    // Dimension-type presets now live in AppState (see state/app_state.dart)
+    // instead of BuildingState, so the screen needs a real AppScope
+    // ancestor — same as it gets from main.dart in the real app.
+    await tester.pumpWidget(AppScope(
+      notifier: AppState(),
+      child: MaterialApp(
+        theme: AppTheme.dark,
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const BuildingFlowScreen()),
+                ),
+                child: const Text("Ouvrir"),
               ),
-              child: const Text("Ouvrir"),
             ),
           ),
         ),

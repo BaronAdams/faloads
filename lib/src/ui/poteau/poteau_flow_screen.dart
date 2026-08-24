@@ -1,6 +1,8 @@
 import "package:flutter/material.dart";
 
 import "../../domain/domain.dart";
+import "../../state/app_scope.dart";
+import "../../state/saved_project.dart";
 import "../../theme/app_colors.dart";
 import "../../theme/app_theme.dart";
 import "../../widgets/building_profile_view.dart";
@@ -38,34 +40,48 @@ const List<String> _stepLabels = ["Système", "Nœud", "Niveaux", "Récap.", "R�
 /// système porteur, nœud/aires tributaires, niveaux, récapitulatif,
 /// résultats avec prédimensionnement automatique.
 class PoteauFlowScreen extends StatefulWidget {
-  const PoteauFlowScreen({super.key});
+  const PoteauFlowScreen({super.key, this.initialProject});
+
+  /// Reopens a project saved earlier from the dashboard's "Projets
+  /// récents" instead of starting from a blank poteau.
+  final SavedProject? initialProject;
 
   @override
   State<PoteauFlowScreen> createState() => _PoteauFlowScreenState();
 }
 
 class _PoteauFlowScreenState extends State<PoteauFlowScreen> {
+  late final _projectId = widget.initialProject?.id ?? DateTime.now().millisecondsSinceEpoch.toString();
+  late String _projectName = widget.initialProject?.name ?? "Poteau sans nom";
   int _step = 0;
   int _maxReached = 0;
 
   // Step 1 — Système
-  SystemeType _systeme = SystemeType.poutresEtDalles;
-  Reglement _reglement = Reglement.ec2;
-  String _beton = "C25/30";
+  late SystemeType _systeme = _initial != null
+      ? SystemeType.values.byName(_initial!["systeme"] as String)
+      : SystemeType.poutresEtDalles;
+  late Reglement _reglement = _initial != null ? Reglement.values.byName(_initial!["reglement"] as String) : Reglement.ec2;
+  late String _beton = _initial?["beton"] as String? ?? "C25/30";
 
   // Step 2 — Nœud / aires tributaires
-  double _l1 = 3.0; // gauche
-  double _l2 = 3.0; // droite
-  double _l3 = 3.0; // haut
-  double _l4 = 3.0; // bas
-  double _poutrePrincipaleB = 25, _poutrePrincipaleH = 40;
-  double _poutreSecondaireB = 20, _poutreSecondaireH = 35;
+  late double _l1 = (_initial?["l1"] as num?)?.toDouble() ?? 3.0; // gauche
+  late double _l2 = (_initial?["l2"] as num?)?.toDouble() ?? 3.0; // droite
+  late double _l3 = (_initial?["l3"] as num?)?.toDouble() ?? 3.0; // haut
+  late double _l4 = (_initial?["l4"] as num?)?.toDouble() ?? 3.0; // bas
+  late double _poutrePrincipaleB = (_initial?["poutrePrincipaleB"] as num?)?.toDouble() ?? 25;
+  late double _poutrePrincipaleH = (_initial?["poutrePrincipaleH"] as num?)?.toDouble() ?? 40;
+  late double _poutreSecondaireB = (_initial?["poutreSecondaireB"] as num?)?.toDouble() ?? 20;
+  late double _poutreSecondaireH = (_initial?["poutreSecondaireH"] as num?)?.toDouble() ?? 35;
 
   // Step 3 — Niveaux
-  final List<LevelFormState> _levels = [
-    LevelFormState(label: "R+1"),
-    LevelFormState(label: "RDC"),
-  ];
+  late final List<LevelFormState> _levels = _initial != null
+      ? (_initial!["levels"] as List).map((l) => LevelFormState.fromJson(l as Map<String, dynamic>)).toList()
+      : [
+          LevelFormState(label: "R+1"),
+          LevelFormState(label: "RDC"),
+        ];
+
+  Map<String, dynamic>? get _initial => widget.initialProject?.data;
 
   // Each poteau only picks up half of every adjacent span (spec §4 —
   // matches the design prototype's colTotalArea = (spanG+spanD)/2 *
@@ -105,10 +121,70 @@ class _PoteauFlowScreenState extends State<PoteauFlowScreen> {
     setState(() => _levels.remove(level));
   }
 
+  Map<String, dynamic> _toJson() => {
+        "systeme": _systeme.name,
+        "reglement": _reglement.name,
+        "beton": _beton,
+        "l1": _l1,
+        "l2": _l2,
+        "l3": _l3,
+        "l4": _l4,
+        "poutrePrincipaleB": _poutrePrincipaleB,
+        "poutrePrincipaleH": _poutrePrincipaleH,
+        "poutreSecondaireB": _poutreSecondaireB,
+        "poutreSecondaireH": _poutreSecondaireH,
+        "levels": _levels.map((l) => l.toJson()).toList(),
+      };
+
+  void _openSaveDialog(BuildContext context) {
+    final controller = TextEditingController(text: _projectName);
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        title: const Text("Enregistrer le projet"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(isDense: true, labelText: "Nom du projet"),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text("Annuler")),
+          FilledButton(
+            onPressed: () {
+              final name = controller.text.trim();
+              setState(() => _projectName = name.isEmpty ? _projectName : name);
+              AppScope.of(context).saveProject(
+                id: _projectId,
+                type: SavedProjectType.poteau,
+                name: _projectName,
+                data: _toJson(),
+              );
+              Navigator.of(dialogContext).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Projet « $_projectName » enregistré")),
+              );
+            },
+            child: const Text("Enregistrer"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Poteau isolé")),
+      appBar: AppBar(
+        title: const Text("Poteau isolé"),
+        actions: [
+          IconButton(
+            tooltip: "Enregistrer le projet",
+            icon: const Icon(Icons.save_outlined),
+            onPressed: () => _openSaveDialog(context),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           StepperHeader(

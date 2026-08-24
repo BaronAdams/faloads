@@ -1,30 +1,7 @@
+import "dart:math" as math;
+
 import "../../domain/domain.dart";
 import "../common/level_form_state.dart";
-
-/// Named, reusable size presets per element category (spec §7: "un
-/// gestionnaire... permet de créer des tailles nommées par catégorie
-/// d'élément (ex. 'PTR30_40') et de les appliquer en un clic").
-enum PresetCategory { poteau, poutre, voile }
-
-extension PresetCategoryLabel on PresetCategory {
-  String get label => switch (this) {
-        PresetCategory.poteau => "Poteaux",
-        PresetCategory.poutre => "Poutres",
-        PresetCategory.voile => "Voiles",
-      };
-}
-
-class DimensionPreset {
-  DimensionPreset({required this.name, required this.aCm, this.bCm});
-
-  String name;
-
-  /// b (poteau/poutre) or épaisseur (voile).
-  double aCm;
-
-  /// h — only meaningful for poteau/poutre.
-  double? bCm;
-}
 
 /// Roman numeral for slab-panel numbering (spec §7: "panneaux de dalle
 /// désignés en chiffres romains I, II, III…").
@@ -82,6 +59,20 @@ class NodeSlot {
   double sectionBCm;
   double sectionHCm;
   String? presetName;
+
+  Map<String, dynamic> toJson() => {
+        "exists": exists,
+        "sectionBCm": sectionBCm,
+        "sectionHCm": sectionHCm,
+        if (presetName != null) "presetName": presetName,
+      };
+
+  static NodeSlot fromJson(Map<String, dynamic> json) => NodeSlot(
+        exists: json["exists"] as bool,
+        sectionBCm: (json["sectionBCm"] as num).toDouble(),
+        sectionHCm: (json["sectionHCm"] as num).toDouble(),
+        presetName: json["presetName"] as String?,
+      );
 }
 
 /// A grid edge — a poutre or a voile, or nothing if [exists] is false.
@@ -99,6 +90,22 @@ class EdgeSlot {
   double sectionBCm;
   double sectionHCm;
   String? presetName;
+
+  Map<String, dynamic> toJson() => {
+        "exists": exists,
+        "type": type.name,
+        "sectionBCm": sectionBCm,
+        "sectionHCm": sectionHCm,
+        if (presetName != null) "presetName": presetName,
+      };
+
+  static EdgeSlot fromJson(Map<String, dynamic> json) => EdgeSlot(
+        exists: json["exists"] as bool,
+        type: EdgeType.values.byName(json["type"] as String),
+        sectionBCm: (json["sectionBCm"] as num).toDouble(),
+        sectionHCm: (json["sectionHCm"] as num).toDouble(),
+        presetName: json["presetName"] as String?,
+      );
 }
 
 /// A slab panel — same catalogues as every other flow (dalle type, usage,
@@ -111,6 +118,7 @@ class BuildingPanelSlot {
     this.slabTypeId = "cc16",
     this.slabThicknessM = 0.16,
     this.usageId = "A",
+    this.groupId,
   }) : coatings = [];
 
   bool exists;
@@ -121,6 +129,13 @@ class BuildingPanelSlot {
   String usageId;
   final List<CoatingSlot> coatings;
 
+  /// Shared by every panel merged into the same group (spec follow-up:
+  /// "si 2 panneaux sont collés sans une poutre au milieu, on ait la
+  /// possibilité de les grouper") — null means ungrouped. Grouping is only
+  /// meaningful between panels whose separating beam was deleted; see
+  /// FloorModel.ungroupedNeighbors.
+  String? groupId;
+
   String get displayLabel => customLabel ?? romanLabel;
 
   SlabType get slabType => slabTypes.firstWhere((s) => s.id == slabTypeId);
@@ -130,6 +145,34 @@ class BuildingPanelSlot {
   double get qKnM2 => usage.qKnM2;
   double get pressureEluKnM2 => eluCombination(gKn: gDalleKnM2 + gRevKnM2, qKn: qKnM2);
   double get pressureElsKnM2 => elsCombination(gKn: gDalleKnM2 + gRevKnM2, qKn: qKnM2);
+
+  Map<String, dynamic> toJson() => {
+        "exists": exists,
+        "romanLabel": romanLabel,
+        if (customLabel != null) "customLabel": customLabel,
+        "slabTypeId": slabTypeId,
+        "slabThicknessM": slabThicknessM,
+        "usageId": usageId,
+        if (groupId != null) "groupId": groupId,
+        "coatings": coatings.map((s) => {"name": s.coating.name, "loadKnM2": s.coating.loadKnM2}).toList(),
+      };
+
+  static BuildingPanelSlot fromJson(Map<String, dynamic> json) {
+    final panel = BuildingPanelSlot(
+      exists: json["exists"] as bool,
+      romanLabel: json["romanLabel"] as String,
+      customLabel: json["customLabel"] as String?,
+      slabTypeId: json["slabTypeId"] as String,
+      slabThicknessM: (json["slabThicknessM"] as num).toDouble(),
+      usageId: json["usageId"] as String,
+      groupId: json["groupId"] as String?,
+    );
+    for (final c in json["coatings"] as List) {
+      final cm = c as Map<String, dynamic>;
+      panel.coatings.add(CoatingSlot(Coating(name: cm["name"] as String, loadKnM2: (cm["loadKnM2"] as num).toDouble())));
+    }
+    return panel;
+  }
 }
 
 /// One floor's full modelling: grid spans, and every node/edge/panel slot
@@ -170,6 +213,66 @@ class FloorModel {
   BuildingPanelSlot panelOrDefault(int col, int row) =>
       panels[(col, row)] ?? BuildingPanelSlot(romanLabel: toRoman(row * nx + col + 1));
 
+  /// Adjacent, existing panels that (col,row) could be grouped with: their
+  /// shared beam was deleted, so nothing structural still separates them.
+  List<(int, int)> ungroupedNeighbors(int col, int row) {
+    if (!panelOrDefault(col, row).exists) return const [];
+    final candidates = <(int, int)>[];
+    if (col + 1 < nx) candidates.add((col + 1, row));
+    if (col - 1 >= 0) candidates.add((col - 1, row));
+    if (row + 1 < ny) candidates.add((col, row + 1));
+    if (row - 1 >= 0) candidates.add((col, row - 1));
+
+    final result = <(int, int)>[];
+    for (final (nc, nr) in candidates) {
+      if (!panelOrDefault(nc, nr).exists) continue;
+      final key = nc == col
+          ? (isHorizontal: true, line: math.max(row, nr), segment: col)
+          : (isHorizontal: false, line: math.max(col, nc), segment: row);
+      if (!(edges[key]?.exists ?? true)) result.add((nc, nr));
+    }
+    return result;
+  }
+
+  /// Every still-existing cell sharing (col,row)'s group — just itself if
+  /// ungrouped. Deleting one member out of a group shrinks it back down
+  /// automatically rather than leaving a phantom cell in the merged shape.
+  List<(int, int)> groupMembers(int col, int row) {
+    final id = panels[(col, row)]?.groupId;
+    if (id == null) return [(col, row)];
+    final result = <(int, int)>[];
+    for (var c = 0; c < nx; c++) {
+      for (var r = 0; r < ny; r++) {
+        final slot = panels[(c, r)];
+        if (slot != null && slot.groupId == id && slot.exists) result.add((c, r));
+      }
+    }
+    return result;
+  }
+
+  /// Merges (col1,row1) and (col2,row2) into one group, absorbing whatever
+  /// group either was already part of.
+  void groupPanels(int col1, int row1, int col2, int row2) {
+    final p1 = panelAt(col1, row1);
+    final p2 = panelAt(col2, row2);
+    final absorbedIds = {if (p1.groupId != null) p1.groupId!, if (p2.groupId != null) p2.groupId!};
+    final id = "${col1}_${row1}_${col2}_${row2}_${DateTime.now().microsecondsSinceEpoch}";
+    for (final slot in panels.values) {
+      if (absorbedIds.contains(slot.groupId)) slot.groupId = id;
+    }
+    p1.groupId = id;
+    p2.groupId = id;
+  }
+
+  /// Splits (col,row)'s whole group back into individual panels.
+  void ungroupPanel(int col, int row) {
+    final id = panels[(col, row)]?.groupId;
+    if (id == null) return;
+    for (final slot in panels.values) {
+      if (slot.groupId == id) slot.groupId = null;
+    }
+  }
+
   FloorModel duplicate(String newLabel) {
     final copy = FloorModel(label: newLabel, nx: nx, ny: ny, spanXM: List.of(spanXM), spanYM: List.of(spanYM));
     copy.heightM = heightM;
@@ -196,11 +299,53 @@ class FloorModel {
         slabTypeId: v.slabTypeId,
         slabThicknessM: v.slabThicknessM,
         usageId: v.usageId,
+        groupId: v.groupId,
       );
       panel.coatings.addAll(v.coatings.map((s) => CoatingSlot(s.coating)));
       copy.panels[entry.key] = panel;
     }
     return copy;
+  }
+
+  // Map keys are records ((int,int) or BeamKey), which JSON can't encode
+  // directly — flattened to "col,row" / "isHorizontal,line,segment"
+  // strings and parsed back on the way in.
+  Map<String, dynamic> toJson() => {
+        "label": label,
+        "nx": nx,
+        "ny": ny,
+        "spanXM": spanXM,
+        "spanYM": spanYM,
+        "heightM": heightM,
+        "nodes": {for (final e in nodes.entries) "${e.key.$1},${e.key.$2}": e.value.toJson()},
+        "edges": {for (final e in edges.entries) "${e.key.isHorizontal},${e.key.line},${e.key.segment}": e.value.toJson()},
+        "panels": {for (final e in panels.entries) "${e.key.$1},${e.key.$2}": e.value.toJson()},
+      };
+
+  static FloorModel fromJson(Map<String, dynamic> json) {
+    final floor = FloorModel(
+      label: json["label"] as String,
+      nx: json["nx"] as int,
+      ny: json["ny"] as int,
+      spanXM: (json["spanXM"] as List).map((e) => (e as num).toDouble()).toList(),
+      spanYM: (json["spanYM"] as List).map((e) => (e as num).toDouble()).toList(),
+    );
+    floor.heightM = (json["heightM"] as num).toDouble();
+
+    for (final entry in (json["nodes"] as Map<String, dynamic>).entries) {
+      final parts = entry.key.split(",");
+      floor.nodes[(int.parse(parts[0]), int.parse(parts[1]))] = NodeSlot.fromJson(entry.value as Map<String, dynamic>);
+    }
+    for (final entry in (json["edges"] as Map<String, dynamic>).entries) {
+      final parts = entry.key.split(",");
+      final key = (isHorizontal: parts[0] == "true", line: int.parse(parts[1]), segment: int.parse(parts[2]));
+      floor.edges[key] = EdgeSlot.fromJson(entry.value as Map<String, dynamic>);
+    }
+    for (final entry in (json["panels"] as Map<String, dynamic>).entries) {
+      final parts = entry.key.split(",");
+      floor.panels[(int.parse(parts[0]), int.parse(parts[1]))] = BuildingPanelSlot.fromJson(entry.value as Map<String, dynamic>);
+    }
+    return floor;
   }
 }
 
@@ -225,18 +370,16 @@ class PanelSelection extends BuildingSelection {
   final int row;
 }
 
-/// Top-level state for the bâtiment complet flow: every floor, the shared
-/// dimension-preset registry, and the building-wide wind parameters
-/// (spec §7: "Sous-étape Vent : mêmes paramètres EC1 que le Voile isolé").
+/// Top-level state for the bâtiment complet flow: every floor and the
+/// building-wide wind parameters (spec §7: "Sous-étape Vent : mêmes
+/// paramètres EC1 que le Voile isolé"). Dimension-type presets live at
+/// app level instead (see AppState.presets in state/app_state.dart) —
+/// they're shared across every bâtiment complet visit, not scoped to one.
 class BuildingState {
   BuildingState() : floors = [FloorModel(label: "RDC")];
 
   final List<FloorModel> floors;
   int currentFloorIndex = 0;
-
-  final Map<PresetCategory, List<DimensionPreset>> presets = {
-    for (final c in PresetCategory.values) c: <DimensionPreset>[],
-  };
 
   BuildingSelection? selection;
 
@@ -253,5 +396,30 @@ class BuildingState {
 
   void duplicateCurrentFloorTo(int targetIndex) {
     floors[targetIndex] = currentFloor.duplicate(floors[targetIndex].label);
+  }
+
+  Map<String, dynamic> toJson() => {
+        "floors": floors.map((f) => f.toJson()).toList(),
+        "currentFloorIndex": currentFloorIndex,
+        "ventZone": ventZone,
+        "ventRegion": ventRegion,
+        "ventTerrain": ventTerrain,
+        "ventDirection": ventDirection,
+      };
+
+  /// Restores a full modelling session — every floor, grid, node/edge/
+  /// panel slot and the vent parameters — from a project previously saved
+  /// via [toJson].
+  static BuildingState fromJson(Map<String, dynamic> json) {
+    final state = BuildingState();
+    state.floors
+      ..clear()
+      ..addAll((json["floors"] as List).map((f) => FloorModel.fromJson(f as Map<String, dynamic>)));
+    state.currentFloorIndex = json["currentFloorIndex"] as int;
+    state.ventZone = json["ventZone"] as String;
+    state.ventRegion = json["ventRegion"] as String;
+    state.ventTerrain = json["ventTerrain"] as String;
+    state.ventDirection = json["ventDirection"] as int;
+    return state;
   }
 }

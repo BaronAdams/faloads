@@ -20,6 +20,15 @@ class _StructCalcAppState extends State<StructCalcApp> {
   final _appState = AppState();
 
   @override
+  void initState() {
+    super.initState();
+    // Fire-and-forget: AppState.notifyListeners() once loaded is enough to
+    // pop the restored presets/projects into any already-built screen —
+    // nothing needs to block the first frame on this.
+    _appState.loadPersisted();
+  }
+
+  @override
   void dispose() {
     _appState.dispose();
     super.dispose();
