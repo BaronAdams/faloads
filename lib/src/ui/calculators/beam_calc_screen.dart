@@ -44,7 +44,7 @@ class _BeamCalcScreenState extends State<BeamCalcScreen> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
-          Center(
+          const Center(
             child: StructIcon(kind: StructIconKind.beamUdl, size: 56, annotation: StructIconAnnotation.load),
           ),
           const SizedBox(height: 4),

@@ -79,7 +79,7 @@ void main() {
         columnBCm: 200,
         columnHCm: 200,
       );
-      final wElu = 1.35 * 10 + 1.5 * 5;
+      const wElu = 1.35 * 10 + 1.5 * 5;
       expect(r.jointMomentKnM, closeTo(wElu * 5 * 5 / 12, wElu * 5 * 5 / 12 * 0.05));
     });
   });
