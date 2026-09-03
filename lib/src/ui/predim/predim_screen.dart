@@ -111,7 +111,7 @@ class _PredimScreenState extends State<PredimScreen> {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 32),
         children: [
           SizedBox(
-            height: 88,
+            height: 96,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               itemCount: PredimElementType.values.length,
@@ -479,8 +479,8 @@ class _TypeChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Container(
-          width: 76,
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+          width: 88,
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: selected ? AppColors.accentBlue : AppColors.border),
@@ -488,14 +488,20 @@ class _TypeChip extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(type.icon, size: 20, color: selected ? AppColors.accentBlue : AppColors.textSecondary),
-              const SizedBox(height: 8),
+              Icon(type.icon, size: 18, color: selected ? AppColors.accentBlue : AppColors.textSecondary),
+              const SizedBox(height: 6),
+              // Longer labels ("Mur de soutènement", "Semelle de fondation")
+              // must not be able to overflow this fixed-height chip —
+              // capped to 2 lines with an ellipsis rather than sized to fit.
               Text(
                 type.label,
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w600,
+                  height: 1.15,
                   color: selected ? AppColors.textPrimary : AppColors.textTertiary,
                 ),
               ),
