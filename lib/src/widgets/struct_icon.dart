@@ -3,21 +3,34 @@ import "package:flutter/material.dart";
 import "../theme/app_colors.dart";
 
 /// The structural element (or assembly) a [StructIcon] depicts.
-enum StructIconKind { column, beam, wall, slab, balcony, stairs, beamGrid, building }
+enum StructIconKind {
+  column,
+  beam,
+  wall,
+  slab,
+  balcony,
+  stairs,
+  beamGrid,
+  building,
+  beamUdl,
+  portalFrame,
+  retainingWall,
+  footing,
+}
 
 /// What extra cue to overlay on the glyph: dimension lines (cotes), for a
-/// prédimensionnement entry — "you're about to size this" — or downward
-/// load arrows, for a descente de charges entry — "this is what receives
-/// a load".
-enum StructIconAnnotation { none, dimensions, load }
+/// prédimensionnement step — "you're about to size this"; downward load
+/// arrows, for a descente de charges entry — "this is what receives a
+/// load"; or small rebar dots on the cut face, for a dimensionnement béton
+/// armé entry — "you're about to design/verify its ferraillage".
+enum StructIconAnnotation { none, dimensions, load, rebar }
 
-/// Small 2.5D (isometric-shaded) glyph for a structural element — a block
-/// for a poteau, an elongated bar for a poutre, a tall slab for a voile,
-/// and so on — instead of a generic Material icon that doesn't actually
-/// say "column" or "wall". Each block's faces are tinted toward a
-/// concrete grey (not a flat saturated colour) so it reads as béton armé,
-/// with the category accent still showing through for at-a-glance
-/// identification. Ported from the design prototype's icon set
+/// Small 2.5D isometric glyph for a structural element — a block for a
+/// poteau, an elongated bar for a poutre, a tall slab for a voile, and so
+/// on — instead of a generic Material icon that doesn't actually say
+/// "column" or "wall". Every box is drawn as an outline only (transparent
+/// fill, coloured stroke) so it reads as a clean technical sketch rather
+/// than a flat glyph. Ported from the design prototype's icon set
 /// (renderIcon: 'column', 'beam', 'wall', 'building'), extended with
 /// matching glyphs for the element types the prototype didn't need an
 /// icon for.
@@ -52,7 +65,6 @@ class _StructIconPainter extends CustomPainter {
   final StructIconAnnotation annotation;
 
   static const _designSize = 18.0;
-  static const _concreteGrey = Color(0xFF9199A6);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -125,6 +137,44 @@ class _StructIconPainter extends CustomPainter {
           box(const Rect.fromLTWH(11.6, 3, 3.2, 12), 1.6);
           break;
         }
+      case StructIconKind.beamUdl:
+        {
+          // Calculateur de poutres: a simply-supported beam (triangle pin
+          // at one end, triangle-on-rollers at the other) under a uniformly
+          // distributed load — the textbook "poutre sur 2 appuis" sketch.
+          box(const Rect.fromLTWH(2, 8, 14, 2.6), 1.6);
+          _drawSupportTriangle(canvas, const Offset(3.6, 10.6), rollers: false);
+          _drawSupportTriangle(canvas, const Offset(15.4, 10.6), rollers: true);
+          _drawDistributedLoad(canvas, const Rect.fromLTWH(2, 8, 14, 2.6));
+          break;
+        }
+      case StructIconKind.portalFrame:
+        {
+          // Calculateur de cadres: a single-bay portal frame — 2 poteaux
+          // and a poutre closing the rectangle, "structure coordonnée
+          // formée de 4 cadres" (4 members meeting at 2 rigid joints).
+          box(const Rect.fromLTWH(2.5, 6, 2.6, 9), 1.4);
+          box(const Rect.fromLTWH(12.9, 6, 2.6, 9), 1.4);
+          box(const Rect.fromLTWH(2.5, 3, 13, 3), 1.4);
+          break;
+        }
+      case StructIconKind.retainingWall:
+        {
+          // A cantilevered mur de soutènement: a tall vertical stem on a
+          // wider horizontal base slab, retained earth suggested by a
+          // stepped line on the back (right) side.
+          box(const Rect.fromLTWH(6.5, 8.5, 8, 3), 1.6);
+          box(const Rect.fromLTWH(4, 2, 3.6, 9), 1.6);
+          break;
+        }
+      case StructIconKind.footing:
+        {
+          // Semelle de fondation: a shallow wide base slab under a short
+          // poteau stub, isolée-style (works for filante too at a glance).
+          box(const Rect.fromLTWH(2, 11, 14, 2.6), 1.8);
+          box(const Rect.fromLTWH(6.5, 5, 5, 6.5), 1.8);
+          break;
+        }
     }
 
     if (annotation != StructIconAnnotation.none) {
@@ -140,6 +190,11 @@ class _StructIconPainter extends CustomPainter {
             _drawLoadArrows(canvas, bounds);
             break;
           }
+        case StructIconAnnotation.rebar:
+          {
+            _drawRebarSection(canvas, fronts.first);
+            break;
+          }
         case StructIconAnnotation.none:
           break;
       }
@@ -148,32 +203,76 @@ class _StructIconPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Draws [front] as a small extruded block: a lighter top face and a
-  /// darker side face (offset up-right by [depth]) around a base face
-  /// blended toward concrete grey — the classic 3-face isometric shading
-  /// that makes a flat rectangle read as a 2.5D block of béton.
+  /// Draws [front] as an extruded block outline — front, top and side
+  /// faces each stroked in [color] with a fully transparent fill, so the
+  /// glyph reads as a clean isometric line sketch rather than a solid
+  /// shaded volume.
   void _isoBox(Canvas canvas, Rect front, double depth) {
-    final base = Color.lerp(color, _concreteGrey, 0.32)!;
-    final top = Color.lerp(base, Colors.white, 0.35)!;
-    final side = Color.lerp(base, Colors.black, 0.35)!;
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..strokeJoin = StrokeJoin.round;
 
-    final sidePath = Path()
-      ..moveTo(front.right, front.top)
-      ..lineTo(front.right + depth, front.top - depth)
-      ..lineTo(front.right + depth, front.bottom - depth)
-      ..lineTo(front.right, front.bottom)
-      ..close();
-    canvas.drawPath(sidePath, Paint()..color = side);
+    final topLeft = Offset(front.left + depth, front.top - depth);
+    final topRight = Offset(front.right + depth, front.top - depth);
+    final bottomRight = Offset(front.right + depth, front.bottom - depth);
+
+    canvas.drawRect(front, stroke);
 
     final topPath = Path()
       ..moveTo(front.left, front.top)
-      ..lineTo(front.left + depth, front.top - depth)
-      ..lineTo(front.right + depth, front.top - depth)
+      ..lineTo(topLeft.dx, topLeft.dy)
+      ..lineTo(topRight.dx, topRight.dy)
       ..lineTo(front.right, front.top)
       ..close();
-    canvas.drawPath(topPath, Paint()..color = top);
+    canvas.drawPath(topPath, stroke);
 
-    canvas.drawRect(front, Paint()..color = base);
+    final sidePath = Path()
+      ..moveTo(front.right, front.top)
+      ..lineTo(topRight.dx, topRight.dy)
+      ..lineTo(bottomRight.dx, bottomRight.dy)
+      ..lineTo(front.right, front.bottom)
+      ..close();
+    canvas.drawPath(sidePath, stroke);
+  }
+
+  /// A small pin (or, with [rollers], pin-on-rollers) support triangle
+  /// under [tip] — the standard statics symbol for a simply-supported
+  /// beam's end conditions.
+  void _drawSupportTriangle(Canvas canvas, Offset tip, {required bool rollers}) {
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.0
+      ..strokeJoin = StrokeJoin.round;
+    const halfWidth = 1.3;
+    const height = 2.0;
+    final path = Path()
+      ..moveTo(tip.dx, tip.dy)
+      ..lineTo(tip.dx - halfWidth, tip.dy + height)
+      ..lineTo(tip.dx + halfWidth, tip.dy + height)
+      ..close();
+    canvas.drawPath(path, stroke);
+    if (rollers) {
+      final y = tip.dy + height + 0.9;
+      canvas.drawCircle(Offset(tip.dx - 0.7, y), 0.5, stroke);
+      canvas.drawCircle(Offset(tip.dx + 0.7, y), 0.5, stroke);
+    }
+  }
+
+  /// A row of short downward ticks along the top of [front] — the
+  /// classic "charge répartie" hatching above a loaded beam.
+  void _drawDistributedLoad(Canvas canvas, Rect front) {
+    final stroke = Paint()
+      ..color = color.withValues(alpha: 0.75)
+      ..strokeWidth = 0.8
+      ..strokeCap = StrokeCap.round;
+    final y = front.top - 2.4;
+    canvas.drawLine(Offset(front.left, y), Offset(front.right, y), stroke);
+    for (var x = front.left + 0.5; x <= front.right; x += 2.3) {
+      canvas.drawLine(Offset(x, y), Offset(x, front.top - 0.3), stroke);
+    }
   }
 
   /// A short cotation around [bounds]: a dimension line under the shape
@@ -181,7 +280,7 @@ class _StructIconPainter extends CustomPainter {
   /// engineering-drawing shorthand for "this is being measured/sized".
   void _drawDimensions(Canvas canvas, Rect bounds) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.85)
+      ..color = color
       ..strokeWidth = 0.9;
 
     final y = bounds.bottom + 2;
@@ -199,7 +298,7 @@ class _StructIconPainter extends CustomPainter {
   /// is receiving a load", for a descente de charges entry.
   void _drawLoadArrows(Canvas canvas, Rect bounds) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.85)
+      ..color = color
       ..strokeWidth = 1.1
       ..strokeCap = StrokeCap.round;
 
@@ -210,6 +309,24 @@ class _StructIconPainter extends CustomPainter {
       canvas.drawLine(Offset(fx, startY), Offset(fx, tipY), paint);
       canvas.drawLine(Offset(fx - 1.4, tipY - 1.8), Offset(fx, tipY), paint);
       canvas.drawLine(Offset(fx + 1.4, tipY - 1.8), Offset(fx, tipY), paint);
+    }
+  }
+
+  /// Small filled rebar dots near the corners of [front] — reads as a cut
+  /// section through the element showing its ferraillage, for a
+  /// dimensionnement béton armé entry ("you're about to design/verify
+  /// this element's reinforcement").
+  void _drawRebarSection(Canvas canvas, Rect front) {
+    final dot = Paint()..color = color;
+    const inset = 1.15;
+    final positions = <Offset>[
+      Offset(front.left + inset, front.top + inset),
+      Offset(front.right - inset, front.top + inset),
+      Offset(front.left + inset, front.bottom - inset),
+      Offset(front.right - inset, front.bottom - inset),
+    ];
+    for (final p in positions) {
+      canvas.drawCircle(p, 0.6, dot);
     }
   }
 

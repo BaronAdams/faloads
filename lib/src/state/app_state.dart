@@ -8,6 +8,13 @@ import "saved_project.dart";
 
 const _prefsPresetsKey = "structcalc.presets.v1";
 const _prefsProjectsKey = "structcalc.projects.v1";
+const _prefsSessionKey = "structcalc.session.v1";
+const _prefsThemeModeKey = "structcalc.thememode.v1";
+
+/// Decoupled from Flutter's own `ThemeMode` so this state layer doesn't
+/// need to import material.dart — main.dart maps this to the real
+/// `ThemeMode` when building `MaterialApp`.
+enum AppThemeMode { light, dark, system }
 
 /// Global, session-level app state: onboarding/paywall progress, the
 /// signed-in/subscription flags that gate the "Mon compte" tab and premium
@@ -19,10 +26,12 @@ class AppState extends ChangeNotifier {
   bool _hasSeenOnboarding = false;
   bool _isLoggedIn = false;
   bool _isSubscribed = false;
+  AppThemeMode _themeMode = AppThemeMode.dark;
 
   bool get hasSeenOnboarding => _hasSeenOnboarding;
   bool get isLoggedIn => _isLoggedIn;
   bool get isSubscribed => _isSubscribed;
+  AppThemeMode get themeMode => _themeMode;
 
   /// Reusable dimension-type presets, per element category — created once
   /// (typically from the bâtiment complet toolbar or a node/edge sheet)
@@ -38,9 +47,12 @@ class AppState extends ChangeNotifier {
 
   bool _loaded = false;
 
-  /// Restores [presets] and [recentProjects] from disk. Call once, early
-  /// (see main.dart) — safe to call more than once, a no-op after the
-  /// first successful load.
+  /// Restores [presets], [recentProjects], the onboarding/login session and
+  /// the theme mode from disk. Call once, early (see main.dart) — safe to
+  /// call more than once, a no-op after the first successful load. Startup
+  /// routing (main.dart) waits on this so a returning user with
+  /// [hasSeenOnboarding]/[isLoggedIn] already true never sees the
+  /// onboarding sequence again — only a fresh install does.
   Future<void> loadPersisted() async {
     if (_loaded) return;
     final prefs = await SharedPreferences.getInstance();
@@ -65,6 +77,19 @@ class AppState extends ChangeNotifier {
       );
     }
 
+    final sessionJson = prefs.getString(_prefsSessionKey);
+    if (sessionJson != null) {
+      final decoded = jsonDecode(sessionJson) as Map<String, dynamic>;
+      _hasSeenOnboarding = decoded["hasSeenOnboarding"] as bool? ?? false;
+      _isLoggedIn = decoded["isLoggedIn"] as bool? ?? false;
+      _isSubscribed = decoded["isSubscribed"] as bool? ?? false;
+    }
+
+    final themeModeName = prefs.getString(_prefsThemeModeKey);
+    if (themeModeName != null) {
+      _themeMode = AppThemeMode.values.byName(themeModeName);
+    }
+
     _loaded = true;
     notifyListeners();
   }
@@ -80,6 +105,18 @@ class AppState extends ChangeNotifier {
   Future<void> _persistProjects() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsProjectsKey, jsonEncode(recentProjects.map((p) => p.toJson()).toList()));
+  }
+
+  Future<void> _persistSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _prefsSessionKey,
+      jsonEncode({
+        "hasSeenOnboarding": _hasSeenOnboarding,
+        "isLoggedIn": _isLoggedIn,
+        "isSubscribed": _isSubscribed,
+      }),
+    );
   }
 
   void addPreset(PresetCategory category, DimensionPreset preset) {
@@ -118,27 +155,38 @@ class AppState extends ChangeNotifier {
   void completeOnboarding() {
     _hasSeenOnboarding = true;
     notifyListeners();
+    _persistSession();
   }
 
   void startFreeTrial() {
     _isSubscribed = true;
     _isLoggedIn = true;
     notifyListeners();
+    _persistSession();
   }
 
   void continueWithoutSubscription() {
     _isLoggedIn = true;
     notifyListeners();
+    _persistSession();
   }
 
   void logIn() {
     _isLoggedIn = true;
     notifyListeners();
+    _persistSession();
   }
 
   void logOut() {
     _isLoggedIn = false;
     _isSubscribed = false;
     notifyListeners();
+    _persistSession();
+  }
+
+  void setThemeMode(AppThemeMode mode) {
+    _themeMode = mode;
+    notifyListeners();
+    SharedPreferences.getInstance().then((prefs) => prefs.setString(_prefsThemeModeKey, mode.name));
   }
 }

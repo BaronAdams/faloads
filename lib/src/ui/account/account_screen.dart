@@ -49,7 +49,7 @@ class AccountScreen extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         app.isSubscribed ? "Essai gratuit en cours" : "Fonctionnalités limitées",
-                        style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                        style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
                       ),
                     ],
                   ),
@@ -65,7 +65,7 @@ class AccountScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             "PROJETS",
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.4, color: AppColors.textTertiary),
           ),

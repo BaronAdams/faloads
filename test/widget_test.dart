@@ -61,21 +61,28 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text("Prédimensionnement"), findsOneWidget);
+    expect(find.text("Calculateurs"), findsOneWidget);
 
     // The dashboard's content is taller than the test surface, and
     // ListView — even with a plain `children:` list, not `.builder` — only
     // mounts children within the current viewport (plus a small cache
-    // extent): everything below "Prédimensionnement" genuinely isn't built
-    // yet until scrolled into view. That's correct, ordinary Sliver
-    // behavior, not a bug — the earlier "0 widgets found" failures here
-    // were the test not scrolling, not the app failing to render.
+    // extent): everything below "Calculateurs" genuinely isn't built yet
+    // until scrolled into view. That's correct, ordinary Sliver behavior,
+    // not a bug — the earlier "0 widgets found" failures here were the
+    // test not scrolling, not the app failing to render.
     await tester.scrollUntilVisible(
       find.text("Descente de charges"),
       300,
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text("Descente de charges"), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text("Dimensionnement béton armé complet"),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text("Dimensionnement béton armé complet"), findsOneWidget);
 
     await tester.scrollUntilVisible(
       find.text("Projets récents"),

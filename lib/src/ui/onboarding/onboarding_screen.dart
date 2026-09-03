@@ -219,13 +219,13 @@ class _TimeCompareBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _TimeBar(label: "À la main", fraction: 1.0, valueLabel: "≈ 2 h", color: AppColors.textTertiary),
-        SizedBox(height: 16),
-        _TimeBar(label: "Avec StructCalc", fraction: 0.12, valueLabel: "≈ 15 min", color: AppColors.accentBlue),
+        const SizedBox(height: 16),
+        const _TimeBar(label: "Avec StructCalc", fraction: 0.12, valueLabel: "≈ 15 min", color: AppColors.accentBlue),
       ],
     );
   }
@@ -252,7 +252,7 @@ class _TimeBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: const TextStyle(fontSize: 13, color: AppColors.textSecondary)),
+            Text(label, style: TextStyle(fontSize: 13, color: AppColors.textSecondary)),
             Text(
               valueLabel,
               style: AppTheme.monoTextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: color),
@@ -421,7 +421,7 @@ class _StatBlock extends StatelessWidget {
           style: AppTheme.monoTextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 10.5, color: AppColors.textTertiary)),
+        Text(label, style: TextStyle(fontSize: 10.5, color: AppColors.textTertiary)),
       ],
     );
   }
@@ -434,7 +434,7 @@ class _FinalHookBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Text(
         "Un essai gratuit de 7 jours, sans engagement — passez à la "
         "suite pour choisir votre formule.",

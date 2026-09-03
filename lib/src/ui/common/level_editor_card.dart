@@ -161,7 +161,7 @@ class _LevelEditorCardState extends State<LevelEditorCard> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         "Revêtements",
                         style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
                       ),

@@ -55,10 +55,10 @@ class ProjectTile extends StatelessWidget {
       title: Text(project.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
       subtitle: Text(
         "${project.type.label} · $_dateLabel",
-        style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+        style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
       ),
       trailing: IconButton(
-        icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.textTertiary),
+        icon: Icon(Icons.delete_outline, size: 18, color: AppColors.textTertiary),
         onPressed: () => AppScope.of(context).deleteProject(project.id),
       ),
       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => _reopen())),

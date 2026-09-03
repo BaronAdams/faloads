@@ -52,8 +52,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              const StaggerIn(
-                delay: Duration(milliseconds: 60),
+              StaggerIn(
+                delay: const Duration(milliseconds: 60),
                 child: Text(
                   "Débloquez le bâtiment complet et l'export.",
                   style: TextStyle(fontSize: 13, color: AppColors.textSecondary),

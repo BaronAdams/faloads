@@ -1,6 +1,7 @@
 import "package:flutter/material.dart";
 
 import "../../state/app_scope.dart";
+import "../../state/app_state.dart";
 import "../../theme/app_colors.dart";
 
 /// Paramètres tab (spec §2): units, default règlement, language, theme,
@@ -61,7 +62,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onSelected: (v) => setState(() => _langue = v),
             ),
           ),
-          const _SettingsTile(label: "Thème", value: "Sombre"),
+          _SettingsTile(
+            label: "Thème",
+            value: _themeModeLabel(app.themeMode),
+            onTap: () => _pick(
+              context,
+              title: "Thème",
+              options: const ["Clair", "Sombre", "Système"],
+              current: _themeModeLabel(app.themeMode),
+              onSelected: (v) => app.setThemeMode(_themeModeFromLabel(v)),
+            ),
+          ),
           const Divider(height: 32),
           const _GroupLabel("Compte"),
           if (app.isLoggedIn)
@@ -122,6 +133,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
+String _themeModeLabel(AppThemeMode mode) => switch (mode) {
+      AppThemeMode.light => "Clair",
+      AppThemeMode.dark => "Sombre",
+      AppThemeMode.system => "Système",
+    };
+
+AppThemeMode _themeModeFromLabel(String label) => switch (label) {
+      "Clair" => AppThemeMode.light,
+      "Sombre" => AppThemeMode.dark,
+      _ => AppThemeMode.system,
+    };
+
 class _GroupLabel extends StatelessWidget {
   const _GroupLabel(this.label);
 
@@ -133,7 +156,7 @@ class _GroupLabel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 11,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.4,
@@ -158,10 +181,10 @@ class _SettingsTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(value, style: const TextStyle(color: AppColors.textSecondary)),
+          Text(value, style: TextStyle(color: AppColors.textSecondary)),
           if (onTap != null) ...[
             const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+            Icon(Icons.chevron_right, color: AppColors.textTertiary),
           ],
         ],
       ),

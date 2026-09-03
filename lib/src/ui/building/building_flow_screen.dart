@@ -333,7 +333,7 @@ class _StepModelisationState extends State<_StepModelisation> {
                     },
                   ),
                   const SizedBox(height: 16),
-                  const Text("Portées X", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                  Text("Portées X", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                   const SizedBox(height: 8),
                   for (var i = 0; i < floor.nx; i++)
                     Padding(
@@ -351,7 +351,7 @@ class _StepModelisationState extends State<_StepModelisation> {
                       ),
                     ),
                   const SizedBox(height: 8),
-                  const Text("Portées Y", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                  Text("Portées Y", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                   const SizedBox(height: 8),
                   for (var j = 0; j < floor.ny; j++)
                     Padding(
@@ -688,7 +688,7 @@ class _StepModelisationState extends State<_StepModelisation> {
                       },
                     ),
                     const SizedBox(height: 16),
-                    const Text("Revêtements", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+                    Text("Revêtements", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
                     const SizedBox(height: 8),
                     for (final slot in panel.coatings)
                       CoatingRow(
@@ -761,7 +761,7 @@ class _StepModelisationState extends State<_StepModelisation> {
                 const SizedBox(height: 4),
                 Text(
                   "Longueur ${(Offset(beam.x2M, beam.y2M) - Offset(beam.x1M, beam.y1M)).distance.toStringAsFixed(2)} m",
-                  style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -831,7 +831,7 @@ class _StepModelisationState extends State<_StepModelisation> {
                 children: [
                   const Text("Poteau oblique", style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     "Positionné librement — hors grille, donc l'aire tributaire et les charges se saisissent directement.",
                     style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary, height: 1.35),
                   ),
@@ -915,7 +915,7 @@ class _StepModelisationState extends State<_StepModelisation> {
                     ),
                     child: Row(
                       children: [
-                        const Expanded(child: Text("N_ELU", style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary))),
+                        Expanded(child: Text("N_ELU", style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary))),
                         Text(
                           "${poteau.nEluKn.toStringAsFixed(1)} kN",
                           style: AppTheme.monoTextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.accentBlue),
@@ -977,7 +977,7 @@ class _PanelGroupingSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Groupement", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+        Text("Groupement", style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
         const SizedBox(height: 8),
         if (isGrouped)
           Container(
@@ -1036,7 +1036,7 @@ class _FloorBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
       child: Row(
         children: [
           Expanded(
@@ -1123,7 +1123,7 @@ class _GridSummaryBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
       child: Row(
         children: [
           Expanded(
@@ -1172,7 +1172,7 @@ class _ObliqueToolbar extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
+      decoration: BoxDecoration(border: Border(bottom: BorderSide(color: AppColors.border))),
       child: hint == null
           ? Row(
               children: [
@@ -1226,13 +1226,13 @@ class _SelectedElementBar extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: const BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.border))),
+      decoration: BoxDecoration(color: AppColors.surface, border: Border(top: BorderSide(color: AppColors.border))),
       child: Row(
         children: [
           Expanded(child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700))),
           TextButton(onPressed: onModify, child: const Text("Modifier")),
           IconButton(
-            icon: const Icon(Icons.close, size: 18, color: AppColors.textTertiary),
+            icon: Icon(Icons.close, size: 18, color: AppColors.textTertiary),
             onPressed: () {
               building.selection = null;
               onChanged();
@@ -1259,7 +1259,7 @@ class _StepVent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             "Vent EC1, appliqué globalement au bâtiment (mêmes paramètres que le voile isolé).",
             style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
           ),
@@ -1407,10 +1407,10 @@ class _StepResultatsState extends State<_StepResultats> with SingleTickerProvide
                         _ => _PoteauResultsTable(floor: floor),
                       };
                       return DecoratedBox(
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           color: AppColors.surface,
-                          borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
-                          boxShadow: [BoxShadow(color: Colors.black45, blurRadius: 16, offset: Offset(0, -3))],
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                          boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 16, offset: Offset(0, -3))],
                         ),
                         // A single Scrollable using the builder's own
                         // scrollController — this, not a hand-rolled drag
@@ -1542,7 +1542,7 @@ class _ResultsTable extends StatelessWidget {
     if (rows.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(24),
-        child: Text(emptyMessage, textAlign: TextAlign.center, style: const TextStyle(fontSize: 12.5, color: AppColors.textTertiary)),
+        child: Text(emptyMessage, textAlign: TextAlign.center, style: TextStyle(fontSize: 12.5, color: AppColors.textTertiary)),
       );
     }
     return Padding(
@@ -1563,7 +1563,7 @@ class _ResultsTable extends StatelessWidget {
           const SizedBox(height: 8),
           Align(
             alignment: Alignment.centerLeft,
-            child: Text(valueLabel, style: const TextStyle(fontSize: 10.5, color: AppColors.textTertiary)),
+            child: Text(valueLabel, style: TextStyle(fontSize: 10.5, color: AppColors.textTertiary)),
           ),
         ],
       ),
@@ -1601,8 +1601,8 @@ class _DimensionTypeRow extends StatelessWidget {
       children: [
         Expanded(
           child: presets.isEmpty
-              ? const Padding(
-                  padding: EdgeInsets.only(bottom: 10),
+              ? Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: Text(
                     "Aucune dimension type enregistrée.",
                     style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
@@ -1684,8 +1684,8 @@ class _PresetManagerDialogState extends State<_PresetManagerDialog> {
             ),
             const SizedBox(height: 14),
             if (presets.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Text("Aucune dimension type pour cette catégorie.", style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
               )
             else
@@ -1699,7 +1699,7 @@ class _PresetManagerDialogState extends State<_PresetManagerDialog> {
                     style: AppTheme.monoTextStyle(fontSize: 11.5, color: AppColors.textSecondary),
                   ),
                   trailing: IconButton(
-                    icon: const Icon(Icons.close, size: 16, color: AppColors.textTertiary),
+                    icon: Icon(Icons.close, size: 16, color: AppColors.textTertiary),
                     onPressed: () {
                       AppScope.of(context).removePreset(_category, preset);
                       widget.onChanged();

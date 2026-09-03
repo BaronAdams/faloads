@@ -304,7 +304,7 @@ class _StepSystemeVent extends StatelessWidget {
             children: [
               const Text("Vent EC1", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 "Zone / région / terrain sont indicatifs pour le rapport ; le calcul "
                 "utilise un modèle simplifié de pression selon l'altitude uniquement.",
                 style: TextStyle(fontSize: 11, color: AppColors.textTertiary),
@@ -525,7 +525,7 @@ class _RecapRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary))),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary))),
           Text(value, style: AppTheme.monoTextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
         ],
       ),

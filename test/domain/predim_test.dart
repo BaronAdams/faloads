@@ -117,4 +117,32 @@ void main() {
       expect(predimPlancher(porteeM: 6.5, pleine: false).label, "Corps creux 25+4");
     });
   });
+
+  group("predimSemelle", () {
+    test("isolée: area from bearing pressure, depth from the rigid-body rule", () {
+      final r = predimSemelle(type: SemelleType.isolee, nElsKn: 800, solBearingKnM2: 200, supportCm: 40);
+      expect(r.areaM2, closeTo(4.0, 1e-9));
+      expect(r.widthCm, 200.0); // sqrt(4)=2m=200cm, already a multiple of 5
+      expect(r.heightCm, 40.0); // (200-40)/4 = 40
+    });
+
+    test("filante: width per running metre, same depth rule", () {
+      final r = predimSemelle(type: SemelleType.filante, nElsKn: 100, solBearingKnM2: 200, supportCm: 30);
+      expect(r.areaM2, closeTo(0.5, 1e-9));
+      expect(r.widthCm, 50.0); // 0.5m=50cm
+      expect(r.heightCm, 15.0); // (50-30)/4=5 -> clamped to the 15cm minimum
+    });
+  });
+
+  group("predimMurSoutenement", () {
+    test("Rankine active thrust and the B≈0.6H / stem H/12 rules", () {
+      final r = predimMurSoutenement(hauteurM: 3.0, gammaSolKnM3: 18, phiDeg: 30);
+      // Ka = tan²(45° - 15°) = tan²(30°) = 1/3 exactly.
+      expect(r.kaCoeff, closeTo(1 / 3, 1e-6));
+      // Pa = 0.5 × (1/3) × 18 × 9 = 27 kN/ml.
+      expect(r.activeThrustKnM, closeTo(27.0, 1e-6));
+      expect(r.baseWidthCm, 180.0); // 0.6×3m = 1.8m = 180cm
+      expect(r.stemThicknessCm, 25.0); // 300/12=25cm, already ≥ the 20cm minimum
+    });
+  });
 }

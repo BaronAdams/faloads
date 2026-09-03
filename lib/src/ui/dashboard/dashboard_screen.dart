@@ -6,6 +6,8 @@ import "../../widgets/empty_state.dart";
 import "../../widgets/project_tile.dart";
 import "../../widgets/struct_icon.dart";
 import "../building/building_flow_screen.dart";
+import "../calculators/beam_calc_screen.dart";
+import "../calculators/frame_calc_screen.dart";
 import "../poteau/poteau_flow_screen.dart";
 import "../predim/predim_screen.dart";
 import "../voile/voile_flow_screen.dart";
@@ -26,47 +28,25 @@ class _CalcEntry {
   final Widget Function() destination;
 }
 
-/// Dashboard / "Calculs" home (spec §2): two calculation families —
-/// Prédimensionnement (6 element types) and Descente de charges (poteau /
-/// voile / bâtiment complet) — plus a recent-projects list that starts
-/// empty.
+/// Dashboard / "Calculs" home (spec §2): three families — the standalone
+/// poutre/cadre statics calculators, descente de charges (poteau / voile /
+/// bâtiment complet), and dimensionnement béton armé complet (every
+/// element type, prédimensionnement being its first step) — plus a
+/// recent-projects list that starts empty.
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
-  static final List<_CalcEntry> _predim = [
+  static final List<_CalcEntry> _calculateurs = [
     _CalcEntry(
-      iconKind: StructIconKind.column,
-      label: "Poteau",
-      destination: () => const PredimScreen(initialType: PredimElementType.poteau),
-    ),
-    _CalcEntry(
-      iconKind: StructIconKind.beam,
+      iconKind: StructIconKind.beamUdl,
       iconColor: AppColors.accentAmber,
-      label: "Poutre",
-      destination: () => const PredimScreen(initialType: PredimElementType.poutre),
+      label: "Calculateur de poutres",
+      destination: () => const BeamCalcScreen(),
     ),
     _CalcEntry(
-      iconKind: StructIconKind.wall,
-      iconColor: AppColors.accentTeal,
-      label: "Voile",
-      destination: () => const PredimScreen(initialType: PredimElementType.voile),
-    ),
-    _CalcEntry(
-      iconKind: StructIconKind.slab,
-      iconColor: AppColors.accentTeal,
-      label: "Plancher",
-      destination: () => const PredimScreen(initialType: PredimElementType.plancher),
-    ),
-    _CalcEntry(
-      iconKind: StructIconKind.balcony,
-      iconColor: AppColors.accentTeal,
-      label: "Balcon",
-      destination: () => const PredimScreen(initialType: PredimElementType.balcon),
-    ),
-    _CalcEntry(
-      iconKind: StructIconKind.stairs,
-      label: "Escalier",
-      destination: () => const PredimScreen(initialType: PredimElementType.escalier),
+      iconKind: StructIconKind.portalFrame,
+      label: "Calculateur de cadres",
+      destination: () => const FrameCalcScreen(),
     ),
   ];
 
@@ -86,6 +66,54 @@ class DashboardScreen extends StatelessWidget {
     ),
   ];
 
+  static final List<_CalcEntry> _dimensionnement = [
+    _CalcEntry(
+      iconKind: StructIconKind.column,
+      label: "Poteau",
+      destination: () => const PredimScreen(initialType: PredimElementType.poteau),
+    ),
+    _CalcEntry(
+      iconKind: StructIconKind.beam,
+      iconColor: AppColors.accentAmber,
+      label: "Poutre",
+      destination: () => const PredimScreen(initialType: PredimElementType.poutre),
+    ),
+    _CalcEntry(
+      iconKind: StructIconKind.wall,
+      iconColor: AppColors.accentTeal,
+      label: "Voile",
+      destination: () => const PredimScreen(initialType: PredimElementType.voile),
+    ),
+    _CalcEntry(
+      iconKind: StructIconKind.stairs,
+      label: "Escalier",
+      destination: () => const PredimScreen(initialType: PredimElementType.escalier),
+    ),
+    _CalcEntry(
+      iconKind: StructIconKind.balcony,
+      iconColor: AppColors.accentTeal,
+      label: "Balcon",
+      destination: () => const PredimScreen(initialType: PredimElementType.balcon),
+    ),
+    _CalcEntry(
+      iconKind: StructIconKind.slab,
+      iconColor: AppColors.accentTeal,
+      label: "Plancher",
+      destination: () => const PredimScreen(initialType: PredimElementType.plancher),
+    ),
+    _CalcEntry(
+      iconKind: StructIconKind.retainingWall,
+      iconColor: AppColors.accentTeal,
+      label: "Mur de soutènement",
+      destination: () => const PredimScreen(initialType: PredimElementType.murSoutenement),
+    ),
+    _CalcEntry(
+      iconKind: StructIconKind.footing,
+      label: "Semelle de fondation",
+      destination: () => const PredimScreen(initialType: PredimElementType.semelle),
+    ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
@@ -95,18 +123,25 @@ class DashboardScreen extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
         children: [
           const _SectionTitle(
-            title: "Prédimensionnement",
-            subtitle: "Dimensionner un élément seul, sans modélisation",
+            title: "Calculateurs",
+            subtitle: "Analyser une poutre ou un cadre isolé",
           ),
           const SizedBox(height: 10),
-          _CalcGrid(entries: _predim, crossAxisCount: 3, annotation: StructIconAnnotation.dimensions),
+          _CalcGrid(entries: _calculateurs, annotation: StructIconAnnotation.none),
           const SizedBox(height: 24),
           const _SectionTitle(
             title: "Descente de charges",
             subtitle: "Cheminement complet des charges jusqu'aux fondations",
           ),
           const SizedBox(height: 10),
-          _CalcGrid(entries: _descente, crossAxisCount: 2, annotation: StructIconAnnotation.load),
+          _CalcGrid(entries: _descente, annotation: StructIconAnnotation.load),
+          const SizedBox(height: 24),
+          const _SectionTitle(
+            title: "Dimensionnement béton armé complet",
+            subtitle: "Prédimensionnement, ferraillage et vérifications, étape par étape",
+          ),
+          const SizedBox(height: 10),
+          _CalcGrid(entries: _dimensionnement, annotation: StructIconAnnotation.rebar),
           const SizedBox(height: 24),
           const _SectionTitle(title: "Projets récents"),
           const SizedBox(height: 10),
@@ -148,21 +183,25 @@ class _SectionTitle extends StatelessWidget {
         Text(title, style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700)),
         if (subtitle != null) ...[
           const SizedBox(height: 2),
-          Text(subtitle!, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+          Text(subtitle!, style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
         ],
       ],
     );
   }
 }
 
+/// Always 2 cards per row (spec follow-up: "max 2 cartes par ligne... les
+/// cartes doivent être grandes, pas trop grandes, mais quand même
+/// grandes") — a squarer aspect ratio than a 3-per-row grid would allow,
+/// so each card reads as a real tile rather than a thin strip.
 class _CalcGrid extends StatelessWidget {
-  const _CalcGrid({required this.entries, required this.crossAxisCount, required this.annotation});
+  const _CalcGrid({required this.entries, required this.annotation});
 
   final List<_CalcEntry> entries;
-  final int crossAxisCount;
   final StructIconAnnotation annotation;
 
   static const double _spacing = 10;
+  static const double _aspectRatio = 1.5;
 
   @override
   Widget build(BuildContext context) {
@@ -171,10 +210,9 @@ class _CalcGrid extends StatelessWidget {
     // ListView is a known-finicky combination (it forces an extra,
     // sometimes unreliable layout pass) — Wrap sidesteps that entirely by
     // never claiming to be a scrollable in the first place.
-    final aspectRatio = crossAxisCount == 3 ? 0.95 : 1.7;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cardWidth = (constraints.maxWidth - _spacing * (crossAxisCount - 1)) / crossAxisCount;
+        final cardWidth = (constraints.maxWidth - _spacing) / 2;
         return Wrap(
           spacing: _spacing,
           runSpacing: _spacing,
@@ -182,7 +220,7 @@ class _CalcGrid extends StatelessWidget {
             for (final entry in entries)
               SizedBox(
                 width: cardWidth,
-                height: cardWidth / aspectRatio,
+                height: cardWidth / _aspectRatio,
                 child: _CalcCard(entry: entry, annotation: annotation),
               ),
           ],
@@ -209,7 +247,7 @@ class _CalcCard extends StatelessWidget {
           MaterialPageRoute(builder: (_) => entry.destination()),
         ),
         child: Container(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.border),
@@ -220,11 +258,11 @@ class _CalcCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  StructIcon(kind: entry.iconKind, color: entry.iconColor, size: 22, annotation: annotation),
-                  const SizedBox(height: 10),
+                  StructIcon(kind: entry.iconKind, color: entry.iconColor, size: 30, annotation: annotation),
+                  const SizedBox(height: 12),
                   Text(
                     entry.label,
-                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),

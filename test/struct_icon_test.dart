@@ -20,7 +20,7 @@ void main() {
     expect(find.byType(StructIcon), findsNWidgets(StructIconKind.values.length));
   });
 
-  testWidgets("every kind renders with a dimensions or load annotation without throwing", (tester) async {
+  testWidgets("every kind renders with a dimensions, load or rebar annotation without throwing", (tester) async {
     await tester.pumpWidget(MaterialApp(
       theme: AppTheme.dark,
       home: Scaffold(
@@ -28,6 +28,7 @@ void main() {
           children: [
             for (final kind in StructIconKind.values) StructIcon(kind: kind, annotation: StructIconAnnotation.dimensions),
             for (final kind in StructIconKind.values) StructIcon(kind: kind, annotation: StructIconAnnotation.load),
+            for (final kind in StructIconKind.values) StructIcon(kind: kind, annotation: StructIconAnnotation.rebar),
           ],
         ),
       ),
@@ -35,6 +36,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(tester.takeException(), isNull);
-    expect(find.byType(StructIcon), findsNWidgets(StructIconKind.values.length * 2));
+    expect(find.byType(StructIcon), findsNWidgets(StructIconKind.values.length * 3));
   });
 }

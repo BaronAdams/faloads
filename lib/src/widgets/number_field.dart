@@ -57,7 +57,7 @@ class _NumberFieldState extends State<NumberField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(widget.label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(widget.label, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         const SizedBox(height: 6),
         TextFormField(
           controller: _controller,
@@ -67,7 +67,7 @@ class _NumberFieldState extends State<NumberField> {
           decoration: InputDecoration(
             isDense: true,
             suffixText: widget.unit,
-            suffixStyle: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+            suffixStyle: TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
           onChanged: (raw) {
             final parsed = double.tryParse(raw);

@@ -3,49 +3,89 @@ import "package:google_fonts/google_fonts.dart";
 
 import "app_colors.dart";
 
-/// Dark, quasi-monochrome, precision-engineering theme shared by every
-/// screen. Inter for UI copy, JetBrains Mono for numeric/technical values
-/// (see [monoTextStyle]).
+/// Quasi-monochrome, precision-engineering theme shared by every screen, in
+/// both a dark and a light variant. DM Sans for UI copy, JetBrains Mono for
+/// numeric/technical values (see [monoTextStyle]).
+///
+/// [dark]/[light] intentionally don't read from [AppColors] (whose neutral
+/// tones are themselves brightness-*dependent* getters, switched by
+/// main.dart to match whichever of these two themes is currently active) —
+/// each is self-contained with its own literal palette, so building the
+/// *other* (currently inactive) one never risks picking up the wrong
+/// brightness's colors.
 class AppTheme {
   AppTheme._();
 
   static TextStyle monoTextStyle({
     double fontSize = 14,
     FontWeight fontWeight = FontWeight.w500,
-    Color color = AppColors.textPrimary,
+    Color? color,
   }) {
     return GoogleFonts.jetBrainsMono(
       fontSize: fontSize,
       fontWeight: fontWeight,
-      color: color,
+      color: color ?? AppColors.textPrimary,
     );
   }
 
-  static ThemeData get dark {
-    final base = ThemeData(brightness: Brightness.dark);
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
-      bodyColor: AppColors.textPrimary,
-      displayColor: AppColors.textPrimary,
+  static ThemeData get dark => _build(
+        brightness: Brightness.dark,
+        background: const Color(0xFF121317),
+        surface: const Color(0xFF191B20),
+        surfaceRaised: const Color(0xFF20232A),
+        border: const Color(0xFF2A2D35),
+        textPrimary: const Color(0xFFEBEDF0),
+        textSecondary: const Color(0xFFA0A6B2),
+      );
+
+  static ThemeData get light => _build(
+        brightness: Brightness.light,
+        background: const Color(0xFFF6F7F9),
+        surface: const Color(0xFFFFFFFF),
+        surfaceRaised: const Color(0xFFEFF1F4),
+        border: const Color(0xFFDEE1E6),
+        textPrimary: const Color(0xFF191B20),
+        textSecondary: const Color(0xFF565C68),
+      );
+
+  static ThemeData _build({
+    required Brightness brightness,
+    required Color background,
+    required Color surface,
+    required Color surfaceRaised,
+    required Color border,
+    required Color textPrimary,
+    required Color textSecondary,
+  }) {
+    final base = ThemeData(brightness: brightness);
+    final textTheme = GoogleFonts.dmSansTextTheme(base.textTheme).apply(
+      bodyColor: textPrimary,
+      displayColor: textPrimary,
     );
 
     return base.copyWith(
-      scaffoldBackgroundColor: AppColors.background,
-      colorScheme: const ColorScheme.dark(
+      scaffoldBackgroundColor: background,
+      colorScheme: ColorScheme(
+        brightness: brightness,
         primary: AppColors.accentBlue,
+        onPrimary: Colors.white,
         secondary: AppColors.accentAmber,
-        surface: AppColors.surface,
+        onSecondary: Colors.white,
+        surface: surface,
+        onSurface: textPrimary,
         error: AppColors.danger,
+        onError: Colors.white,
       ),
       textTheme: textTheme,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.background,
+      appBarTheme: AppBarTheme(
+        backgroundColor: background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
-        foregroundColor: AppColors.textPrimary,
+        foregroundColor: textPrimary,
       ),
-      dividerTheme: const DividerThemeData(
-        color: AppColors.borderSubtle,
+      dividerTheme: DividerThemeData(
+        color: border,
         thickness: 1,
         space: 1,
       ),
@@ -53,8 +93,8 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.accentBlue,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: AppColors.surfaceRaised,
-          disabledForegroundColor: AppColors.textTertiary,
+          disabledBackgroundColor: surfaceRaised,
+          disabledForegroundColor: textSecondary,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -67,8 +107,8 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.textPrimary,
-          side: const BorderSide(color: AppColors.border),
+          foregroundColor: textPrimary,
+          side: BorderSide(color: border),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
@@ -80,29 +120,29 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceRaised,
+        fillColor: surfaceRaised,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 12,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.border),
+          borderSide: BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.accentBlue),
         ),
-        labelStyle: const TextStyle(color: AppColors.textSecondary),
+        labelStyle: TextStyle(color: textSecondary),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surface,
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: surface,
         selectedItemColor: AppColors.accentBlue,
-        unselectedItemColor: AppColors.textTertiary,
+        unselectedItemColor: textSecondary,
         type: BottomNavigationBarType.fixed,
         showUnselectedLabels: true,
       ),

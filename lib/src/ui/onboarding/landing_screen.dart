@@ -37,8 +37,8 @@ class LandingScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 10),
-              const StaggerIn(
-                delay: Duration(milliseconds: 260),
+              StaggerIn(
+                delay: const Duration(milliseconds: 260),
                 child: Text(
                   "Descente de charges et prédimensionnement en béton armé,"
                   " sur chantier ou au bureau.",
@@ -101,10 +101,15 @@ class _LogoBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: const Icon(
-        Icons.architecture_outlined,
-        color: AppColors.accentBlue,
-        size: 30,
+      alignment: Alignment.center,
+      child: const Text(
+        "σ",
+        style: TextStyle(
+          fontSize: 36,
+          fontWeight: FontWeight.w700,
+          color: AppColors.accentBlue,
+          height: 1,
+        ),
       ),
     );
   }
@@ -169,7 +174,7 @@ class _ModeCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             description,
-            style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary, height: 1.3),
+            style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary, height: 1.3),
           ),
         ],
       ),

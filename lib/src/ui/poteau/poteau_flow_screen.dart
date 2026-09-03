@@ -280,7 +280,7 @@ class _StepSysteme extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("Système porteur", style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text("Système porteur", style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         const SizedBox(height: 8),
         for (final s in SystemeType.values)
           _SystemOptionCard(type: s, selected: systeme == s, onTap: () => onSystemeChanged(s)),
@@ -337,7 +337,7 @@ class _SystemOptionCard extends StatelessWidget {
               const SizedBox(height: 12),
               Text(type.label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
               const SizedBox(height: 4),
-              Text(type.description, style: const TextStyle(fontSize: 12, color: AppColors.textTertiary, height: 1.45)),
+              Text(type.description, style: TextStyle(fontSize: 12, color: AppColors.textTertiary, height: 1.45)),
             ],
           ),
         ),
@@ -595,7 +595,7 @@ class _RecapRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
-          Expanded(child: Text(label, style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary))),
+          Expanded(child: Text(label, style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary))),
           Text(value, style: AppTheme.monoTextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
         ],
       ),

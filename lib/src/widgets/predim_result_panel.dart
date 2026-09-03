@@ -53,7 +53,7 @@ class PredimResultPanel extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             result.formula,
-            style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary, fontStyle: FontStyle.italic),
+            style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary, fontStyle: FontStyle.italic),
           ),
         ],
       ),

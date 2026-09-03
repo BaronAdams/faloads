@@ -30,7 +30,7 @@ class PickerField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(label, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         const SizedBox(height: 6),
         Material(
           color: AppColors.surfaceRaised,
@@ -49,7 +49,7 @@ class PickerField extends StatelessWidget {
                   Expanded(
                     child: Text(_labelOf(value), style: const TextStyle(fontSize: 14.5)),
                   ),
-                  const Icon(Icons.unfold_more, size: 16, color: AppColors.textTertiary),
+                  Icon(Icons.unfold_more, size: 16, color: AppColors.textTertiary),
                 ],
               ),
             ),

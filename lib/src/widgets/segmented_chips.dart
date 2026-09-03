@@ -27,7 +27,7 @@ class SegmentedChips<T> extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        Text(label, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
         const SizedBox(height: 6),
         Wrap(
           spacing: 8,

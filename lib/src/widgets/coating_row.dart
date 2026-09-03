@@ -55,7 +55,7 @@ class _CoatingRowState extends State<CoatingRow> {
           ),
           IconButton(
             onPressed: widget.onRemove,
-            icon: const Icon(Icons.close, size: 16, color: AppColors.textTertiary),
+            icon: Icon(Icons.close, size: 16, color: AppColors.textTertiary),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),

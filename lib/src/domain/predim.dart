@@ -205,3 +205,90 @@ PlancherPredimResult predimPlancher({
   if (porteeM < 6) return const PlancherPredimResult(epaisseurCm: 24, label: "Corps creux 20+4");
   return const PlancherPredimResult(epaisseurCm: 29, label: "Corps creux 25+4");
 }
+
+enum SemelleType { isolee, filante }
+
+extension SemelleTypeLabel on SemelleType {
+  String get label => this == SemelleType.isolee ? "Isolée" : "Filante";
+}
+
+class SemellePredimResult {
+  const SemellePredimResult({required this.widthCm, required this.heightCm, required this.areaM2});
+
+  /// Isolée: side of the (square) footing, cm. Filante: width B, cm.
+  final double widthCm;
+
+  /// Footing depth from the rigid-body ("méthode des bielles") rule
+  /// d ≥ (B − support)/4.
+  final double heightCm;
+
+  /// Isolée: plan area, m². Filante: width, m (per running metre).
+  final double areaM2;
+}
+
+/// Rigid-body method (méthode des bielles, EC2/BAEL): required plan area
+/// from the allowable soil bearing pressure, side/width rounded up to the
+/// nearest 5 cm, then depth from d ≥ (B − support)/4 so the load spreads
+/// at ≈45°. [nElsKn] is the total column load for [SemelleType.isolee], or
+/// the load per running metre of wall for [SemelleType.filante].
+SemellePredimResult predimSemelle({
+  required SemelleType type,
+  required double nElsKn,
+  required double solBearingKnM2,
+  required double supportCm,
+}) {
+  if (type == SemelleType.isolee) {
+    final areaM2 = nElsKn / solBearingKnM2;
+    final side = math.max(60.0, _roundUpToStep(math.sqrt(areaM2) * 100, 5));
+    final depth = math.max(15.0, _roundUpToStep((side - supportCm) / 4, 5));
+    return SemellePredimResult(widthCm: side, heightCm: depth, areaM2: areaM2);
+  }
+  final widthM = nElsKn / solBearingKnM2;
+  final widthCm = math.max(40.0, _roundUpToStep(widthM * 100, 5));
+  final depth = math.max(15.0, _roundUpToStep((widthCm - supportCm) / 4, 5));
+  return SemellePredimResult(widthCm: widthCm, heightCm: depth, areaM2: widthM);
+}
+
+class MurSoutenementPredimResult {
+  const MurSoutenementPredimResult({
+    required this.activeThrustKnM,
+    required this.kaCoeff,
+    required this.baseWidthCm,
+    required this.stemThicknessCm,
+  });
+
+  /// Rankine active thrust per running metre of wall, kN/ml.
+  final double activeThrustKnM;
+
+  /// Rankine active earth-pressure coefficient, tan²(45° − φ/2).
+  final double kaCoeff;
+
+  /// Recommended base (semelle) width, cm — the classic B ≈ 0.6×H rule.
+  final double baseWidthCm;
+
+  /// Recommended stem thickness at the base, cm — H/12 rule, min 20 cm.
+  final double stemThicknessCm;
+}
+
+/// Cantilevered mur de soutènement, quick prédimensionnement only (spec
+/// consistent with every other formula in this file — a coefficient-based
+/// estimate, not a full overturning/sliding stability verification):
+/// Rankine active thrust Pa = 0.5 × Ka × γ_sol × H², Ka = tan²(45° − φ/2),
+/// base width from the standard B ≈ 0.6×H proportion.
+MurSoutenementPredimResult predimMurSoutenement({
+  required double hauteurM,
+  required double gammaSolKnM3,
+  required double phiDeg,
+}) {
+  final phiRad = phiDeg * math.pi / 180;
+  final ka = math.pow(math.tan(math.pi / 4 - phiRad / 2), 2).toDouble();
+  final pa = 0.5 * ka * gammaSolKnM3 * hauteurM * hauteurM;
+  final baseWidth = _roundUpToStep(0.6 * hauteurM * 100, 5);
+  final stemThickness = math.max(20.0, _roundUpToStep(hauteurM * 100 / 12, 5));
+  return MurSoutenementPredimResult(
+    activeThrustKnM: pa,
+    kaCoeff: ka,
+    baseWidthCm: baseWidth,
+    stemThicknessCm: stemThickness,
+  );
+}

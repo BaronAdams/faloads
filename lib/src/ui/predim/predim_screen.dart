@@ -7,7 +7,7 @@ import "../../widgets/picker_field.dart";
 import "../../widgets/predim_result_panel.dart";
 import "../../widgets/segmented_chips.dart";
 
-enum PredimElementType { poteau, poutre, voile, plancher, balcon, escalier }
+enum PredimElementType { poteau, poutre, voile, plancher, balcon, escalier, murSoutenement, semelle }
 
 extension PredimElementTypeX on PredimElementType {
   String get label => switch (this) {
@@ -17,6 +17,8 @@ extension PredimElementTypeX on PredimElementType {
         PredimElementType.plancher => "Plancher",
         PredimElementType.balcon => "Balcon",
         PredimElementType.escalier => "Escalier",
+        PredimElementType.murSoutenement => "Mur de soutènement",
+        PredimElementType.semelle => "Semelle de fondation",
       };
 
   IconData get icon => switch (this) {
@@ -26,6 +28,8 @@ extension PredimElementTypeX on PredimElementType {
         PredimElementType.plancher => Icons.grid_on_outlined,
         PredimElementType.balcon => Icons.exit_to_app_outlined,
         PredimElementType.escalier => Icons.stairs_outlined,
+        PredimElementType.murSoutenement => Icons.terrain_outlined,
+        PredimElementType.semelle => Icons.layers_outlined,
       };
 }
 
@@ -85,6 +89,17 @@ class _PredimScreenState extends State<PredimScreen> {
   double _escalierHauteur = 2.7;
   double _escalierLongueurProjetee = 4.2;
   double _escalierLargeur = 1.0;
+
+  // Mur de soutènement
+  double _murHauteur = 2.5;
+  double _murGammaSol = 18.0;
+  double _murPhi = 30.0;
+
+  // Semelle de fondation
+  SemelleType _semelleType = SemelleType.isolee;
+  double _semelleNels = 500;
+  double _semelleSolBearing = 200;
+  double _semelleSupport = 30;
 
   @override
   Widget build(BuildContext context) {
@@ -350,6 +365,98 @@ class _PredimScreenState extends State<PredimScreen> {
             sub: "g = ${r.gironCm.toStringAsFixed(1)} cm · h = ${r.hMarcheCm.toStringAsFixed(1)} cm · "
                 "Blondel = ${r.blondelCm.toStringAsFixed(1)} cm ${r.blondelOk ? '✓' : '⚠'}",
             formula: "Loi de Blondel : 2h + g ∈ [58, 64] cm",
+          ),
+        );
+
+      case PredimElementType.murSoutenement:
+        final r = predimMurSoutenement(hauteurM: _murHauteur, gammaSolKnM3: _murGammaSol, phiDeg: _murPhi);
+        return (
+          [
+            NumberField(
+              key: const ValueKey("mur-hauteur"),
+              label: "Hauteur du mur",
+              unit: "m",
+              value: _murHauteur,
+              min: 0.3,
+              onChanged: (v) => setState(() => _murHauteur = v),
+            ),
+            const SizedBox(height: 14),
+            NumberField(
+              key: const ValueKey("mur-gamma"),
+              label: "Poids volumique du sol",
+              unit: "kN/m³",
+              value: _murGammaSol,
+              min: 12,
+              onChanged: (v) => setState(() => _murGammaSol = v),
+            ),
+            const SizedBox(height: 14),
+            NumberField(
+              key: const ValueKey("mur-phi"),
+              label: "Angle de frottement φ",
+              unit: "°",
+              value: _murPhi,
+              min: 5,
+              onChanged: (v) => setState(() => _murPhi = v),
+            ),
+          ],
+          PredimResultData(
+            big: "Semelle ${r.baseWidthCm.toStringAsFixed(0)} cm · voile ${r.stemThicknessCm.toStringAsFixed(0)} cm",
+            sub: "Poussée active Pa = ${r.activeThrustKnM.toStringAsFixed(1)} kN/ml · Ka = ${r.kaCoeff.toStringAsFixed(3)}",
+            formula: "Pa = 0.5 × Ka × γ_sol × H² · B ≈ 0.6 × H",
+          ),
+        );
+
+      case PredimElementType.semelle:
+        final r = predimSemelle(
+          type: _semelleType,
+          nElsKn: _semelleNels,
+          solBearingKnM2: _semelleSolBearing,
+          supportCm: _semelleSupport,
+        );
+        return (
+          [
+            SegmentedChips<SemelleType>(
+              label: "Type",
+              options: SemelleType.values,
+              optionLabel: (t) => t.label,
+              value: _semelleType,
+              onChanged: (v) => setState(() => _semelleType = v),
+            ),
+            const SizedBox(height: 14),
+            NumberField(
+              key: const ValueKey("semelle-nels"),
+              label: _semelleType == SemelleType.isolee ? "N_ELS" : "N_ELS (par ml)",
+              unit: "kN",
+              value: _semelleNels,
+              onChanged: (v) => setState(() => _semelleNels = v),
+            ),
+            const SizedBox(height: 14),
+            NumberField(
+              key: const ValueKey("semelle-sol"),
+              label: "Contrainte admissible du sol",
+              unit: "kN/m²",
+              value: _semelleSolBearing,
+              min: 50,
+              onChanged: (v) => setState(() => _semelleSolBearing = v),
+            ),
+            const SizedBox(height: 14),
+            NumberField(
+              key: const ValueKey("semelle-support"),
+              label: _semelleType == SemelleType.isolee ? "Section poteau" : "Épaisseur voile",
+              unit: "cm",
+              value: _semelleSupport,
+              min: 10,
+              onChanged: (v) => setState(() => _semelleSupport = v),
+            ),
+          ],
+          PredimResultData(
+            big: _semelleType == SemelleType.isolee
+                ? "${r.widthCm.toStringAsFixed(0)} × ${r.widthCm.toStringAsFixed(0)} × ${r.heightCm.toStringAsFixed(0)} cm"
+                : "B = ${r.widthCm.toStringAsFixed(0)} cm · d = ${r.heightCm.toStringAsFixed(0)} cm",
+            sub: _semelleType == SemelleType.isolee
+                ? "Aire = ${r.areaM2.toStringAsFixed(2)} m²"
+                : "Largeur = ${r.areaM2.toStringAsFixed(2)} m/ml",
+            formula: "A = N_ELS / σ_sol · d ≥ (B − support) / 4",
           ),
         );
     }
