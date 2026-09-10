@@ -1,11 +1,12 @@
 import "package:flutter/material.dart";
-import "package:google_fonts/google_fonts.dart";
 
 import "app_colors.dart";
 
 /// Quasi-monochrome, precision-engineering theme shared by every screen, in
 /// both a dark and a light variant. DM Sans for UI copy, JetBrains Mono for
-/// numeric/technical values (see [monoTextStyle]).
+/// numeric/technical values (see [monoTextStyle]). Both are bundled as local
+/// assets (see pubspec.yaml's `fonts:` section) rather than fetched over the
+/// network at runtime, so they render correctly offline and on first launch.
 ///
 /// [dark]/[light] intentionally don't read from [AppColors] (whose neutral
 /// tones are themselves brightness-*dependent* getters, switched by
@@ -16,12 +17,16 @@ import "app_colors.dart";
 class AppTheme {
   AppTheme._();
 
+  static const String uiFontFamily = "DM Sans";
+  static const String monoFontFamily = "JetBrains Mono";
+
   static TextStyle monoTextStyle({
     double fontSize = 14,
     FontWeight fontWeight = FontWeight.w500,
     Color? color,
   }) {
-    return GoogleFonts.jetBrainsMono(
+    return TextStyle(
+      fontFamily: monoFontFamily,
       fontSize: fontSize,
       fontWeight: fontWeight,
       color: color ?? AppColors.textPrimary,
@@ -58,7 +63,8 @@ class AppTheme {
     required Color textSecondary,
   }) {
     final base = ThemeData(brightness: brightness);
-    final textTheme = GoogleFonts.dmSansTextTheme(base.textTheme).apply(
+    final textTheme = base.textTheme.apply(
+      fontFamily: uiFontFamily,
       bodyColor: textPrimary,
       displayColor: textPrimary,
     );
@@ -100,6 +106,7 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           textStyle: const TextStyle(
+            fontFamily: uiFontFamily,
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
