@@ -72,7 +72,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 delay: Duration(milliseconds: 180),
                 child: _PlanCard(
                   title: "Gratuit",
-                  price: "0 €",
+                  price: "$0",
                   features: [
                     "Prédimensionnement (tous types)",
                     "Poteau isolé / voile isolé",
@@ -86,7 +86,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 delay: const Duration(milliseconds: 240),
                 child: _PlanCard(
                   title: "Pro",
-                  price: _period == _Period.annual ? "9,60 €/mois · facturé annuellement" : "12 €/mois",
+                  price: _period == _Period.annual ? "$9.60" : "$12",
                   features: const [
                     "Tout le Gratuit",
                     "Bâtiment complet multi-étages",
@@ -237,7 +237,11 @@ class _PlanCard extends StatelessWidget {
               const Spacer(),
               Text(
                 price,
-                style: AppTheme.monoTextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
+                style: AppTheme.monoTextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.accentBlue),
+              ),
+              Text(
+                "/mois",
+                style: AppTheme.monoTextStyle(fontSize: 11, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
               ),
             ],
           ),
@@ -250,7 +254,7 @@ class _PlanCard extends StatelessWidget {
                   Icon(
                     Icons.check,
                     size: 15,
-                    color: highlighted ? AppColors.accentBlue : AppColors.textTertiary,
+                    color: Color(0xFF71A610),
                   ),
                   const SizedBox(width: 8),
                   Expanded(child: Text(f, style: const TextStyle(fontSize: 12.5))),
