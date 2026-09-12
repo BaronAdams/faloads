@@ -254,7 +254,7 @@ class _PlanCard extends StatelessWidget {
                   Icon(
                     Icons.check,
                     size: 15,
-                    color: Color(0xFF71A610),
+                    color: const Color(0xFF71A610),
                   ),
                   const SizedBox(width: 8),
                   Expanded(child: Text(f, style: const TextStyle(fontSize: 12.5))),
