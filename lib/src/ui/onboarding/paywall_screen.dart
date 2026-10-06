@@ -210,38 +210,65 @@ class _PlanCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: highlighted ? AppColors.surfaceRaised : AppColors.surface,
+        color: highlighted
+            ? AppColors.surfaceRaised
+            : AppColors.surface,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: highlighted ? AppColors.accentBlue : AppColors.border),
+        border: Border.all(
+          color: highlighted
+              ? AppColors.accentBlue
+              : AppColors.border,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               if (badge != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: AppColors.accentBlue.withValues(alpha: 0.18),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     badge!,
-                    style: const TextStyle(fontSize: 10.5, color: AppColors.accentBlue, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      color: AppColors.accentBlue,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],
               const Spacer(),
               Text(
                 price,
-                style: AppTheme.monoTextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.accentBlue),
+                style: AppTheme.monoTextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.accentBlue,
+                ),
               ),
               Text(
                 "/mois",
-                style: AppTheme.monoTextStyle(fontSize: 11, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
+                style: AppTheme.monoTextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w400,
+                  color: AppColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -251,13 +278,18 @@ class _PlanCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.check,
                     size: 15,
-                    color: const Color(0xFF71A610),
+                    color: Color(0xFF71A610),
                   ),
                   const SizedBox(width: 8),
-                  Expanded(child: Text(f, style: const TextStyle(fontSize: 12.5))),
+                  Expanded(
+                    child: Text(
+                      f,
+                      style: const TextStyle(fontSize: 12.5),
+                    ),
+                  ),
                 ],
               ),
             ),
