@@ -72,7 +72,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 delay: Duration(milliseconds: 180),
                 child: _PlanCard(
                   title: "Gratuit",
-                  price: "$0",
+                  price: "\$0",
                   features: [
                     "Prédimensionnement (tous types)",
                     "Poteau isolé / voile isolé",
@@ -86,7 +86,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                 delay: const Duration(milliseconds: 240),
                 child: _PlanCard(
                   title: "Pro",
-                  price: _period == _Period.annual ? "$9.60" : "$12",
+                  price: _period == _Period.annual ? "\$9.60" : "\$12",
                   features: const [
                     "Tout le Gratuit",
                     "Bâtiment complet multi-étages",
