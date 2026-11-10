@@ -1,0 +1,84 @@
+name: Build desktop
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FLUTTER_CHANNEL: stable
+
+jobs:
+  build_desktop:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows
+            os: windows-latest
+            archive: structcalc-windows.zip
+          - platform: macos
+            os: macos-latest
+            archive: structcalc-macos.zip
+          - platform: linux
+            os: ubuntu-latest
+            archive: structcalc-linux.tar.gz
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      # Platform folders are generated, just as in the mobile workflow.
+      # Keep the project name stable so the executable and .app names match.
+      - name: Generate desktop platform
+        run: flutter create --platforms=${{ matrix.platform }} --org com.structcalc --project-name structcalc --no-pub .
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Build release
+        run: flutter build ${{ matrix.platform }} --release
+
+      # Package the entire bundle: the executable needs its libraries and assets.
+      - name: Package Windows application
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath structcalc-windows.zip
+
+      - name: Package macOS application
+        if: runner.os == 'macOS'
+        run: ditto -c -k --sequesterRsrc --keepParent build/macos/Build/Products/Release/structcalc.app structcalc-macos.zip
+
+      - name: Package Linux application
+        if: runner.os == 'Linux'
+        run: tar -czf structcalc-linux.tar.gz -C build/linux/x64/release/bundle .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: structcalc-${{ matrix.platform }}
+          path: ${{ matrix.archive }}
+          if-no-files-found: error
+          retention-days: 14
