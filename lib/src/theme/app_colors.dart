@@ -36,6 +36,8 @@ class AppColors {
   static const Color accentBlue = Color(0xFF5B8DEF);
   static const Color accentAmber = Color(0xFFD79A4B);
   static const Color accentTeal = Color(0xFF3FAE9C);
+  // Applied loads and exposed longitudinal steel in structural icons.
+  static const Color accentOrange = Color(0xFFF2A052);
   static const Color danger = Color(0xFFE5555A);
   static const Color success = Color(0xFF4CAF7D);
 
