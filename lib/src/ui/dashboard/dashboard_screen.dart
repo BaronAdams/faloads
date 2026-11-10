@@ -17,12 +17,10 @@ class _CalcEntry {
     required this.iconKind,
     required this.label,
     required this.destination,
-    this.iconColor = AppColors.accentBlue,
     this.badge,
   });
 
   final StructIconKind iconKind;
-  final Color iconColor;
   final String label;
   final String? badge;
   final Widget Function() destination;
@@ -39,7 +37,6 @@ class DashboardScreen extends StatelessWidget {
   static final List<_CalcEntry> _calculateurs = [
     _CalcEntry(
       iconKind: StructIconKind.beamUdl,
-      iconColor: AppColors.accentAmber,
       label: "Calculateur de poutres",
       destination: () => const BeamCalcScreen(),
     ),
@@ -54,7 +51,6 @@ class DashboardScreen extends StatelessWidget {
     _CalcEntry(iconKind: StructIconKind.column, label: "Poteau isolé", destination: () => const PoteauFlowScreen()),
     _CalcEntry(
       iconKind: StructIconKind.wall,
-      iconColor: AppColors.accentTeal,
       label: "Voile isolé",
       destination: () => const VoileFlowScreen(),
     ),
@@ -74,13 +70,11 @@ class DashboardScreen extends StatelessWidget {
     ),
     _CalcEntry(
       iconKind: StructIconKind.beam,
-      iconColor: AppColors.accentAmber,
       label: "Poutre",
       destination: () => const PredimScreen(initialType: PredimElementType.poutre),
     ),
     _CalcEntry(
       iconKind: StructIconKind.wall,
-      iconColor: AppColors.accentTeal,
       label: "Voile",
       destination: () => const PredimScreen(initialType: PredimElementType.voile),
     ),
@@ -91,19 +85,16 @@ class DashboardScreen extends StatelessWidget {
     ),
     _CalcEntry(
       iconKind: StructIconKind.balcony,
-      iconColor: AppColors.accentTeal,
       label: "Balcon",
       destination: () => const PredimScreen(initialType: PredimElementType.balcon),
     ),
     _CalcEntry(
       iconKind: StructIconKind.slab,
-      iconColor: AppColors.accentTeal,
       label: "Plancher",
       destination: () => const PredimScreen(initialType: PredimElementType.plancher),
     ),
     _CalcEntry(
       iconKind: StructIconKind.retainingWall,
-      iconColor: AppColors.accentTeal,
       label: "Mur de soutènement",
       destination: () => const PredimScreen(initialType: PredimElementType.murSoutenement),
     ),
@@ -220,8 +211,11 @@ class _CalcGrid extends StatelessWidget {
             for (final entry in entries)
               SizedBox(
                 width: cardWidth,
-                height: cardWidth / _aspectRatio,
-                child: _CalcCard(entry: entry, annotation: annotation),
+                child: _CalcCard(
+                  entry: entry,
+                  annotation: annotation,
+                  minHeight: (cardWidth / _aspectRatio).clamp(140.0, double.infinity),
+                ),
               ),
           ],
         );
@@ -231,10 +225,11 @@ class _CalcGrid extends StatelessWidget {
 }
 
 class _CalcCard extends StatelessWidget {
-  const _CalcCard({required this.entry, required this.annotation});
+  const _CalcCard({required this.entry, required this.annotation, required this.minHeight});
 
   final _CalcEntry entry;
   final StructIconAnnotation annotation;
+  final double minHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -247,18 +242,21 @@ class _CalcCard extends StatelessWidget {
           MaterialPageRoute(builder: (_) => entry.destination()),
         ),
         child: Container(
+          constraints: BoxConstraints(minHeight: minHeight),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(color: AppColors.border),
           ),
           child: Stack(
+            alignment: Alignment.centerLeft,
             children: [
               Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  StructIcon(kind: entry.iconKind, color: entry.iconColor, size: 30, annotation: annotation),
+                  StructIcon(kind: entry.iconKind, size: 48, annotation: annotation),
                   const SizedBox(height: 12),
                   Text(
                     entry.label,

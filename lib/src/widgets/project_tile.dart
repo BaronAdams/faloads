@@ -51,7 +51,7 @@ class ProjectTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: StructIcon(kind: _iconKind, color: AppColors.accentBlue, size: 20),
+      leading: StructIcon(kind: _iconKind, size: 24, annotation: StructIconAnnotation.load),
       title: Text(project.name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600)),
       subtitle: Text(
         "${project.type.label} · $_dateLabel",
