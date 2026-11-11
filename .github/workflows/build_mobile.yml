@@ -8,6 +8,7 @@ on:
 
 env:
   FLUTTER_CHANNEL: stable
+  FLUTTER_VERSION: "3.47.9"
 
 jobs:
   analyze_test:
@@ -18,10 +19,13 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
       # Platform folders (android/, ios/, ...) are generated, not committed —
       # `flutter create .` on an existing project only fills in what's missing.
-      - run: flutter create --platforms=android,ios --org com.structcalc .
-      - run: flutter pub get
+      - run: |
+          flutter create --platforms=android,ios --org com.structcalc --no-pub .
+          git restore -- pubspec.lock
+      - run: flutter pub get --enforce-lockfile
       - run: flutter analyze
       - run: flutter test
 
@@ -34,8 +38,11 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
-      - run: flutter create --platforms=android,ios --org com.structcalc .
-      - run: flutter pub get
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+      - run: |
+          flutter create --platforms=android,ios --org com.structcalc --no-pub .
+          git restore -- pubspec.lock
+      - run: flutter pub get --enforce-lockfile
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
@@ -52,8 +59,11 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
-      - run: flutter create --platforms=android,ios --org com.structcalc .
-      - run: flutter pub get
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+      - run: |
+          flutter create --platforms=android,ios --org com.structcalc --no-pub .
+          git restore -- pubspec.lock
+      - run: flutter pub get --enforce-lockfile
       # No Apple Developer signing identity is configured in this repo, so we
       # build unsigned. To install on a physical iPhone, package the .app
       # below as an .ipa (steps here) and sideload it with Sideloadly or

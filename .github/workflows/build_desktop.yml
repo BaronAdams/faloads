@@ -58,13 +58,18 @@ jobs:
       - name: Generate desktop platform
         run: flutter create --platforms=${{ matrix.platform }} --org com.structcalc --project-name structcalc --no-pub .
 
+      # flutter create rewrites pubspec.lock even with --no-pub. Restore
+      # the reviewed dependency set before resolving anything.
+      - name: Restore locked dependencies
+        run: git restore -- pubspec.lock
+
       - name: Apply Windows startup runner
         if: runner.os == 'Windows'
         shell: pwsh
         run: Copy-Item tool/windows/main.cpp windows/runner/main.cpp -Force
 
       - name: Install Flutter dependencies
-        run: flutter pub get
+        run: flutter pub get --enforce-lockfile
 
       - name: Build release
         run: flutter build ${{ matrix.platform }} --release

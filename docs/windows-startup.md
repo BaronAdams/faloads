@@ -17,9 +17,9 @@ L'utilisateur a confirmé Windows 10, un GPU NVIDIA et la présence de `data` et
 - Les erreurs d'écriture en arrière-plan sont interceptées et journalisées ; elles ne deviennent pas des exceptions asynchrones non prises en charge.
 - Le ZIP inclut les DLL CRT x64 du toolset MSVC du runner, en plus du bundle Flutter complet. Le script vérifie aussi les données AOT, ICU et les deux fontes existantes.
 - `Lancer-compatibilite.cmd` démarre le même exécutable avec `--compatibility`. Le runner C++ utilise les API publiques de Flutter pour désactiver Impeller et préférer un GPU basse consommation (intégré s'il existe). **Ce mode utilise toujours l'accélération graphique ; ce n'est pas un rendu logiciel et il ne garantit pas de contourner tous les défauts de pilote.** Le lancement normal conserve les choix par défaut du moteur.
-- Flutter desktop est fixé à **3.47.9** et `pubspec.lock` fixe les dépendances utilisées pour la validation. Les fontes et `AppTheme` restent inchangés.
+- Les workflows utilisent Flutter **3.47.9** et le `pubspec.lock` validé. Comme `flutter create` réécrit ce fichier même avec `--no-pub`, les workflows le restaurent avant `flutter pub get --enforce-lockfile`. Les fontes et `AppTheme` restent inchangés.
 
-Le runner personnalisé est conservé dans `tool/windows/main.cpp`. Le workflow le copie sur `windows/runner/main.cpp` après génération du projet, car les dossiers de plateforme restent générés. Pour reproduire localement : `flutter create --platforms=windows --org com.structcalc --project-name structcalc --no-pub .`, copier ce fichier, puis `flutter pub get` et `flutter build windows --release`.
+Le runner personnalisé est conservé dans `tool/windows/main.cpp`. Le workflow le copie sur `windows/runner/main.cpp` après génération du projet, car les dossiers de plateforme restent générés. Pour reproduire localement : `flutter create --platforms=windows --org com.structcalc --project-name structcalc --no-pub .`, copier ce fichier, restaurer le lockfile avec `git restore -- pubspec.lock`, puis `flutter pub get --enforce-lockfile` et `flutter build windows --release`.
 
 ## Journaux et essai sur le PC concerné
 
