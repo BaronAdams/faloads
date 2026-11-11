@@ -55,6 +55,7 @@ jobs:
         with:
           workspaces: src-tauri -> target
           key: ${{ matrix.platform }}
+          cache-on-failure: true
       - run: npm ci
       - run: cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --lib --locked
       - name: Build native application and installer
@@ -66,8 +67,15 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force artifacts/windows | Out-Null
-          Copy-Item src-tauri/target/x86_64-pc-windows-msvc/release/structcalc.exe artifacts/windows/StructCalc.exe
-          Copy-Item src-tauri/target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe artifacts/windows/
+          $metadata = cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --no-deps | ConvertFrom-Json
+          $targetRoot = $metadata.target_directory
+          Write-Host "Collecting native packages from $targetRoot"
+          $binaries = @(Get-ChildItem -Path $targetRoot -Recurse -File -Filter '*.exe' | Where-Object { $_.Directory.Name -eq 'release' })
+          $installers = @(Get-ChildItem -Path $targetRoot -Recurse -File -Filter '*-setup.exe')
+          if ($binaries.Count -ne 1) { throw "Expected one release executable; found $($binaries.Count): $($binaries.FullName -join ', ')" }
+          if ($installers.Count -eq 0) { throw 'NSIS installer was not generated' }
+          Copy-Item $binaries[0].FullName artifacts/windows/StructCalc.exe
+          $installers | ForEach-Object { Copy-Item $_.FullName artifacts/windows/ }
           Copy-Item tools/windows/* artifacts/windows/
       - name: Verify Windows WebView2 release and Rust persistence
         if: runner.os == 'Windows'

@@ -14,6 +14,6 @@ else
   printf 'Signature de developpement temporaire. Ne pas utiliser pour une publication en boutique. La cle change entre les builds : configurez les secrets Android pour conserver une signature stable.\n' > artifacts/android/SIGNATURE.txt
 fi
 trap 'rm -f "$keystore_path"' EXIT
-"$ANDROID_HOME/build-tools/36.0.0/zipalign" -f -p 4 "$apk_source" "$RUNNER_TEMP/structcalc-aligned.apk"
+"$ANDROID_HOME/build-tools/36.0.0/zipalign" -P 16 -f 4 "$apk_source" "$RUNNER_TEMP/structcalc-aligned.apk"
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" sign --ks "$keystore_path" --ks-key-alias "$ANDROID_KEY_ALIAS" --ks-pass env:ANDROID_STORE_PASSWORD --key-pass env:ANDROID_KEY_PASSWORD --out artifacts/android/StructCalc-arm64.apk "$RUNNER_TEMP/structcalc-aligned.apk"
 "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose artifacts/android/StructCalc-arm64.apk
