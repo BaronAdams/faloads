@@ -120,7 +120,7 @@ export function Playground({
             (e.target as Element)
               .closest("[data-element]")
               ?.getAttribute("data-element") ?? null;
-          drag.current = { ...p, key, moved: false };
+          drag.current = { x: p.x, y: p.y, key, moved: false };
           if (
             hand ||
             space.current ||

@@ -226,3 +226,60 @@ test("corrupt saved data remains intact in a temporary session", async ({
     await page.evaluate(() => localStorage.getItem("structcalc.workspace.v1")),
   ).toBe("{invalid");
 });
+
+test("pinch and touch pan move the camera without opening an element editor", async ({
+  page,
+}, info) => {
+  test.skip(
+    info.project.name !== "mobile",
+    "Touch input is checked in the mobile browser project.",
+  );
+  await ready(page);
+  await page.goto("/#/new/beam");
+  await page.getByRole("tab", { name: "Schéma", exact: true }).click();
+  const canvas = page.getByTestId("playground");
+  await canvas.scrollIntoViewIfNeeded();
+  const box = (await canvas.boundingBox())!;
+  const x = box.x + box.width / 2,
+    y = box.y + box.height / 2;
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [
+      { x: x - 40, y, id: 1 },
+      { x: x + 40, y, id: 2 },
+    ],
+  });
+  for (let i = 1; i <= 6; i++)
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [
+        { x: x - 40 - 5 * i, y, id: 1 },
+        { x: x + 40 + 5 * i, y, id: 2 },
+      ],
+    });
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect(page.getByTestId("zoom-level")).toHaveText("175 %");
+  const previous = await page.getByTestId("camera").getAttribute("transform");
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x, y, id: 1 }],
+  });
+  for (let i = 1; i <= 6; i++)
+    await cdp.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: x + i * 5, y: y + i * 3, id: 1 }],
+    });
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchEnd",
+    touchPoints: [],
+  });
+  await expect(page.getByTestId("camera")).not.toHaveAttribute(
+    "transform",
+    previous!,
+  );
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
