@@ -1,0 +1,14 @@
+{
+ "$schema": "https://schema.tauri.app/config/2",
+ "productName": "StructCalc", "version": "0.2.0", "identifier": "com.structcalc.app",
+ "build": {"beforeDevCommand": "npm run dev", "devUrl": "http://localhost:1420", "beforeBuildCommand": "npm run build", "frontendDist": "../dist"},
+ "app": {
+  "windows": [{"label":"main","title":"StructCalc","width":1400,"height":920,"minWidth":360,"minHeight":560,"backgroundColor":"#111316"}],
+  "security": {"csp":"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: http://asset.localhost data: blob:; font-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost"}
+ },
+ "bundle": {"active":true,"targets":"all","category":"Productivity","shortDescription":"Calcul de structures et descente de charges","icon":["icons/32x32.png","icons/128x128.png","icons/128x128@2x.png","icons/icon.icns","icons/icon.ico"],
+  "windows":{"minimumWebview2Version":"111.0.1661.0","webviewInstallMode":{"type":"embedBootstrapper","silent":true},"nsis":{"installMode":"currentUser","languages":["French","English"]}},
+  "macOS":{"signingIdentity":"-","minimumSystemVersion":"11.0"},
+  "android":{"minSdkVersion":24}, "iOS":{"minimumSystemVersion":"16.4"}
+ }
+}

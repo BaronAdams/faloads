@@ -1,49 +1,59 @@
-# faloads — StructCalc (Flutter)
+# StructCalc — Tauri 2 · React · Rust
 
-Portage natif Flutter de **StructCalc**, une app de calcul de descente de charges et de prédimensionnement en béton armé — cahier des charges dans [`StructCalc - Spec Flutter.md`](.) (voir le dépôt de conception d'origine pour les prototypes HTML de référence).
+Application de calcul de structures en français pour desktop et mobile. Le front-end utilise **React/Vite, TypeScript, shadcn/ui et Lucide** ; Tauri 2 fournit l’application native, les dialogues de fichiers et le stockage local en Rust.
 
-## État du portage
+Les **13 icônes de projets validées sont conservées**, exportées directement du peintre Flutter d’origine en variantes claire et sombre. Les textes gardent **DM Sans**, les valeurs **JetBrains Mono**. L’ancien projet est disponible dans [`legacy/flutter`](legacy/flutter), sans être compilé par les nouveaux workflows.
 
-Développement en 6 phases (voir la todo list de la session de build) :
+## Fonctionnalités
 
-1. ✅ **Socle** — projet Flutter, thème sombre, état d'app, Landing → Onboarding (5 écrans) → Paywall → shell à 3 onglets (Calculs / Paramètres / Mon compte), Dashboard avec sections Prédimensionnement / Descente de charges (écrans de destination en "Bientôt disponible" pour l'instant).
-2. ⏳ Couche domaine/calcul (catalogues, formules de prédimensionnement, surfaces d'influence).
-3. ⏳ Écran Prédimensionnement.
-4. ⏳ Poteau isolé + Voile isolé (5 étapes).
-5. ⏳ Réseau de poutres (3 étapes).
-6. ⏳ Bâtiment complet (canvas interactif).
+- Calculateurs de poutres et cadres plans : édition des modèles, solveurs numériques, réactions, efforts et déformations ; plan SVG avec zoom, panoramique et recentrage ; inspecteur desktop et onglets mobile.
+- Descentes de charges sur poteaux et voiles : surfaces d’influence, niveaux et revêtements, cumuls ELU/ELS, vent simplifié sur voile.
+- Bâtiments : niveaux, trames, panneaux, poutres, voiles, poteaux, éléments obliques, regroupement de panneaux et résultats par niveau.
+- Huit prédimensionnements : poteau, poutre, voile, escalier, balcon, plancher, soutènement et semelle.
+- Sauvegarde locale, réouverture, duplication, export/import JSON, sauvegarde de l’espace, préréglages de sections et thèmes.
 
-## Lancer le projet
+Les méthodes et leurs limites sont précisées dans l’interface et dans [la documentation de migration](docs/tauri-migration.md). Le profil est local ; aucun service de connexion, paiement ou synchronisation distante n’est configuré.
 
-Ce dépôt ne contient que le code Dart/Flutter (`lib/`, `pubspec.yaml`, tests) — les dossiers de plateforme (`android/`, `ios/`, …) sont générés, pas committés :
+## Développement
+
+Prérequis : Node.js 24, Rust stable et [prérequis natifs Tauri](https://v2.tauri.app/start/prerequisites/) de votre système.
 
 ```bash
-flutter create --platforms=android,ios .
-flutter pub get
-flutter run
+npm ci
+npm run dev            # interface dans le navigateur
+npm run tauri dev      # application native desktop
+npm run tauri build    # bundles desktop de votre système
 ```
 
-## Récupérer un build sur votre téléphone
+Le navigateur utilise son stockage local ; l’application native utilise un fichier JSON géré par Rust. Les données restent sur l’appareil. Pour Android : JDK 17, SDK/NDK Android et cible Rust `aarch64-linux-android` ; puis `npm run icons`, `npm run tauri android init` et `npm run tauri android dev`. Pour iOS, utilisez macOS/Xcode et `npm run tauri ios init`.
 
-Chaque push sur `main` déclenche `.github/workflows/build_mobile.yml`, qui compile et publie deux artefacts dans l'onglet **Actions** du run correspondant :
+## Builds GitHub Actions
 
-- **`structcalc-android`** — un `.apk` installable directement (activez "Sources inconnues" sur Android).
-- **`structcalc-ios-unsigned`** — un `.ipa` **non signé** (aucun compte Apple Developer n'est configuré dans ce dépôt). Pour l'installer sur un iPhone, il faut le signer localement avec un outil comme [Sideloadly](https://sideloadly.io/) ou [AltStore](https://altstore.io/) et votre propre identifiant Apple gratuit.
+Les workflows s’exécutent sur les pull requests, les pushes sur `main`, et manuellement après leur intégration à `main`. Les téléchargements se trouvent dans **Actions → run terminé → Artifacts** et restent disponibles 14 jours.
 
-## Récupérer un build desktop
+| Plateforme                          | Artefact                           | Contenu                                                         |
+| ----------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
+| Windows 10/11 x64                   | `structcalc-tauri-windows`         | Installateur NSIS, EXE portable et lanceur de compatibilité GPU |
+| macOS Intel et Apple Silicon        | `structcalc-tauri-macos-universal` | DMG universel, signature ad hoc                                 |
+| Linux x64                           | `structcalc-tauri-linux`           | DEB et AppImage                                                 |
+| Android ARM64, Android 7+           | `structcalc-tauri-android-arm64`   | APK signé installable et information de signature               |
+| iOS 16.4+, simulateur Apple Silicon | `structcalc-tauri-ios-simulator`   | Application `.app` pour simulateur Xcode                        |
 
-Le workflow [Build desktop](https://github.com/BaronAdams/faloads/actions/workflows/build_desktop.yml) compile l'application Flutter en mode release pour **Windows, macOS et Linux**, sur un runner natif pour chaque système. Il se lance à chaque push sur `main`, pour les pull requests, ou manuellement via **Actions → Build desktop → Run workflow** une fois le workflow présent sur `main`.
+**Windows :** privilégiez l’installateur `*-setup.exe`, qui vérifie WebView2 et installe son runtime si nécessaire (Internet requis dans ce cas). L’EXE portable exige WebView2 déjà installé. En cas de problème graphique, le lanceur `Lancer-compatibilite.cmd` démarre WebView2 avec `--disable-gpu`. Ce moteur diffère du moteur de rendu Flutter ; le résultat sur une carte NVIDIA particulière doit être confirmé sur la machine concernée. Le workflow ouvre réellement le build Windows, calcule et sauvegarde un projet, puis le relit après redémarrage en mode de compatibilité.
 
-Les dossiers `windows/`, `macos/` et `linux/` sont générés pendant le build, comme les plateformes mobiles. Aucun secret supplémentaire n'est nécessaire.
+**Signature Android :** sans secrets, chaque run génère une clé de développement temporaire. Pour conserver les mises à jour entre builds et préparer une distribution, définissez `ANDROID_KEY_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` et `ANDROID_KEY_PASSWORD` dans les secrets Actions. Les APK créés avec des clés temporaires différentes ne peuvent pas se mettre à jour mutuellement.
 
-Après un run réussi, ouvrez sa section **Artifacts** et téléchargez le fichier correspondant à votre système (conservé pendant 14 jours) :
+**iPhone :** l’artefact actuel est pour le simulateur. Une application installable sur appareil ou distribuée via TestFlight nécessite votre équipe Apple, vos certificats et profils de provisionnement ; ils ne sont pas configurés dans ce dépôt. Les applications Windows ne sont pas signées avec un certificat éditeur et macOS n’est pas notarié.
 
-| Artefact | Archive incluse | Lancement après extraction |
-| --- | --- | --- |
-| `structcalc-windows` | `structcalc-windows.zip` | Lancez `structcalc.exe` en conservant les DLL et le dossier `data` à côté. |
-| `structcalc-macos` | `structcalc-macos.zip` | Ouvrez `structcalc.app`. |
-| `structcalc-linux` | `structcalc-linux.tar.gz` | Lancez `./structcalc` en conservant les dossiers `lib` et `data` à côté. |
+## Vérification
 
-GitHub télécharge chaque artefact dans un ZIP : extrayez-le, puis extrayez l'archive qu'il contient. Les archives macOS et Linux préservent les permissions d'exécution et les liens symboliques.
+```bash
+npm run build
+npm test
+npx playwright install --with-deps chromium
+npm run test:e2e
+cargo fmt --manifest-path src-tauri/Cargo.toml --check
+cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --lib --locked
+```
 
-Ces builds sont des applications portables, sans installeur. Les builds Windows et Linux ciblent x64 ; le build macOS utilise l'architecture fournie par `macos-latest`. L'application macOS n'est pas signée avec un certificat Apple Developer ni notariée ; Gatekeeper peut donc demander une autorisation à la première ouverture. Le bundle Linux nécessite les bibliothèques système GTK 3 et une distribution compatible avec le runner `ubuntu-latest` utilisé pour le compiler.
+Les tests couvrent les références de calcul Dart, les solveurs, les interactions desktop/mobile et le stockage Rust. Le détail de l’architecture, des données et des signatures se trouve dans [`docs/tauri-migration.md`](docs/tauri-migration.md).

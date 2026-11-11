@@ -1,0 +1,96 @@
+export const projectTypes = [
+  {
+    id: "beam",
+    icon: "01C",
+    label: "Calculateur de poutres",
+    description: "Appuis, charges, efforts et déplacements",
+    family: "Analyse structurale",
+  },
+  {
+    id: "frame",
+    icon: "02B",
+    label: "Calculateur de cadres",
+    description: "Nœuds, barres et portiques plans",
+    family: "Analyse structurale",
+  },
+  {
+    id: "column-load",
+    icon: "03C",
+    label: "Poteau isolé",
+    description: "Descente de charges et aire tributaire",
+    family: "Descente de charges",
+  },
+  {
+    id: "wall-load",
+    icon: "04B",
+    label: "Voile isolé",
+    description: "Charges verticales et action du vent",
+    family: "Descente de charges",
+  },
+  {
+    id: "building",
+    icon: "05B",
+    label: "Bâtiment complet",
+    description: "Niveaux, panneaux et éléments porteurs",
+    family: "Descente de charges",
+  },
+  {
+    id: "column",
+    icon: "06C",
+    label: "Poteau",
+    description: "Section en béton et effort normal",
+    family: "Prédimensionnement",
+  },
+  {
+    id: "beam-size",
+    icon: "07B",
+    label: "Poutre",
+    description: "Portée, appuis et section recommandée",
+    family: "Prédimensionnement",
+  },
+  {
+    id: "wall",
+    icon: "08C",
+    label: "Voile",
+    description: "Épaisseur minimale et section",
+    family: "Prédimensionnement",
+  },
+  {
+    id: "stairs",
+    icon: "09A",
+    label: "Escalier",
+    description: "Marches, Blondel et paillasse",
+    family: "Prédimensionnement",
+  },
+  {
+    id: "balcony",
+    icon: "10C",
+    label: "Balcon",
+    description: "Console et moment d’encastrement",
+    family: "Prédimensionnement",
+  },
+  {
+    id: "slab",
+    icon: "11C",
+    label: "Plancher",
+    description: "Dalle pleine ou corps creux",
+    family: "Prédimensionnement",
+  },
+  {
+    id: "retaining",
+    icon: "12B",
+    label: "Mur de soutènement",
+    description: "Poussée des terres et proportions",
+    family: "Prédimensionnement",
+  },
+  {
+    id: "footing",
+    icon: "13C",
+    label: "Semelle de fondation",
+    description: "Semelle isolée ou filante",
+    family: "Prédimensionnement",
+  },
+] as const;
+export type ProjectType = (typeof projectTypes)[number]["id"];
+export const typeInfo = (id: ProjectType) =>
+  projectTypes.find((t) => t.id === id)!;
