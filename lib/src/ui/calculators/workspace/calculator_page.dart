@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../state/app_scope.dart';
 import '../../../theme/app_colors.dart';
 import '../../../theme/app_theme.dart';
 import '../beam_quick_calc_screen.dart';
@@ -46,9 +47,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _restore();
   }
 
+  bool get _temporarySession =>
+      context.getInheritedWidgetOfExactType<AppScope>()?.notifier?.isTemporarySession ?? false;
+
   Future<void> _restore() async {
+    if (_temporarySession) return;
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 8));
       final raw = prefs.getString(_model.storageKey);
       if (raw == null || !mounted || _revision != 0) return;
       final restored = CalculatorModel.fromJson(Map<String, dynamic>.from(jsonDecode(raw) as Map));
@@ -106,12 +111,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   Future<void> _save() async {
+    if (_temporarySession) {
+      _message('Sauvegarde désactivée pendant la session temporaire.');
+      return;
+    }
     if (_saving) return;
     setState(() => _saving = true);
     try {
       final snapshot = jsonEncode(_model.toJson()), revision = _revision;
-      final prefs = await SharedPreferences.getInstance();
-      final ok = await prefs.setString(_model.storageKey, snapshot);
+      final prefs = await SharedPreferences.getInstance().timeout(const Duration(seconds: 8));
+      final ok = await prefs.setString(_model.storageKey, snapshot).timeout(const Duration(seconds: 8));
       if (!mounted) return;
       if (!ok) throw StateError('Échec de l’enregistrement');
       setState(() => _saved = revision == _revision);
