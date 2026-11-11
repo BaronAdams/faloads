@@ -1977,7 +1977,12 @@ function Diagram({
     min = Math.min(...values.map((v) => v * factor), 0),
     max = Math.max(...values.map((v) => v * factor), 0),
     range = Math.max(0.0001, max - min),
-    X = (v: number) => 48 + (v / x[x.length - 1]) * 884,
+    chartLeft = Math.max(
+      100,
+      ...[min, max].map((v) => fmt(v, 1).length * 16 + 20),
+    ),
+    chartWidth = 940 - chartLeft,
+    X = (v: number) => chartLeft + (v / x[x.length - 1]) * chartWidth,
     Y = (v: number) => 30 + ((v - min) / range) * 110,
     index = x.reduce(
       (best, v, i) =>
@@ -2006,7 +2011,11 @@ function Diagram({
           setRead(
             Math.max(
               0,
-              Math.min(1, (((e.clientX - r.left) / r.width) * 980 - 48) / 884),
+              Math.min(
+                1,
+                (((e.clientX - r.left) / r.width) * 980 - chartLeft) /
+                  chartWidth,
+              ),
             ),
           );
         }}
@@ -2014,15 +2023,15 @@ function Diagram({
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <g key={t}>
             <line
-              x1="48"
-              x2="932"
+              x1={chartLeft}
+              x2="940"
               y1={30 + t * 110}
               y2={30 + t * 110}
               stroke="var(--border)"
               strokeOpacity=".5"
             />
             <text
-              x="35"
+              x={chartLeft - 14}
               y={34 + t * 110}
               textAnchor="end"
               fill="var(--muted-foreground)"
@@ -2034,13 +2043,13 @@ function Diagram({
           </g>
         ))}
         <path
-          d={`${path}L${X(x[x.length - 1])} ${baseline}L48 ${baseline}Z`}
+          d={`${path}L${X(x[x.length - 1])} ${baseline}L${chartLeft} ${baseline}Z`}
           fill="var(--purple)"
           fillOpacity=".12"
         />
         <line
-          x1="48"
-          x2="932"
+          x1={chartLeft}
+          x2="940"
           y1={baseline}
           y2={baseline}
           stroke="var(--muted-foreground)"
@@ -2049,7 +2058,7 @@ function Diagram({
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <text
             key={t}
-            x={48 + t * 884}
+            x={chartLeft + t * chartWidth}
             y="174"
             textAnchor="middle"
             fill="var(--muted-foreground)"
