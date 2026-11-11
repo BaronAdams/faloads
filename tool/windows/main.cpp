@@ -3,6 +3,8 @@
 #include <flutter/dart_project.h>
 #include <flutter/flutter_view_controller.h>
 #include <windows.h>
+#include <io.h>
+#include <share.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -30,11 +32,20 @@ void OpenStartupLog() {
       std::filesystem::remove(previous);
       std::filesystem::rename(log, previous);
     }
-    FILE* stream = nullptr;
-    _wfreopen_s(&stream, log.c_str(), L"a", stderr);
-    _wfreopen_s(&stream, log.c_str(), L"a", stdout);
-    setvbuf(stderr, nullptr, _IONBF, 0);
-    setvbuf(stdout, nullptr, _IONBF, 0);
+    // Explicit sharing is essential: Dart appends to this same log and the
+    // diagnostic launcher reads it while the engine is still running.
+    FILE* stream = _wfsopen(log.c_str(), L"a", _SH_DENYNO);
+    if (!stream) return;
+    FILE* redirected = nullptr;
+    if (freopen_s(&redirected, "NUL", "w", stderr) == 0) {
+      _dup2(_fileno(stream), _fileno(stderr));
+      setvbuf(stderr, nullptr, _IONBF, 0);
+    }
+    if (freopen_s(&redirected, "NUL", "w", stdout) == 0) {
+      _dup2(_fileno(stream), _fileno(stdout));
+      setvbuf(stdout, nullptr, _IONBF, 0);
+    }
+    fclose(stream);
   } catch (...) {
     // Diagnostics are best effort, including on restricted Windows accounts.
   }

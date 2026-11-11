@@ -25,7 +25,9 @@ New-Item -ItemType Directory -Force $extracted | Out-Null
 Expand-Archive $Archive $extracted -Force
 $exe = Join-Path $extracted 'structcalc.exe'
 $log = Join-Path $env:LOCALAPPDATA 'StructCalc/Logs/startup.log'
+$failures = [System.Collections.Generic.List[string]]::new()
 foreach ($mode in @('default', 'compatibility')) {
+  $root = $null
   if (Test-Path $log) { Remove-Item $log -Force }
   $options = @{ FilePath = $exe; WorkingDirectory = $probeTemp; PassThru = $true }
   if ($mode -eq 'compatibility') { $options.ArgumentList = '--compatibility' }
@@ -45,7 +47,14 @@ foreach ($mode in @('default', 'compatibility')) {
       }
       Start-Sleep -Milliseconds 500
     }
-    if (-not $ready) { throw "Landing interface did not appear ($mode)." }
+    if (-not $ready) {
+      if ($null -ne $root) {
+        $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
+          [System.Windows.Automation.Condition]::TrueCondition) |
+          ForEach-Object { $_.Current.Name } | Out-File (Join-Path $evidence.FullName "$mode-accessibility.txt")
+      }
+      throw "Landing interface did not appear ($mode)."
+    }
     $startup = Get-Content $log -Raw
     foreach ($marker in @('native.start', 'dart.startup.main', 'dart.startup.first_frame', 'dart.preferences.loaded')) {
       if (-not $startup.Contains($marker)) { throw "Startup marker missing: $marker ($mode)" }
@@ -77,8 +86,34 @@ foreach ($mode in @('default', 'compatibility')) {
       $graphics.Dispose()
       $bitmap.Dispose()
     }
+  } catch {
+    $failures.Add("${mode}: $_")
+    Write-Output "FAIL: ${mode}: $_"
   } finally {
-    if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
-    if (Test-Path $log) { Copy-Item $log (Join-Path $evidence.FullName "$mode.log") -Force }
+    # Capture failures too, before terminating the process. Preserve the
+    # original test failure if diagnostic collection itself is unavailable.
+    try {
+      if ($process.MainWindowHandle -ne 0 -and -not (Test-Path (Join-Path $evidence.FullName "$mode.png"))) {
+        $rect = [WindowProbe+Rect]::new()
+        [WindowProbe]::GetClientRect($process.MainWindowHandle, [ref]$rect) | Out-Null
+        $point = [WindowProbe+Point]::new()
+        [WindowProbe]::ClientToScreen($process.MainWindowHandle, [ref]$point) | Out-Null
+        $bitmap = [System.Drawing.Bitmap]::new($rect.Right, $rect.Bottom)
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        try {
+          $graphics.CopyFromScreen($point.X, $point.Y, 0, 0, $bitmap.Size)
+          $bitmap.Save((Join-Path $evidence.FullName "$mode.png"))
+        } finally { $graphics.Dispose(); $bitmap.Dispose() }
+      }
+    } catch { Write-Warning "Capture unavailable: $_" }
+    if (-not $process.HasExited) {
+      Stop-Process -Id $process.Id -Force
+      [void]$process.WaitForExit(5000)
+    }
+    if (Test-Path $log) {
+      Copy-Item $log (Join-Path $evidence.FullName "$mode.log") -Force -ErrorAction Continue
+    }
   }
 }
+
+if ($failures.Count -gt 0) { throw ($failures -join "`n") }
