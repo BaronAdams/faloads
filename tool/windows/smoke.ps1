@@ -1,8 +1,6 @@
 param([string]$Archive = 'structcalc-windows.zip')
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
@@ -27,7 +25,6 @@ $exe = Join-Path $extracted 'structcalc.exe'
 $log = Join-Path $env:LOCALAPPDATA 'StructCalc/Logs/startup.log'
 $failures = [System.Collections.Generic.List[string]]::new()
 foreach ($mode in @('default', 'compatibility')) {
-  $root = $null
   if (Test-Path $log) { Remove-Item $log -Force }
   $options = @{ FilePath = $exe; WorkingDirectory = $probeTemp; PassThru = $true }
   if ($mode -eq 'compatibility') { $options.ArgumentList = '--compatibility' }
@@ -38,27 +35,19 @@ foreach ($mode in @('default', 'compatibility')) {
     while ([DateTime]::UtcNow -lt $deadline) {
       $process.Refresh()
       if ($process.HasExited) { throw "Application exited: $($process.ExitCode) ($mode)" }
-      if ($process.MainWindowHandle -ne 0) {
-        $root = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
-        $condition = [System.Windows.Automation.PropertyCondition]::new(
-          [System.Windows.Automation.AutomationElement]::NameProperty, 'Commencer')
-        $button = $root.FindFirst([System.Windows.Automation.TreeScope]::Descendants, $condition)
-        if ($null -ne $button) { $ready = $true; break }
+      if ($process.MainWindowHandle -ne 0 -and (Test-Path $log)) {
+        $startup = Get-Content $log -Raw
+        if ($startup.Contains('dart.startup.route_ready')) { $ready = $true; break }
       }
       Start-Sleep -Milliseconds 500
     }
-    if (-not $ready) {
-      if ($null -ne $root) {
-        $root.FindAll([System.Windows.Automation.TreeScope]::Descendants,
-          [System.Windows.Automation.Condition]::TrueCondition) |
-          ForEach-Object { $_.Current.Name } | Out-File (Join-Path $evidence.FullName "$mode-accessibility.txt")
-      }
-      throw "Landing interface did not appear ($mode)."
-    }
+    if (-not $ready) { throw "First application route was not painted ($mode)." }
     $startup = Get-Content $log -Raw
-    foreach ($marker in @('native.start', 'dart.startup.main', 'dart.startup.first_frame', 'dart.preferences.loaded')) {
+    foreach ($marker in @('native.start', 'dart.startup.main', 'dart.startup.first_frame', 'dart.preferences.loaded', 'dart.startup.route_ready')) {
       if (-not $startup.Contains($marker)) { throw "Startup marker missing: $marker ($mode)" }
     }
+    $expectedMode = if ($mode -eq 'compatibility') { 'true' } else { 'false' }
+    if (-not $startup.Contains("compatibility=$expectedMode")) { throw "Incorrect renderer mode: $mode" }
     if ($startup -match 'dart.flutter.error|dart.async.error|dart.preferences.failed') {
       throw "Startup exception detected ($mode)."
     }
@@ -81,7 +70,7 @@ foreach ($mode in @('default', 'compatibility')) {
         }
       }
       if ($colors.Count -lt 32) { throw "Client area is blank ($mode): $($colors.Count) colors." }
-      Write-Output "PASS: $mode release displays Commencer; $($colors.Count) sampled colors."
+      Write-Output "PASS: $mode release paints the application route; $($colors.Count) sampled colors."
     } finally {
       $graphics.Dispose()
       $bitmap.Dispose()

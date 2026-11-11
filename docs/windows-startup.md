@@ -44,7 +44,7 @@ Une absence de runtime C++ provoque normalement un échec de chargement du proce
 
 Les tests de régression simulent un stockage qui ne répond pas, une exception de plateforme, des données invalides, un réessai et une session temporaire sans écriture. Ils couvrent aussi les chargements tardifs et la sauvegarde des calculateurs dans cette session.
 
-Le workflow Windows lance **l'exécutable release extrait du ZIP final**, en modes normal et compatibilité, depuis un répertoire de travail différent et un chemin contenant espaces et accent. Il attend le bouton accessible **Commencer**, vérifie les repères de démarrage et les exceptions, et capture la zone cliente pour rejeter une surface uniforme/noire. Les images et journaux sont téléversés dans **structcalc-windows-diagnostics**, y compris en cas d'échec. Cet essai vérifie le runner GitHub ; il ne reproduit pas la carte NVIDIA de l'utilisateur.
+Le workflow Windows lance **l'exécutable release extrait du ZIP final**, en modes normal et compatibilité, depuis un répertoire de travail différent et un chemin contenant espaces et accent. Il attend le rendu de la première page après restauration, vérifie les repères de démarrage et les exceptions, puis capture la zone cliente pour rejeter une surface uniforme/noire. Les tests de widgets vérifient séparément le bouton **Commencer** et le parcours de démarrage. Le test natif ne dépend pas d’UI Automation, que ce moteur Flutter n’expose pas par défaut (il utilise MSAA). Les images et journaux sont téléversés dans **structcalc-windows-diagnostics**, y compris en cas d'échec. Cet essai vérifie le runner GitHub ; il ne reproduit pas la carte NVIDIA de l'utilisateur.
 
 ## Sources de recherche
 

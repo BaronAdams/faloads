@@ -37,6 +37,7 @@ class StructCalcApp extends StatefulWidget {
 class _StructCalcAppState extends State<StructCalcApp> {
   late final AppState _appState = widget.appState ?? AppState();
   late Future<void> _ready;
+  bool _startupReported = false;
 
   void _retryStartup() {
     final ready = _appState.loadPersisted();
@@ -126,6 +127,12 @@ class _StructCalcAppState extends State<StructCalcApp> {
             }
             if (snapshot.hasError) {
               return StartupScreen(error: true, onRetry: _retryStartup, onContinue: _continueTemporarily);
+            }
+            if (!_startupReported) {
+              _startupReported = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) recordDiagnostic('startup.route_ready');
+              });
             }
             return _appState.isLoggedIn ? const AppShell() : const LandingScreen();
           },
