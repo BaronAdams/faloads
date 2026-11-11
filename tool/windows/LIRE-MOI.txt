@@ -1,0 +1,25 @@
+StructCalc - Windows 10/11 x64
+
+1. Extrayez le ZIP telecharge depuis GitHub Actions. S'il contient un second
+   structcalc-windows.zip, extrayez aussi celui-ci.
+2. Gardez structcalc.exe, toutes les DLL et le dossier data ensemble.
+3. Lancez structcalc.exe. Flutter/Visual Studio ne sont pas requis sur votre PC.
+
+Si la fenetre reste noire :
+- Fermez la fenetre puis ouvrez Lancer-compatibilite.cmd. Ce mode utilise Skia
+  et prefere le GPU basse consommation (integre s'il existe). Il reste accelere
+  graphiquement ; ce n'est pas un mode de rendu logiciel.
+- Mettez a jour le pilote NVIDIA/Intel depuis le fabricant si necessaire.
+- Le journal local est : %LOCALAPPDATA%\StructCalc\Logs\startup.log
+  (secours : %TEMP%\StructCalc\Logs\startup.log).
+  Il distingue le demarrage natif, l'arrivee dans Dart, la premiere frame
+  et la restauration des preferences. Il peut contenir des chemins locaux.
+
+Si la lecture des donnees echoue ou depasse 8 secondes, l'application propose
+Reessayer ou Continuer sans sauvegarde. La session temporaire conserve les
+fichiers existants et desactive les ecritures ; fermez puis relancez pour
+retrouver la sauvegarde normale. Ne supprimez pas vos donnees pour diagnostiquer.
+
+Les DLL du runtime Visual C++ sont incluses. En cas d'erreur de chargement de
+DLL, reextrayez l'archive complete ou installez le runtime x64 officiel :
+https://aka.ms/vc14/vc_redist.x64.exe

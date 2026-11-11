@@ -15,6 +15,7 @@ concurrency:
 
 env:
   FLUTTER_CHANNEL: stable
+  FLUTTER_VERSION: "3.47.9"
 
 jobs:
   build_desktop:
@@ -49,12 +50,18 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: ${{ env.FLUTTER_CHANNEL }}
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
       # Platform folders are generated, just as in the mobile workflow.
       # Keep the project name stable so the executable and .app names match.
       - name: Generate desktop platform
         run: flutter create --platforms=${{ matrix.platform }} --org com.structcalc --project-name structcalc --no-pub .
+
+      - name: Apply Windows startup runner
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Copy-Item tool/windows/main.cpp windows/runner/main.cpp -Force
 
       - name: Install Flutter dependencies
         run: flutter pub get
@@ -66,7 +73,21 @@ jobs:
       - name: Package Windows application
         if: runner.os == 'Windows'
         shell: pwsh
-        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath structcalc-windows.zip
+        run: ./tool/windows/package.ps1
+
+      - name: Launch extracted Windows release (default and compatibility)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./tool/windows/smoke.ps1 -Archive structcalc-windows.zip
+
+      - name: Upload Windows startup diagnostics
+        if: runner.os == 'Windows' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: structcalc-windows-diagnostics
+          path: windows-smoke/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Package macOS application
         if: runner.os == 'macOS'
