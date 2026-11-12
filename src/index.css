@@ -369,60 +369,6 @@ p {
   align-items: center;
   gap: 8px;
 }
-.dashboard-overview {
-  display: flex;
-  align-items: center;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--card);
-  padding: 18px 22px;
-  gap: 36px;
-  margin-bottom: 30px;
-}
-.dashboard-overview > div {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.overview-icon {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  color: var(--primary);
-  background: var(--accent);
-  border-radius: 10px;
-}
-.dashboard-overview strong {
-  font-size: 20px;
-  display: block;
-}
-.dashboard-overview span:not(.overview-icon) {
-  font-size: 10px;
-  color: var(--muted-foreground);
-}
-.dashboard-overview .overview-action {
-  margin-left: auto;
-  display: block;
-  text-align: right;
-}
-.overview-action > span {
-  display: block;
-  margin-bottom: 2px;
-}
-.overview-action button {
-  font-size: 11px;
-  height: 28px;
-  padding: 0;
-}
-.dashboard-sections {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 272px;
-  gap: 28px;
-}
-.dashboard-sections > main {
-  min-width: 0;
-}
 .search-box {
   position: relative;
   display: flex;
@@ -448,9 +394,6 @@ p {
   opacity: 0.5;
   font-size: 15px;
 }
-.project-family {
-  margin-top: 28px;
-}
 .section-heading {
   display: flex;
   align-items: center;
@@ -475,105 +418,10 @@ p {
   padding: 2px 7px;
   border-radius: 5px;
 }
-.project-type-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.project-type-card {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px 18px;
-  background: var(--card);
-  min-height: 184px;
-  transition:
-    border 0.18s,
-    transform 0.18s,
-    background 0.18s;
-}
-.project-type-card:hover {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--card) 95%, var(--primary));
-  transform: translateY(-2px);
-}
-.project-card-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 10px;
-}
-.project-card-top > svg {
-  color: var(--muted-foreground);
-  opacity: 0.55;
-}
 .project-icon {
   object-fit: contain;
   flex-shrink: 0;
   max-width: 100%;
-}
-.project-type-card h3 {
-  font-size: 13px;
-  line-height: 1.4;
-  font-weight: 650;
-  letter-spacing: -0.1px;
-}
-.project-type-card p {
-  font-size: 10px;
-  color: var(--muted-foreground);
-  margin-top: 4px;
-  line-height: 1.5;
-}
-.card-open {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: auto;
-  padding-top: 14px;
-  font-size: 10px;
-  color: var(--primary);
-}
-.dashboard-aside {
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding-top: 1px;
-}
-.dashboard-aside [data-slot="card-title"] {
-  font-size: 12px;
-}
-.recent-project {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-align: left;
-  padding: 13px 0;
-  border-bottom: 1px solid var(--border);
-}
-.recent-project:last-child {
-  border-bottom: 0;
-}
-.recent-project > div {
-  min-width: 0;
-  flex: 1;
-}
-.recent-project strong {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 11px;
-}
-.recent-project small {
-  font-size: 9px;
-  color: var(--muted-foreground);
-  display: block;
-  margin-top: 5px;
-}
-.recent-project > svg {
-  color: var(--muted-foreground);
 }
 .empty-state {
   text-align: center;
@@ -589,31 +437,6 @@ p {
 .empty-state p {
   font-size: 11px;
   line-height: 1.7;
-}
-.dashboard-note {
-  padding: 24px 22px;
-  border-left: 2px solid var(--primary);
-  background: linear-gradient(120deg, #5b8def0e, transparent);
-}
-.dashboard-note h3 {
-  font-size: 26px;
-  line-height: 1.35;
-  font-weight: 550;
-  letter-spacing: -0.6px;
-  margin-top: 16px;
-}
-.dashboard-note p {
-  font-size: 11px;
-  color: var(--muted-foreground);
-  margin-top: 14px;
-}
-.dashboard-note a {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  color: var(--primary);
-  margin-top: 18px;
 }
 .project-picker {
   max-width: 520px;
@@ -1619,147 +1442,10 @@ tbody tr:last-child > th {
   border-bottom: 1px solid var(--border);
   font-size: 11px;
 }
-.onboarding {
-  display: flex;
-  flex-direction: column;
-  min-height: 100dvh;
-  padding: 30px 48px;
-  max-width: 1400px;
-  margin: auto;
-}
-.onboarding > header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-.onboarding > header button {
-  font-size: 11px;
-  color: var(--muted-foreground);
-}
-.onboarding-content {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  gap: 100px;
-  padding: 70px 7%;
-}
-.onboarding-visual {
-  display: flex;
-  align-items: center;
-  flex-direction: column;
-  gap: 50px;
-}
-.icon-orbit {
-  width: 320px;
-  height: 320px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  position: relative;
-  background: radial-gradient(ellipse at center, #5b8def12, transparent 65%);
-}
-.orbit-icon {
-  position: absolute;
-  width: 90px;
-  height: 90px;
-  display: grid;
-  place-items: center;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 17px;
-  box-shadow: 0 12px 35px #0001;
-}
-.orbit-icon.one {
-  right: -20px;
-  top: 5px;
-}
-.orbit-icon.two {
-  left: -25px;
-  top: 65px;
-}
-.orbit-icon.three {
-  right: 15px;
-  bottom: -15px;
-}
-.onboarding-copy h1 {
-  font-size: 45px;
-  line-height: 1.2;
-  letter-spacing: -1.8px;
-  font-weight: 600;
-  max-width: 460px;
-  margin: 24px 0;
-}
-.onboarding-copy > p {
-  font-size: 14px;
-  color: var(--muted-foreground);
-  line-height: 1.85;
-  max-width: 390px;
-  margin-bottom: 30px;
-}
-.onboarding-copy > button {
-  font-size: 13px;
-  padding: 0 24px;
-}
-.step-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--accent);
-  border: 1px solid #5b8def2a;
-  color: var(--primary);
-  font-size: 10px;
-  border-radius: 20px;
-  padding: 6px 12px;
-}
-.onboarding-dots {
-  display: flex;
-  gap: 7px;
-  margin-top: 35px;
-}
-.onboarding-dots button {
-  width: 6px;
-  height: 6px;
-  border-radius: 4px;
-  background: var(--border);
-  transition: width 0.2s;
-}
-.onboarding-dots button.active {
-  width: 22px;
-  background: var(--primary);
-}
-.onboarding > footer {
-  color: var(--muted-foreground);
-  font-size: 10px;
-  text-align: center;
-  padding-top: 24px;
-}
-@media (min-width: 1600px) {
-  .dashboard-sections {
-    grid-template-columns: minmax(0, 1fr) 320px;
-  }
-  .project-type-card {
-    min-height: 195px;
-    padding: 20px 24px;
-  }
-}
 @media (max-width: 1250px) {
   .page-content,
   .project-page {
     padding: 24px;
-  }
-  .dashboard-sections {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .dashboard-aside {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    padding-top: 0;
-  }
-  .dashboard-overview {
-    gap: 24px;
   }
   .app-shell {
     grid-template-columns: 215px minmax(0, 1fr);
@@ -1788,13 +1474,6 @@ tbody tr:last-child > th {
   }
   .project-filters > .field:last-child {
     grid-column: 2;
-  }
-  .onboarding-content {
-    gap: 65px;
-    padding: 65px 3%;
-  }
-  .onboarding-copy h1 {
-    font-size: 38px;
   }
 }
 @media (max-width: 1000px) {
@@ -1906,22 +1585,6 @@ tbody tr:last-child > th {
   .metrics-grid {
     grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
   }
-  .onboarding {
-    padding: 25px;
-  }
-  .onboarding-content {
-    gap: 50px;
-  }
-  .icon-orbit {
-    width: 250px;
-    height: 250px;
-  }
-  .onboarding-visual .eyebrow {
-    font-size: 8px;
-  }
-  .onboarding-copy h1 {
-    font-size: 34px;
-  }
 }
 @media (max-width: 700px) {
   .page-content,
@@ -1948,57 +1611,6 @@ tbody tr:last-child > th {
   .page-title > button {
     height: 32px;
     font-size: 11px;
-  }
-  .dashboard-overview {
-    padding: 16px;
-    gap: 20px;
-    flex-wrap: wrap;
-  }
-  .dashboard-overview .overview-action {
-    margin-left: 0;
-    text-align: left;
-    width: 100%;
-    border-top: 1px solid var(--border);
-    padding-top: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .overview-action > span {
-    margin: 0;
-  }
-  .dashboard-sections {
-    gap: 24px;
-  }
-  .dashboard-aside {
-    grid-template-columns: 1fr;
-  }
-  .dashboard-note {
-    display: none;
-  }
-  .project-type-grid {
-    gap: 10px;
-  }
-  .project-type-card {
-    padding: 14px;
-    min-height: 184px;
-  }
-  .project-card-top {
-    margin-bottom: 9px;
-  }
-  .project-card-top img {
-    width: 55px;
-    height: 55px;
-  }
-  .project-type-card h3 {
-    font-size: 12px;
-  }
-  .project-type-card p {
-    font-size: 9px;
-  }
-  .project-type-card .card-open {
-    font-size: 9px;
-    padding-top: 13px;
   }
   .section-heading h2 {
     font-size: 14px;
@@ -2320,96 +1932,6 @@ tbody tr:last-child > th {
   }
   .about-card {
     align-items: flex-start;
-  }
-  .onboarding {
-    padding: 20px;
-    min-height: 100dvh;
-  }
-  .onboarding header {
-    gap: 4px;
-  }
-  .onboarding .brand {
-    gap: 8px;
-  }
-  .onboarding .brand strong {
-    font-size: 18px;
-  }
-  .onboarding .brand-mark {
-    width: 33px;
-    height: 33px;
-    font-size: 28px;
-  }
-  .onboarding header button {
-    font-size: 10px;
-    padding: 0 5px;
-  }
-  .onboarding-content {
-    display: flex;
-    flex-direction: column;
-    gap: 35px;
-    justify-content: center;
-    align-items: center;
-    padding: 48px 12px 35px;
-  }
-  .onboarding-visual {
-    gap: 20px;
-  }
-  .icon-orbit {
-    width: 210px;
-    height: 210px;
-  }
-  .icon-orbit > .project-icon {
-    width: 130px;
-    height: 130px;
-  }
-  .orbit-icon {
-    width: 65px;
-    height: 65px;
-    border-radius: 13px;
-  }
-  .orbit-icon > img {
-    width: 55px;
-    height: 55px;
-  }
-  .orbit-icon.one {
-    right: -17px;
-    top: 0;
-  }
-  .orbit-icon.two {
-    left: -18px;
-    top: 45px;
-  }
-  .orbit-icon.three {
-    right: 0;
-    bottom: -10px;
-  }
-  .onboarding-visual > .eyebrow {
-    display: none;
-  }
-  .onboarding-copy {
-    text-align: center;
-    max-width: 360px;
-  }
-  .onboarding-copy h1 {
-    font-size: 31px;
-    letter-spacing: -1px;
-    margin: 18px 0 16px;
-  }
-  .onboarding-copy > p {
-    font-size: 12px;
-    line-height: 1.8;
-    margin-bottom: 22px;
-  }
-  .onboarding-copy > button {
-    width: 100%;
-  }
-  .onboarding-dots {
-    justify-content: center;
-    margin-top: 22px;
-  }
-  .onboarding > footer {
-    font-size: 9px;
-    padding-top: 12px;
   }
   .persistence-banner {
     font-size: 10px;

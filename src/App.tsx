@@ -53,7 +53,10 @@ function Shell() {
   }, []);
   if (!workspace.onboarding) return <Onboarding />;
   return (
-    <div className="app-shell" data-testid="app-shell">
+    <div
+      className={`app-shell${location.pathname === "/" ? " dashboard-shell" : ""}`}
+      data-testid="app-shell"
+    >
       <aside className="app-sidebar">
         <Link to="/" className="brand">
           <span className="brand-mark">σ</span>
@@ -62,7 +65,7 @@ function Shell() {
             <small>Votre atelier de structure</small>
           </div>
         </Link>
-        <span className="nav-caption">ESPACE DE TRAVAIL</span>
+        <span className="nav-caption">Espace de travail</span>
         <nav>
           {navigation.map(({ to, label, Icon }) => (
             <NavLink key={to} to={to} end={to === "/"}>

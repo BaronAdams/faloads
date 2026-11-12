@@ -8,6 +8,7 @@ import { Toaster } from "./components/ui/sonner";
 import { diagnostic } from "./lib/storage";
 import { Button } from "./components/ui/button";
 import "./index.css";
+import "./styles/entry-pages.css";
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { failed: boolean }

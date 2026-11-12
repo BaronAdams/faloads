@@ -3,7 +3,7 @@ const ready = async (page: Page) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Passer la présentation" }).click();
   await expect(
-    page.getByRole("heading", { name: "Concevez avec clarté." }),
+    page.getByRole("heading", { name: "Vos calculs de structure" }),
   ).toBeVisible();
 };
 test.beforeEach(async ({ page }) => {
@@ -282,4 +282,147 @@ test("pinch and touch pan move the camera without opening an element editor", as
     previous!,
   );
   await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("onboarding demonstrates a real calculation and retains it between steps", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Calculez vos structures" }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Voir un calcul", exact: true })
+    .click();
+  await expect(page.getByTestId("onboarding-moment")).toContainText("75,60");
+  await page.getByLabel("Portée de l’exemple", { exact: true }).fill("4");
+  await expect(page.getByTestId("onboarding-moment")).toContainText("33,60");
+  await page.getByRole("button", { name: "Continuer", exact: true }).click();
+  await expect(
+    page.getByText("StructCalc-projet.json", { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".export-document-title")).toContainText("4,00 m");
+  await page.getByRole("button", { name: "Retour", exact: true }).click();
+  await expect(
+    page.getByLabel("Portée de l’exemple", { exact: true }),
+  ).toHaveValue("4");
+  await page
+    .getByRole("button", { name: "Présentation 3 — Conserver" })
+    .click();
+  await page
+    .getByRole("button", { name: "Accéder aux calculs", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Vos calculs de structure" }),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.locator(".onboarding")).toHaveCount(0);
+});
+
+test("dashboard family filters, search reset and project picker work together", async ({
+  page,
+}) => {
+  await ready(page);
+  const filters = page.getByRole("group", {
+    name: "Filtrer les types de projets",
+  });
+  await filters
+    .getByRole("button", { name: "Descente de charges", exact: true })
+    .click();
+  await expect(page.locator(".project-type-card")).toHaveCount(3);
+  const search = page.getByRole("textbox", {
+    name: "Rechercher un type de projet",
+  });
+  await search.fill("poteau");
+  await expect(page.locator(".project-type-card")).toHaveCount(1);
+  await page.getByRole("button", { name: "Effacer la recherche" }).click();
+  await expect(page.locator(".project-type-card")).toHaveCount(3);
+  await page.keyboard.press("Control+k");
+  await expect(search).toBeFocused();
+  await search.fill("semelle");
+  await expect(
+    page.getByRole("heading", { name: "Aucun type de projet trouvé" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
+  await expect(page.locator(".project-type-card")).toHaveCount(13);
+  await page
+    .getByRole("button", { name: "Nouveau projet", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: /Semelle de fondation/ })
+    .click();
+  await expect(page).toHaveURL(/new\/footing/);
+});
+
+test("dashboard resumes real projects in date order and displays their actual count", async ({
+  page,
+}) => {
+  await ready(page);
+  await page.evaluate(async () => {
+    const current = JSON.parse(
+      localStorage.getItem("structcalc.workspace.v1")!,
+    );
+    const { beamPreset } = await import("/src/domain/analysis.ts");
+    current.profile.name = "Bureau d’études";
+    current.projects = [
+      {
+        id: "older-beam",
+        name: "Poutre ancienne",
+        type: "beam",
+        updatedAt: "2026-11-01T10:00:00Z",
+        data: beamPreset(),
+      },
+      {
+        id: "recent-beam",
+        name: "Poutre récente",
+        type: "beam",
+        updatedAt: "2026-11-12T10:00:00Z",
+        data: beamPreset(),
+      },
+    ];
+    localStorage.setItem("structcalc.workspace.v1", JSON.stringify(current));
+  });
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Vos calculs de structure" }),
+  ).toBeVisible();
+  await expect(page.locator(".dashboard-summary")).toContainText(
+    "2 projets enregistrés",
+  );
+  await expect(page.locator(".recent-project").first()).toContainText(
+    "Poutre récente",
+  );
+  await page.locator(".recent-project").first().click();
+  await expect(page.getByLabel("Nom du projet")).toHaveValue("Poutre récente");
+});
+
+test("onboarding and catalogue remain usable at 320 pixels", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/");
+  for (const label of [
+    "Présentation 1 — Choisir",
+    "Présentation 2 — Paramétrer",
+    "Présentation 3 — Conserver",
+  ]) {
+    await page.getByRole("button", { name: label }).click();
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth + 1,
+      ),
+    ).toBe(true);
+  }
+  await page.getByRole("button", { name: "Passer la présentation" }).click();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+  ).toBe(true);
+  for (const card of await page.locator(".project-type-card").all()) {
+    const box = (await card.boundingBox())!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(321);
+  }
 });
