@@ -1,6 +1,6 @@
 /** Exercise the packaged Tauri release, real WebView2 and Rust IPC, not Vite. */
 import { spawn, execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { chromium, expect } from "@playwright/test";
 if (process.platform !== "win32" || process.env.CI !== "true")
@@ -13,26 +13,49 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
     errors = [],
     processHandle = spawn(
       executable,
-      mode === "compatibility" ? ["--compatibility"] : [],
+      [
+        `--ci-smoke-port=${port}`,
+        ...(mode === "compatibility" ? ["--compatibility"] : []),
+      ],
       {
-        env: {
-          ...process.env,
-          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port} --no-first-run`,
-        },
-        stdio: "ignore",
+        env: process.env,
+        stdio: ["ignore", "pipe", "pipe"],
       },
     );
+  let spawnError;
+  processHandle.on("error", (error) => {
+    spawnError = error;
+  });
+  for (const [name, stream] of [
+    ["stdout", processHandle.stdout],
+    ["stderr", processHandle.stderr],
+  ]) {
+    stream.on("data", (data) =>
+      appendFileSync(`native-test-results/${mode}-${name}.txt`, data),
+    );
+  }
   let browser;
   try {
+    let ready = false;
     for (let retry = 0; retry < 120; retry++) {
+      if (spawnError) throw spawnError;
       if (processHandle.exitCode !== null)
         throw Error(`Native process exited: ${processHandle.exitCode}`);
       try {
-        const response = await fetch(`http://127.0.0.1:${port}/json/version`);
-        if (response.ok) break;
+        const response = await fetch(`http://127.0.0.1:${port}/json/version`, {
+          signal: AbortSignal.timeout(1000),
+        });
+        if (response.ok && (await response.json()).webSocketDebuggerUrl) {
+          ready = true;
+          break;
+        }
       } catch {}
       await new Promise((r) => setTimeout(r, 500));
     }
+    if (!ready)
+      throw Error(
+        `WebView2 did not expose its CI diagnostic endpoint on 127.0.0.1:${port}. See the native process and stderr diagnostics.`,
+      );
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     const context = browser.contexts()[0];
     let page = context.pages().find((p) => !p.url().startsWith("devtools:"));
@@ -106,6 +129,19 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       `native-test-results/${mode}-error.txt`,
       String(error) + "\n" + errors.join("\n"),
     );
+    try {
+      const processes = execFileSync(
+        "powershell.exe",
+        [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          "Get-Process StructCalc,msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Json",
+        ],
+        { encoding: "utf8", timeout: 10000 },
+      );
+      writeFileSync(`native-test-results/${mode}-processes.json`, processes);
+    } catch {}
     if (browser) {
       const p = browser.contexts()[0]?.pages()[0];
       if (p)

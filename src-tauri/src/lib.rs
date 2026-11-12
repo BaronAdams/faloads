@@ -1,3 +1,4 @@
+pub mod windows_launch;
 pub mod workspace;
 
 #[cfg(feature = "app")]
@@ -44,16 +45,6 @@ mod application {
     }
 
     pub fn start() {
-        // Set before constructing the runtime or starting any application thread.
-        #[cfg(target_os = "windows")]
-        if std::env::args().any(|arg| arg == "--compatibility") {
-            let previous =
-                std::env::var("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS").unwrap_or_default();
-            std::env::set_var(
-                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-                format!("{previous} --disable-gpu"),
-            );
-        }
         tauri::Builder::default()
             .plugin(tauri_plugin_dialog::init())
             .plugin(tauri_plugin_fs::init())
@@ -67,6 +58,35 @@ mod application {
                 let directory = app.path().app_data_dir()?;
                 app.manage(Storage(Mutex::new(Repository::new(directory))));
                 log::info!("native.start");
+                #[cfg(target_os = "windows")]
+                {
+                    use crate::windows_launch::WindowsLaunch;
+                    let launch = WindowsLaunch::parse(
+                        &std::env::args().skip(1).collect::<Vec<_>>(),
+                        std::env::var("CI").as_deref() == Ok("true"),
+                    )
+                    .map_err(std::io::Error::other)?;
+                    let config = app
+                        .config()
+                        .app
+                        .windows
+                        .iter()
+                        .find(|window| window.label == "main")
+                        .ok_or_else(|| std::io::Error::other("Fenêtre principale absente"))?;
+                    let mut window = tauri::WebviewWindowBuilder::from_config(app, config)?;
+                    if let Some(args) = launch.browser_args() {
+                        // WebView2 150+ ignores environment overrides in elevated hosts.
+                        window = window.additional_browser_args(&args);
+                    }
+                    if let Some(port) = launch.smoke_port {
+                        // Different browser profiles must still share the Rust workspace.
+                        window = window.data_directory(
+                            std::env::temp_dir().join(format!("structcalc-smoke-{port}")),
+                        );
+                    }
+                    window.build()?;
+                    log::info!("native.window_ready");
+                }
                 Ok(())
             })
             .invoke_handler(tauri::generate_handler![
