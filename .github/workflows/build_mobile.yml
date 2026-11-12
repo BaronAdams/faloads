@@ -106,6 +106,7 @@ jobs:
         with:
           workspaces: src-tauri -> target
           key: ios-simulator
+          cache-on-failure: true
       - run: npm ci
       - run: npm run icons
       - run: npm run tauri ios init -- --ci --skip-targets-install
@@ -133,7 +134,7 @@ jobs:
           APP_PATH=$(find src-tauri/gen/apple -type d -name '*.app' -path '*/build/*' -print -quit)
           test -n "$APP_PATH"
           APP_EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Info.plist")
-          xcrun lipo -verify_arch "$IOS_ARCH" "$APP_PATH/$APP_EXECUTABLE"
+          xcrun lipo "$APP_PATH/$APP_EXECUTABLE" -verify_arch "$IOS_ARCH"
           file "$APP_PATH/$APP_EXECUTABLE"
           xcrun vtool -show-build "$APP_PATH/$APP_EXECUTABLE" > ios-simulator-build.txt
           cat ios-simulator-build.txt
