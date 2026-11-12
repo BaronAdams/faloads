@@ -59,15 +59,23 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   ios:
-    name: Build iOS simulator
-    runs-on: macos-latest
+    name: Build iOS ARM64 simulator
+    # macos-latest uses the ARM64 pool, which can fail before a runner starts.
+    # Xcode on Intel can cross-compile the same ARM64 simulator application.
+    runs-on: macos-15-intel
     timeout-minutes: 55
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_26.3.app/Contents/Developer
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "24"
           cache: npm
+      - name: Verify Xcode and simulator SDK
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: "1.99.1"
@@ -84,6 +92,9 @@ jobs:
         run: |
           APP_PATH=$(find src-tauri/gen/apple -type d -name '*.app' -path '*/build/*' -print -quit)
           test -n "$APP_PATH"
+          APP_EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Info.plist")
+          xcrun lipo -verify_arch arm64 "$APP_PATH/$APP_EXECUTABLE"
+          file "$APP_PATH/$APP_EXECUTABLE"
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" structcalc-ios-simulator.zip
       - uses: actions/upload-artifact@v4
         with:
