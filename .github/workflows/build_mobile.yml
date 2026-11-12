@@ -109,7 +109,25 @@ jobs:
       - run: npm ci
       - run: npm run icons
       - run: npm run tauri ios init -- --ci --skip-targets-install
-      - run: npm run tauri -- -v ios build --ci --target "$IOS_TARGET" --no-sign --archive-only
+      - name: Restrict the generated Xcode project to the simulator
+        run: |
+          # Archive destination discovery can pick iPhone despite --target.
+          # This generated project is used exclusively for simulator builds.
+          ruby -ryaml - src-tauri/gen/apple/project.yml <<'RUBY'
+          path = ARGV.fetch(0)
+          project = YAML.load_file(path)
+          targets = project.fetch('targets').values.select { |target| target['platform'] == 'iOS' }
+          abort 'No iOS target in generated project' if targets.empty?
+          targets.each do |target|
+            target.fetch('settings').fetch('base').merge!(
+              'SDKROOT' => 'iphonesimulator',
+              'SUPPORTED_PLATFORMS' => 'iphonesimulator'
+            )
+          end
+          File.write(path, YAML.dump(project))
+          RUBY
+          xcodegen generate --no-env --spec src-tauri/gen/apple/project.yml
+      - run: npm run tauri -- -vv ios build --ci --target "$IOS_TARGET" --no-sign --archive-only
       - name: Package simulator application
         run: |
           APP_PATH=$(find src-tauri/gen/apple -type d -name '*.app' -path '*/build/*' -print -quit)
