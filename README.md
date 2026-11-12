@@ -31,17 +31,19 @@ Le navigateur utilise son stockage local ; l’application native utilise un fic
 
 Les workflows s’exécutent sur les pull requests, les pushes sur `main`, et manuellement après leur intégration à `main`. Les téléchargements se trouvent dans **Actions → run terminé → Artifacts** et restent disponibles 14 jours.
 
-| Plateforme                          | Artefact                           | Contenu                                                         |
-| ----------------------------------- | ---------------------------------- | --------------------------------------------------------------- |
-| Windows 10/11 x64                   | `structcalc-tauri-windows`         | Installateur NSIS, EXE portable et lanceur de compatibilité GPU |
-| macOS Intel et Apple Silicon        | `structcalc-tauri-macos-universal` | DMG universel, signature ad hoc                                 |
-| Linux x64                           | `structcalc-tauri-linux`           | DEB et AppImage                                                 |
-| Android ARM64, Android 7+           | `structcalc-tauri-android-arm64`   | APK signé installable et information de signature               |
-| iOS 16.4+, simulateur Apple Silicon | `structcalc-tauri-ios-simulator`   | Application `.app` pour simulateur Xcode                        |
+| Plateforme                           | Artefact                                            | Contenu                                                         |
+| ------------------------------------ | --------------------------------------------------- | --------------------------------------------------------------- |
+| Windows 10/11 x64                    | `structcalc-tauri-windows`                          | Installateur NSIS, EXE portable et lanceur de compatibilité GPU |
+| macOS Intel et Apple Silicon         | `structcalc-tauri-macos-universal`                  | DMG universel, signature ad hoc                                 |
+| Linux x64                            | `structcalc-tauri-linux`                            | DEB et AppImage                                                 |
+| Android ARM64, Android 7+            | `structcalc-tauri-android-arm64`                    | APK signé installable et information de signature               |
+| iOS 16.4+, simulateur Intel ou ARM64 | `structcalc-tauri-ios-simulator-x86_64` / `…-arm64` | Application `.app` pour simulateur Xcode                        |
 
 **Windows :** privilégiez l’installateur `*-setup.exe`, qui vérifie WebView2 et installe son runtime si nécessaire (Internet requis dans ce cas). L’EXE portable exige WebView2 déjà installé. En cas de problème graphique, le lanceur `Lancer-compatibilite.cmd` démarre WebView2 avec `--disable-gpu`. Ce moteur diffère du moteur de rendu Flutter ; le résultat sur une carte NVIDIA particulière doit être confirmé sur la machine concernée. Le workflow ouvre réellement le build Windows, calcule et sauvegarde un projet, puis le relit après redémarrage en mode de compatibilité.
 
 **Signature Android :** sans secrets, chaque run génère une clé de développement temporaire. Pour conserver les mises à jour entre builds et préparer une distribution, définissez `ANDROID_KEY_BASE64`, `ANDROID_STORE_PASSWORD`, `ANDROID_KEY_ALIAS` et `ANDROID_KEY_PASSWORD` dans les secrets Actions. Les APK créés avec des clés temporaires différentes ne peuvent pas se mettre à jour mutuellement.
+
+**Simulateur iOS :** les builds automatiques ciblent un Mac Intel pour éviter la saturation du pool ARM64 de GitHub. Pour un Mac Apple Silicon, lancez manuellement le workflow avec `ios_host = apple-silicon`. Le nom de l’artefact précise son architecture.
 
 **iPhone :** l’artefact actuel est pour le simulateur. Une application installable sur appareil ou distribuée via TestFlight nécessite votre équipe Apple, vos certificats et profils de provisionnement ; ils ne sont pas configurés dans ce dépôt. Les applications Windows ne sont pas signées avec un certificat éditeur et macOS n’est pas notarié.
 
