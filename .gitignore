@@ -37,9 +37,9 @@ src-tauri/icons/StoreLogo.png
 build/
 .flutter-plugins*
 .packages
-android/
-ios/
-linux/
-macos/
-windows/
-web/
+/android/
+/ios/
+/linux/
+/macos/
+/windows/
+/web/
