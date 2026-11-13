@@ -210,11 +210,17 @@ test("simplified G/Q calculation responds to load edits in the mobile sheet", as
   const initial = await dialog.locator(".metric").first().innerText();
   await dialog.getByLabel("Charge permanente G", { exact: true }).fill("24");
   await expect(dialog.locator(".metric").first()).not.toHaveText(initial);
-  const box = await dialog.boundingBox();
-  expect(box!.x).toBeGreaterThanOrEqual(-1);
-  expect(box!.x + box!.width).toBeLessThanOrEqual(
-    page.viewportSize()!.width + 1,
-  );
+  // Filling an input can complete while the sheet is still sliding in.
+  // Assert its settled bounds rather than a transient animation frame.
+  await expect
+    .poll(async () => (await dialog.boundingBox())!.x)
+    .toBeGreaterThanOrEqual(-1);
+  await expect
+    .poll(async () => {
+      const box = (await dialog.boundingBox())!;
+      return box.x + box.width;
+    })
+    .toBeLessThanOrEqual(page.viewportSize()!.width + 1);
 });
 
 test("corrupt saved data remains intact in a temporary session", async ({
