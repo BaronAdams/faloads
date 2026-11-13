@@ -21,7 +21,7 @@ const steps = [
     label: "Choisir",
     title: "Voyez vos structures\nréagir.",
     description:
-      "Analysez une poutre ou un portique, suivez une descente de charges et prédimensionnez vos éléments en béton.",
+      "Analysez une poutre ou un portique, suivez une descente de charges et déterminez les dimensions de vos éléments en béton armé.",
     detail: "Un point de départ adapté à chaque étude",
   },
   {

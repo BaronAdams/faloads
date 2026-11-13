@@ -124,7 +124,7 @@ const stepsFor = (type: ProjectType): Step[] => {
     {
       target: "predim-inputs",
       title: "Renseignez votre élément",
-      text: "Adaptez une valeur aux données de votre étude. La proposition de section se met à jour à côté du formulaire.",
+      text: "Renseignez les données de votre élément en béton armé. Les dimensions proposées se mettent à jour à côté du formulaire.",
       action: "input:edited",
     },
     save,

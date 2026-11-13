@@ -1,3 +1,8 @@
+import {
+  StructuralDiagram,
+  type DiagramCurve,
+} from "@/components/structural-diagram";
+import { frameDisplacement } from "@/domain/diagram";
 import { useCalculation } from "@/lib/use-calculation";
 import {
   CalculationOverlay,
@@ -139,7 +144,10 @@ export function AnalysisPage({
     [future, setFuture] = useState<AnalysisModel[]>([]),
     [reactions, setReactions] = useState(true),
     [amplification, setAmplification] = useState(100),
-    [quick, setQuick] = useState(false);
+    [quick, setQuick] = useState(false),
+    [requestedDisplay, setRequestedDisplay] = useState<
+      View | "reactions" | null
+    >(null);
   useEffect(() => {
     drafts.set(draftKey, model);
   }, [model, draftKey, drafts]);
@@ -148,6 +156,48 @@ export function AnalysisPage({
     frame?: FrameResult;
   }>("analysis", model);
   const analysis = { ...calculation.result, error: calculation.error };
+  const displayView = calculation.fresh ? view : "structure";
+  useEffect(() => {
+    if (calculation.fresh) setRequestedDisplay(null);
+  }, [calculation.fresh]);
+  const prompt =
+    requestedDisplay === "reactions"
+      ? "Lancez d’abord le calcul pour afficher les réactions d’appui du modèle courant."
+      : requestedDisplay
+        ? `Lancez d’abord le calcul pour afficher le diagramme « ${fieldNames[requestedDisplay]} » du modèle courant.`
+        : "";
+  const requestView = (next: View) => {
+    if (next !== "structure" && !calculation.fresh) {
+      setRequestedDisplay(next);
+      return;
+    }
+    setRequestedDisplay(null);
+    setView(next);
+  };
+  const requestReactions = (enabled: boolean) => {
+    if (enabled && !calculation.fresh) {
+      setRequestedDisplay("reactions");
+      return;
+    }
+    setRequestedDisplay(null);
+    setReactions(enabled);
+    if (enabled) setView("structure");
+  };
+  const runCalculation = async (display?: View | "reactions") => {
+    const invalid = document.querySelector<HTMLInputElement>("input:invalid");
+    if (invalid) {
+      invalid.reportValidity();
+      return;
+    }
+    setRequestedDisplay(null);
+    setParameters(false);
+    if (await calculation.run()) {
+      if (display === "reactions") {
+        setReactions(true);
+        setView("structure");
+      } else if (display) setView(display);
+    }
+  };
   const closeParameters = (open: boolean) => {
     setParameters(open);
     studyAction(open ? "parameters:open" : "parameters:close");
@@ -338,8 +388,12 @@ export function AnalysisPage({
         <Playground
           immersive
           height={600}
-          onSelect={select}
-          selected={selection ? `${selection.type}:${selection.id}` : null}
+          onSelect={displayView === "structure" ? select : undefined}
+          selected={
+            displayView === "structure" && selection
+              ? `${selection.type}:${selection.id}`
+              : null
+          }
           onDeselect={() => setSelection(null)}
           controls={
             <>
@@ -372,7 +426,7 @@ export function AnalysisPage({
                 <Button
                   data-tour="calculate"
                   disabled={calculation.busy}
-                  onClick={() => void calculation.run()}
+                  onClick={() => void runCalculation()}
                 >
                   <Calculator />
                   Calculer
@@ -395,10 +449,14 @@ export function AnalysisPage({
                     <Button
                       key={v}
                       size="sm"
-                      disabled={v !== "structure" && !calculation.fresh}
-                      variant={view === v ? "secondary" : "ghost"}
-                      onClick={() => setView(v)}
-                      aria-pressed={view === v}
+                      data-requires-calculation={
+                        v !== "structure" && !calculation.fresh
+                          ? true
+                          : undefined
+                      }
+                      variant={displayView === v ? "secondary" : "ghost"}
+                      onClick={() => requestView(v)}
+                      aria-pressed={displayView === v}
                     >
                       {v !== "structure" && (
                         <i
@@ -421,7 +479,31 @@ export function AnalysisPage({
                   hasResult={!!calculation.result}
                 />
               </div>
-              {calculation.error && (
+              {requestedDisplay && !parameters && (
+                <div className="canvas-error calculation-request" role="alert">
+                  <Notice>
+                    <strong>Calcul nécessaire</strong>
+                    <p>{prompt}</p>
+                    <div className="calculation-request-actions">
+                      <Button
+                        size="sm"
+                        disabled={calculation.busy}
+                        onClick={() => void runCalculation(requestedDisplay)}
+                      >
+                        Calculer maintenant
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setRequestedDisplay(null)}
+                      >
+                        Fermer
+                      </Button>
+                    </div>
+                  </Notice>
+                </div>
+              )}
+              {calculation.error && !requestedDisplay && (
                 <div className="canvas-error">
                   <Notice danger>{calculation.error}</Notice>
                 </div>
@@ -446,14 +528,14 @@ export function AnalysisPage({
               model={model}
               result={calculation.fresh ? analysis.beam : undefined}
               reactions={reactions}
-              view={view}
+              view={displayView}
             />
           ) : (
             <FrameScene
               model={model}
               result={calculation.fresh ? analysis.frame : undefined}
               reactions={reactions}
-              view={view}
+              view={displayView}
               amplification={amplification}
             />
           )}
@@ -711,11 +793,29 @@ export function AnalysisPage({
             effectuée.
           </Notice>
 
+          {requestedDisplay && (
+            <div role="alert" className="sheet-calculation-request">
+              <Notice>
+                <strong>Calcul nécessaire</strong>
+                <p>{prompt}</p>
+                <Button
+                  size="sm"
+                  onClick={() => void runCalculation(requestedDisplay)}
+                >
+                  Calculer maintenant
+                </Button>
+              </Notice>
+            </div>
+          )}
           <Toggle
             label="Afficher les réactions"
-            checked={reactions}
-            onChange={setReactions}
+            checked={reactions && calculation.fresh}
+            onChange={requestReactions}
           />
+          <p className="reaction-display-note">
+            Les réactions s’affichent en vue Structure après un calcul à jour.
+            Elles sont masquées dans les vues de diagrammes.
+          </p>
         </div>
         <EditorFooter>
           <Button
@@ -1631,67 +1731,59 @@ function BeamScene({
   const { units, height } = useCanvasGeometry();
   const X = (x: number) => 80 + (x / model.L) * 840,
     y = height / 2;
+  if (result && view !== "structure") {
+    const values = result[view],
+      max = Math.max(1e-12, ...values.map(Math.abs));
+    const curve: DiagramCurve = {
+      id: "beam",
+      a: { x: X(0), y },
+      b: { x: X(model.L), y },
+      points: result.x.map((x, i) => ({
+        x: X(x),
+        y: y + (values[i] / max) * 90 * units,
+        station: x,
+        value: values[i],
+      })),
+    };
+    return (
+      <>
+        <StructuralDiagram
+          curves={[curve]}
+          field={view}
+          color={seriesColors[view]}
+        />
+        <line
+          data-testid="diagram-axis"
+          x1={X(0)}
+          y1={y}
+          x2={X(model.L)}
+          y2={y}
+          stroke="var(--foreground)"
+          strokeOpacity=".65"
+          strokeWidth="1.1"
+          vectorEffect="non-scaling-stroke"
+        />
+        {model.supports.map((s) => (
+          <Support
+            key={s.id}
+            x={X(s.x)}
+            y={y + 3}
+            type={
+              typeof s.uy === "number"
+                ? 5
+                : s.rz === true
+                  ? 1
+                  : s.ux === true
+                    ? 2
+                    : 3
+            }
+          />
+        ))}
+      </>
+    );
+  }
   return (
     <>
-      {result &&
-        view !== "structure" &&
-        (() => {
-          const values = result[view],
-            max = Math.max(1e-12, ...values.map(Math.abs));
-          const curve = result.x
-            .map(
-              (x, i) =>
-                `${i ? "L" : "M"}${X(x)} ${y + (values[i] / max) * 90 * units}`,
-            )
-            .join(" ");
-          const index = values.reduce(
-            (best, v, i) => (Math.abs(v) > Math.abs(values[best]) ? i : best),
-            0,
-          );
-          return (
-            <g
-              className="structural-field"
-              pointerEvents="none"
-              data-field={view}
-            >
-              <path
-                d={`${curve} L${X(model.L)} ${y} L${X(0)} ${y} Z`}
-                fill={seriesColors[view]}
-                fillOpacity=".12"
-              />
-              <path
-                data-testid="diagram-curve"
-                d={curve}
-                fill="none"
-                stroke={seriesColors[view]}
-                strokeWidth="2.5"
-                vectorEffect="non-scaling-stroke"
-              />
-              <text
-                x={X(result.x[index])}
-                y={
-                  y +
-                  (values[index] / max) * 90 * units +
-                  (values[index] >= 0 ? 20 : -12) * units
-                }
-                fill={seriesColors[view]}
-                textAnchor="middle"
-                className="numeric"
-              >
-                {fmt(
-                  values[index] * (view === "v" || view === "theta" ? 1000 : 1),
-                )}{" "}
-                {view === "M"
-                  ? "kN·m"
-                  : view === "v"
-                    ? "mm"
-                    : view === "theta"
-                      ? "mrad"
-                      : "kN"}
-              </text>
-            </g>
-          );
-        })()}
       {model.sections.map((s, i) => (
         <g
           key={s.id}
@@ -1897,7 +1989,7 @@ function BeamScene({
       ))}
       {reactions &&
         result?.reactions.map((r, i) => (
-          <g key={i}>
+          <g key={i} data-testid="reaction" data-reaction-y={r.Fy}>
             {Math.abs(r.Fy) > 1e-6 && (
               <Arrow
                 x={X(r.x)}
@@ -1967,19 +2059,65 @@ function FrameScene({
       210 * units +
       (Math.max(60, height - 350 * units) + (maxY - minY) * scale) / 2 -
       (y - minY) * scale;
-  const diagram =
-      view === "M" || view === "V" || view === "N" || view === "theta"
-        ? view
-        : null,
-    max =
-      diagram && result
-        ? Math.max(
-            1e-12,
-            ...result.mem.flatMap((m) =>
-              m.pts.map((p) => Math.abs(p[diagram])),
-            ),
-          )
-        : 1;
+  if (result && view !== "structure") {
+    const max = Math.max(
+      1e-12,
+      ...result.mem.flatMap((m) => m.pts.map((p) => Math.abs(p[view]))),
+    );
+    const curves: DiagramCurve[] = result.mem.map((r, i) => ({
+      id: model.mem[i].id,
+      a: { x: X(r.g.A.x), y: Y(r.g.A.y) },
+      b: { x: X(r.g.A.x + r.g.L * r.g.c), y: Y(r.g.A.y + r.g.L * r.g.s) },
+      points: r.pts.map((p) => {
+        const x = r.g.A.x + p.x * r.g.c,
+          y = r.g.A.y + p.x * r.g.s;
+        if (view === "v") {
+          const displacement = frameDisplacement(r, p);
+          return {
+            x: X(x + amplification * displacement.dx),
+            y: Y(y + amplification * displacement.dy),
+            station: p.x,
+            value: displacement.magnitude,
+          };
+        }
+        return {
+          x: X(x) + ((r.g.s * p[view]) / max) * 60 * units,
+          y: Y(y) + ((r.g.c * p[view]) / max) * 60 * units,
+          station: p.x,
+          value: p[view],
+        };
+      }),
+    }));
+    return (
+      <>
+        <StructuralDiagram
+          curves={curves}
+          field={view}
+          color={seriesColors[view]}
+          resultant={view === "v"}
+        />
+        {curves.map((curve) => (
+          <line
+            key={curve.id}
+            data-testid="diagram-axis"
+            x1={curve.a.x}
+            y1={curve.a.y}
+            x2={curve.b.x}
+            y2={curve.b.y}
+            stroke="var(--foreground)"
+            strokeOpacity=".65"
+            strokeWidth="1.1"
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {model.nodes
+          .filter((n) => n.s > 0)
+          .map((n) => (
+            <Support key={n.id} x={X(n.x)} y={Y(n.y) + 3} type={n.s} />
+          ))}
+      </>
+    );
+  }
   return (
     <>
       {model.mem.map((b, i) => {
@@ -1990,31 +2128,7 @@ function FrameScene({
           y1 = Y(a.y),
           x2 = X(n.x),
           y2 = Y(n.y),
-          r = result?.mem[i];
-        let path = "";
-        if (r && diagram)
-          path = r.pts
-            .map(
-              (p, j) =>
-                `${j ? "L" : "M"}${X(a.x + p.x * r.g.c) + ((r.g.s * p[diagram]) / max) * 60 * units} ${Y(a.y + p.x * r.g.s) + ((r.g.c * p[diagram]) / max) * 60 * units}`,
-            )
-            .join(" ");
-        if (r && view === "v") {
-          const ei = (model.E * 1e6 * b.bw * b.h ** 3) / 12 / 1e8,
-            L = r.g.L;
-          path = Array.from({ length: 31 }, (_, j) => {
-            const t = j / 30,
-              x = t * L,
-              u = r.ul[0] * (1 - t) + r.ul[3] * t,
-              v =
-                (1 - 3 * t * t + 2 * t ** 3) * r.ul[1] +
-                L * (t - 2 * t * t + t ** 3) * r.ul[2] +
-                (3 * t * t - 2 * t ** 3) * r.ul[4] +
-                L * (-t * t + t ** 3) * r.ul[5] +
-                (r.g.qy * x * x * (L - x) ** 2) / (24 * ei);
-            return `${j ? "L" : "M"}${X(a.x + x * r.g.c + amplification * (u * r.g.c - v * r.g.s))} ${Y(a.y + x * r.g.s + amplification * (u * r.g.s + v * r.g.c))}`;
-          }).join(" ");
-        }
+          memberLength = Math.max(1e-12, Math.hypot(n.x - a.x, n.y - a.y));
         return (
           <g
             key={b.id}
@@ -2042,17 +2156,6 @@ function FrameScene({
               strokeWidth="32"
               vectorEffect="non-scaling-stroke"
             />
-            {path && (
-              <path
-                data-testid="diagram-curve"
-                data-field={view}
-                d={path}
-                stroke={seriesColors[view === "structure" ? "M" : view]}
-                strokeWidth="3"
-                vectorEffect="non-scaling-stroke"
-                fill="none"
-              />
-            )}
             <text
               x={(x1 + x2) / 2 + 12}
               y={(y1 + y2) / 2 + 20}
@@ -2089,8 +2192,8 @@ function FrameScene({
               <Arrow
                 x={(x1 + x2) / 2}
                 y={(y1 + y2) / 2}
-                dx={-Math.sign(b.q) * (r?.g.s ?? 0) * 45}
-                dy={-Math.sign(b.q) * (r?.g.c ?? 1) * 45}
+                dx={-Math.sign(b.q) * ((n.y - a.y) / memberLength) * 45}
+                dy={-Math.sign(b.q) * ((n.x - a.x) / memberLength) * 45}
                 label={`qᵧ ${fmt(b.q)}`}
               />
             )}
@@ -2170,7 +2273,7 @@ function FrameScene({
         result?.rea.map((r) => {
           const n = model.nodes[r.i];
           return (
-            <g key={r.i}>
+            <g key={r.i} data-testid="reaction" data-reaction-y={r.r[1]}>
               {Math.abs(r.r[1]) > 0.001 && (
                 <Arrow
                   x={X(n.x)}

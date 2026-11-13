@@ -6,7 +6,7 @@ Le design reprend l’univers du bureau d’études : des surfaces graphite, des
 
 Les principaux points relevés étaient les textes de 9 à 11 pixels sur mobile, les grands blocs répétitifs, les libellés génériques et une illustration d’onboarding identique sur les trois étapes.
 
-- **Produit** : calcul de structures et prédimensionnement pour les études de béton.
+- **Produit** : calcul de structures et dimensionnement des éléments en béton armé.
 - **Caractère** : précis, calme, lisible.
 - **Univers** : plans, appuis, charges, cotes et notes de calcul.
 - **Moments** : les icônes validées dans le catalogue et un exemple de poutre dont la portée peut être modifiée.

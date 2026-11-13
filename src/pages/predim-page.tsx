@@ -135,7 +135,7 @@ export function PredimPage({
         big: `${r.b} × ${r.h}`,
         unit: "cm",
         formula: "h ≈ L/k ; b ≈ h/2 ; M = m × q_ELU × L²",
-        metrics: [["Moment de prédimensionnement", r.moment, "kN·m"]],
+        metrics: [["Moment de calcul", r.moment, "kN·m"]],
         note: "Coefficients isostatique : k=12, m=1/8 ; continue : 16, 1/12 ; console : 6, 1/2.",
         section: { a: r.b, b: r.h },
       };
@@ -429,7 +429,7 @@ export function PredimPage({
           <Panel className="predim-main">
             <div className="predim-illustration">
               <ProjectIcon type={type} size={128} />
-              <span className="eyebrow">Estimation préliminaire</span>
+              <span className="eyebrow">Dimensionnement Béton Armé</span>
             </div>
             <h2>
               {type === "column" || type === "beam-size"
@@ -493,9 +493,8 @@ export function PredimPage({
             ))}
           </div>
           <Notice>
-            Prédimensionnement indicatif selon les règles du logiciel d’origine.
-            Le ferraillage et les vérifications réglementaires détaillées
-            restent à effectuer.
+            Dimensions proposées selon des méthodes simplifiées. Le ferraillage
+            et les vérifications réglementaires détaillées restent à effectuer.
           </Notice>
         </div>
       </div>

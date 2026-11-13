@@ -588,7 +588,7 @@ export function DescentPage({
               </Notice>
             )}
             <Notice>
-              Les sections affichées sont des prédimensionnements. Les
+              Les sections affichées sont des estimations initiales. Les
               contributions de poids propre des éléments verticaux et les
               vérifications de flambement, flexion composée et ferraillage ne
               sont pas incluses.

@@ -31,12 +31,12 @@ const normalize = (value: string) =>
 const families = [
   "Analyse structurale",
   "Descente de charges",
-  "Prédimensionnement",
+  "Dimensionnement Béton Armé",
 ] as const;
 const descriptions = [
   "Appuis, charges, efforts et déplacements",
   "Des planchers aux éléments porteurs",
-  "Les dimensions de vos éléments en béton",
+  "Sections et dimensions de vos éléments en béton armé",
 ];
 
 export function Dashboard() {

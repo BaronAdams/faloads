@@ -2,7 +2,7 @@
 
 ## Architecture
 
-- `src/pages` : accueil, projets, prédimensionnement, descentes, bâtiment, analyse poutre/cadre, paramètres et profil.
+- `src/pages` : accueil, projets, dimensionnement béton armé, descentes, bâtiment, analyse poutre/cadre, paramètres et profil.
 - `src/components/ui` : composants shadcn/ui générés avec le CLI officiel ; `components.json` conserve la configuration. Lucide fournit les icônes d’actions.
 - `src/components/playground.tsx` : caméra SVG, zoom molette/pincement, panoramique par outil Main, touche Espace ou bouton central ; sélection au relâchement sans déplacement.
 - `src/domain` : modèles validés avec Zod et calculs. Les noyaux des solveurs poutre/cadre proviennent des deux prototypes HTML fournis, débarrassés de leurs dépendances DOM ; les valeurs affichées sont recalculées à partir du modèle édité.
@@ -19,7 +19,7 @@ Les trois fichiers de polices sont copiés à l’identique depuis `legacy/flutt
 
 ## Méthodes conservées et limites
 
-Les huit prédimensionnements, combinaisons ELU/ELS, charges de planchers/revêtements, surfaces d’influence et formules simplifiées de vent reprennent le domaine Dart d’origine. `tools/reference-fixtures.dart` permet de régénérer `src/domain/legacy-fixtures.json` depuis cette archive ; les tests TypeScript comparent les résultats aux références calculées indépendamment en Dart.
+Les huit modules de Dimensionnement Béton Armé, combinaisons ELU/ELS, charges de planchers/revêtements, surfaces d’influence et formules simplifiées de vent reprennent le domaine Dart d’origine. `tools/reference-fixtures.dart` permet de régénérer `src/domain/legacy-fixtures.json` depuis cette archive ; les tests TypeScript comparent les résultats aux références calculées indépendamment en Dart.
 
 La poutre prend en charge appuis rigides/élastiques, déplacements imposés, rotules, sections variables, charges ponctuelles et réparties, moments et effort axial ; les modèles Euler-Bernoulli et Timoshenko sont disponibles. Le cadre utilise une analyse élastique linéaire plane avec charges nodales et réparties sur les barres. Un modèle instable affiche une erreur explicite. Le dialogue « Calcul simplifié G/Q » conserve les formules rapides originales, séparées de ces modèles détaillés.
 

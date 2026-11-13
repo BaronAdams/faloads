@@ -9,7 +9,7 @@ Les **13 icônes de projets validées sont conservées**, exportées directement
 - Analyse de poutres et de portiques plans : schéma pleine largeur avec zoom/panoramique, paramètres et résultats en panneaux, calcul explicite et diagrammes sur toute la structure.
 - Descentes de charges sur poteaux et voiles : surfaces d’influence, niveaux et revêtements, cumuls ELU/ELS, vent simplifié sur voile.
 - Bâtiments : niveaux, trames, panneaux, poutres, voiles, poteaux, éléments obliques, regroupement de panneaux et résultats par niveau.
-- Huit prédimensionnements : poteau, poutre, voile, escalier, balcon, plancher, soutènement et semelle.
+- Dimensionnement Béton Armé : huit projets — poteau, poutre, voile, escalier, balcon, plancher, soutènement et semelle.
 - Création avec nom explicite, onboarding animé et premiers pas guidés pour les 13 types de projets.
 - Sauvegarde locale, réouverture, duplication, export/import JSON, sauvegarde de l’espace, préréglages de sections et thèmes.
 
@@ -28,7 +28,7 @@ npm run tauri build    # bundles desktop de votre système
 
 Le navigateur utilise son stockage local ; l’application native utilise un fichier JSON géré par Rust. Les données restent sur l’appareil. Pour Android : JDK 17, SDK/NDK Android et cible Rust `aarch64-linux-android` ; puis `npm run icons`, `npm run android:init` et `npm run tauri android dev`. La commande d’initialisation applique aussi les zones de sécurité de la WebView Android. Pour iOS, utilisez macOS/Xcode et `npm run tauri ios init`.
 
-Le layout natif desktop dispose d’un atelier distinct du navigateur. Les éditeurs s’ouvrent à gauche sur desktop et en bas sur mobile ; la création, le guide et les espaces de calcul sont illustrés dans les [aperçus du parcours d’étude](docs/study-experience.md).
+Le layout natif desktop dispose d’un atelier distinct du navigateur. Les éditeurs s’ouvrent à gauche sur desktop et en bas sur mobile ; la création, le guide et les espaces de calcul sont illustrés dans les [aperçus du parcours d’étude](docs/study-experience.md). Les [vues de réactions et de diagrammes](docs/structural-result-views.md) présentent les résultats à jour et leurs annotations.
 
 ## Builds GitHub Actions
 

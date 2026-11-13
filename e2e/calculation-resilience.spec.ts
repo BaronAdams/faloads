@@ -47,7 +47,8 @@ test("a late calculation never marks a changed model as current", async ({
   await expect(page.locator(".canvas-result-status")).toContainText(
     "Calcul non actualisé",
   );
-  await expect(
-    page.getByRole("button", { name: "Moment M", exact: true }),
-  ).toBeDisabled();
+  await page.getByRole("button", { name: "Moment M", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Lancez d’abord le calcul",
+  );
 });

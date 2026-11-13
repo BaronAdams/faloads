@@ -92,9 +92,10 @@ test("manual analysis invalidates diagrams and cannot label a failed calculation
     "Calcul non actualisé",
   );
   await expect(page.getByTestId("diagram-curve")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Moment M", exact: true }),
-  ).toBeDisabled();
+  await page.getByRole("button", { name: "Moment M", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Lancez d’abord le calcul",
+  );
   await page.evaluate(() => {
     window.Worker = class {
       onmessage?: (event: { data: { error: string } }) => void;

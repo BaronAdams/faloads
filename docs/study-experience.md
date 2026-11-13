@@ -17,7 +17,7 @@ Une poutre se construit, ses charges apparaissent, puis son diagramme des moment
 
 ## Des premiers pas liés aux actions
 
-Chaque type dispose de son guide : modèle et élément pour les analyses ; système, surface, niveaux et calcul pour les descentes ; trame et calcul pour le bâtiment ; paramètres et enregistrement pour les prédimensionnements. Le repère animé se déplace après l’action attendue, sans bouton « Suivant » artificiel. Les panneaux affichent également l’instruction dans leur contenu accessible.
+Chaque type dispose de son guide : modèle et élément pour les analyses ; système, surface, niveaux et calcul pour les descentes ; trame et calcul pour le bâtiment ; paramètres et enregistrement pour les projets de Dimensionnement Béton Armé. Le repère animé se déplace après l’action attendue, sans bouton « Suivant » artificiel. Les panneaux affichent également l’instruction dans leur contenu accessible.
 
 Le guide peut être passé et rejoué par le bouton d’aide du projet. Son achèvement est enregistré séparément pour chaque type, dans la sauvegarde web et dans le fichier Rust natif. Un parcours interrompu reprend au début ; un parcours terminé ne se relance plus spontanément.
 
@@ -28,7 +28,7 @@ Le guide peut être passé et rejoué par le bouton d’aide du projet. Son ach�
 
 Ces noms remplacent « Calculateur de poutres / cadres ». Le header est compact. Les paramètres s’ouvrent à gauche et les résultats numériques à droite sur desktop ; sur téléphone, les panneaux apparaissent en bas. Ajouter, sélectionner, déplacer, calculer, choisir un diagramme et régler le zoom sont des commandes du playground quadrillé.
 
-Les diagrammes M, V, N, déplacement et rotation se dessinent sur la structure entière, avec des couleurs distinctes. Le portique conserve une zone de prise au clic confortable malgré des traits porteurs affinés. Les anciennes courbes externes et le sélecteur de barre sont supprimés.
+Les diagrammes M, V, N, déplacement et rotation se dessinent sur la structure entière, avec des couleurs distinctes. Les [vues épurées et annotations](structural-result-views.md) masquent les charges et les repères pendant la lecture des résultats. Le portique conserve une zone de prise au clic confortable malgré des traits porteurs affinés. Les anciennes courbes externes et le sélecteur de barre sont supprimés.
 
 ![Portique desktop](previews/experience-workbench-desktop.png)
 ![Poutre mobile](previews/experience-workbench-mobile.png)
@@ -40,7 +40,7 @@ Les diagrammes M, V, N, déplacement et rotation se dessinent sur la structure e
 
 Le lancement affiche un voile ombré avec fondu, un indicateur d’activité et « Calcul en cours ». Aucun pourcentage fictif. Le moteur travaille dans un worker (avec le même moteur après affichage du loader si la WebView ne peut pas charger les workers) et les résultats appartiennent à une copie du modèle réellement calculé. Une modification invalide les diagrammes et indique en rouge « Calcul non actualisé » jusqu’au prochain calcul réussi. Une erreur est affichée et ne valide jamais les résultats.
 
-Les descentes sur poteau, voile et bâtiment ouvrent leur vue de résultats après le calcul réussi. Les modèles de prédimensionnement conservent leur réponse immédiate, adaptée à ces formulaires simples.
+Les descentes sur poteau, voile et bâtiment ouvrent leur vue de résultats après le calcul réussi. Les modèles de Dimensionnement Béton Armé conservent leur réponse immédiate, adaptée à ces formulaires simples.
 
 ## Surface d’influence du poteau
 

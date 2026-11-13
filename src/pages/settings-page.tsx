@@ -244,7 +244,7 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
             ) : (
               <p className="hint">
                 Aucun préréglage. Ajoutez une section ou conservez un résultat
-                de prédimensionnement.
+                de dimensionnement béton armé.
               </p>
             )}
           </div>
