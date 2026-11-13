@@ -1,0 +1,313 @@
+[
+  {
+    "type": "column",
+    "input": {
+      "n": 100.0,
+      "code": "ec2"
+    },
+    "result": {
+      "side": 20.0,
+      "area": 74.99999999999999
+    }
+  },
+  {
+    "type": "wall",
+    "input": {
+      "n": 100.0,
+      "code": "ec2",
+      "length": 2.5
+    },
+    "result": {
+      "e": 15.0,
+      "area": 74.99999999999999
+    }
+  },
+  {
+    "type": "column",
+    "input": {
+      "n": 100.0,
+      "code": "bael91"
+    },
+    "result": {
+      "side": 20.0,
+      "area": 83.04498269896193
+    }
+  },
+  {
+    "type": "wall",
+    "input": {
+      "n": 100.0,
+      "code": "bael91",
+      "length": 2.5
+    },
+    "result": {
+      "e": 15.0,
+      "area": 83.04498269896193
+    }
+  },
+  {
+    "type": "column",
+    "input": {
+      "n": 800.0,
+      "code": "ec2"
+    },
+    "result": {
+      "side": 25.0,
+      "area": 599.9999999999999
+    }
+  },
+  {
+    "type": "wall",
+    "input": {
+      "n": 800.0,
+      "code": "ec2",
+      "length": 2.5
+    },
+    "result": {
+      "e": 15.0,
+      "area": 599.9999999999999
+    }
+  },
+  {
+    "type": "column",
+    "input": {
+      "n": 800.0,
+      "code": "bael91"
+    },
+    "result": {
+      "side": 30.0,
+      "area": 664.3598615916954
+    }
+  },
+  {
+    "type": "wall",
+    "input": {
+      "n": 800.0,
+      "code": "bael91",
+      "length": 2.5
+    },
+    "result": {
+      "e": 15.0,
+      "area": 664.3598615916954
+    }
+  },
+  {
+    "type": "column",
+    "input": {
+      "n": 3000.0,
+      "code": "ec2"
+    },
+    "result": {
+      "side": 50.0,
+      "area": 2249.9999999999995
+    }
+  },
+  {
+    "type": "wall",
+    "input": {
+      "n": 3000.0,
+      "code": "ec2",
+      "length": 2.5
+    },
+    "result": {
+      "e": 15.0,
+      "area": 2249.9999999999995
+    }
+  },
+  {
+    "type": "column",
+    "input": {
+      "n": 3000.0,
+      "code": "bael91"
+    },
+    "result": {
+      "side": 50.0,
+      "area": 2491.3494809688577
+    }
+  },
+  {
+    "type": "wall",
+    "input": {
+      "n": 3000.0,
+      "code": "bael91",
+      "length": 2.5
+    },
+    "result": {
+      "e": 15.0,
+      "area": 2491.3494809688577
+    }
+  },
+  {
+    "type": "beam",
+    "input": {
+      "length": 5,
+      "q": 25,
+      "support": "isostatique"
+    },
+    "result": {
+      "b": 25.0,
+      "h": 45.0,
+      "moment": 78.125
+    }
+  },
+  {
+    "type": "beam",
+    "input": {
+      "length": 5,
+      "q": 25,
+      "support": "continue_"
+    },
+    "result": {
+      "b": 20.0,
+      "h": 35.0,
+      "moment": 52.08333333333332
+    }
+  },
+  {
+    "type": "beam",
+    "input": {
+      "length": 5,
+      "q": 25,
+      "support": "console"
+    },
+    "result": {
+      "b": 45.0,
+      "h": 85.0,
+      "moment": 312.5
+    }
+  },
+  {
+    "type": "slab",
+    "input": {
+      "length": 3.5,
+      "full": true
+    },
+    "result": {
+      "e": 14.0,
+      "label": "Dalle pleine 14 cm"
+    }
+  },
+  {
+    "type": "slab",
+    "input": {
+      "length": 3.5,
+      "full": false
+    },
+    "result": {
+      "e": 20.0,
+      "label": "Corps creux 16+4"
+    }
+  },
+  {
+    "type": "slab",
+    "input": {
+      "length": 4.5,
+      "full": true
+    },
+    "result": {
+      "e": 18.0,
+      "label": "Dalle pleine 18 cm"
+    }
+  },
+  {
+    "type": "slab",
+    "input": {
+      "length": 4.5,
+      "full": false
+    },
+    "result": {
+      "e": 24.0,
+      "label": "Corps creux 20+4"
+    }
+  },
+  {
+    "type": "slab",
+    "input": {
+      "length": 6.5,
+      "full": true
+    },
+    "result": {
+      "e": 26.0,
+      "label": "Dalle pleine 26 cm"
+    }
+  },
+  {
+    "type": "slab",
+    "input": {
+      "length": 6.5,
+      "full": false
+    },
+    "result": {
+      "e": 29.0,
+      "label": "Corps creux 25+4"
+    }
+  },
+  {
+    "type": "stairs",
+    "input": {
+      "height": 2.7,
+      "length": 4.2
+    },
+    "result": {
+      "steps": 16,
+      "riser": 16.875,
+      "tread": 28.000000000000004,
+      "blondel": 61.75,
+      "e": 20.0
+    }
+  },
+  {
+    "type": "balcony",
+    "input": {
+      "length": 1.2,
+      "g": 3,
+      "q": 1.5
+    },
+    "result": {
+      "e": 12.0,
+      "moment": 4.5360000000000005
+    }
+  },
+  {
+    "type": "footing",
+    "input": {
+      "kind": "isolee",
+      "n": 500,
+      "bearing": 200,
+      "support": 30
+    },
+    "result": {
+      "width": 160.0,
+      "depth": 35.0,
+      "area": 2.5
+    }
+  },
+  {
+    "type": "footing",
+    "input": {
+      "kind": "filante",
+      "n": 500,
+      "bearing": 200,
+      "support": 30
+    },
+    "result": {
+      "width": 250.0,
+      "depth": 55.0,
+      "area": 2.5
+    }
+  },
+  {
+    "type": "retaining",
+    "input": {
+      "height": 2.5,
+      "gamma": 18,
+      "phi": 30
+    },
+    "result": {
+      "thrust": 18.750000000000004,
+      "ka": 0.3333333333333334,
+      "width": 150.0,
+      "stem": 25.0
+    }
+  }
+]

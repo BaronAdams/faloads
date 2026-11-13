@@ -1,0 +1,35 @@
+[package]
+name = "structcalc"
+version = "0.2.0"
+description = "StructCalc — calcul de structures"
+authors = ["BaronAdams"]
+edition = "2021"
+rust-version = "1.90"
+
+[lib]
+name = "structcalc_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[[bin]]
+name = "structcalc"
+path = "src/main.rs"
+required-features = ["app"]
+
+[features]
+default = ["app"]
+app = ["dep:tauri", "dep:tauri-build", "dep:tauri-plugin-dialog", "dep:tauri-plugin-fs", "dep:tauri-plugin-log", "dep:log"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [], optional = true }
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [], optional = true }
+tauri-plugin-dialog = { version = "2", optional = true }
+tauri-plugin-fs = { version = "2", optional = true }
+tauri-plugin-log = { version = "2", optional = true }
+log = { version = "0.4", optional = true }
+
+[dev-dependencies]
+tempfile = "3"
