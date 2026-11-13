@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCalculation } from "@/lib/use-calculation";
+import {
+  CalculationOverlay,
+  CalculationStatus,
+} from "@/components/calculation-state";
+import { studyAction } from "@/lib/study-events";
+import { useEffect, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -7,11 +13,21 @@ import {
   MoveRight,
   ChevronRight,
   Calculator,
+  SlidersHorizontal,
+  ChartNoAxesCombined,
+  ArrowDown,
+  ArrowDownWideNarrow,
+  RotateCw,
+  CircleDot,
+  RectangleHorizontal,
+  Waypoints,
+  Minus,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { EditorSheet, EditorFooter } from "@/components/editor-sheet";
@@ -47,8 +63,6 @@ import {
   beamSchema,
   frameSchema,
   resizeBeam,
-  solveBeam,
-  solveFrame,
   section,
   support,
   load,
@@ -116,34 +130,32 @@ export function AnalysisPage({
           ? "Poutre — nouveau projet"
           : "Cadre — nouveau projet"),
     );
-  const [tab, setTab] = useState("model"),
-    [view, setView] = useState<View>(kind === "beam" ? "M" : "structure"),
+  const [parameters, setParameters] = useState(false),
+    [resultsOpen, setResultsOpen] = useState(false),
+    [view, setView] = useState<View>("structure"),
     [selection, setSelection] = useState<Selection | null>(null),
     [editor, setEditor] = useState<AnalysisModel | null>(null),
     [history, setHistory] = useState<AnalysisModel[]>([]),
     [future, setFuture] = useState<AnalysisModel[]>([]),
     [reactions, setReactions] = useState(true),
-    [member, setMember] = useState(1),
     [amplification, setAmplification] = useState(100),
     [quick, setQuick] = useState(false);
   useEffect(() => {
     drafts.set(draftKey, model);
   }, [model, draftKey, drafts]);
-  const analysis = useMemo(() => {
-    try {
-      if (model.kind === "beam") return { beam: solveBeam(model), error: null };
-      return { frame: solveFrame(model), error: null };
-    } catch (e) {
-      return {
-        error:
-          e instanceof z.ZodError
-            ? e.issues[0].message
-            : e instanceof Error
-              ? e.message
-              : "Analyse impossible",
-      };
-    }
-  }, [model]);
+  const calculation = useCalculation<{
+    beam?: BeamResult;
+    frame?: FrameResult;
+  }>("analysis", model);
+  const analysis = { ...calculation.result, error: calculation.error };
+  const closeParameters = (open: boolean) => {
+    setParameters(open);
+    studyAction(open ? "parameters:open" : "parameters:close");
+  };
+  const closeResults = (open: boolean) => {
+    setResultsOpen(open);
+    studyAction(open ? "results:open" : "results:close");
+  };
   const commit = (next: AnalysisModel) => {
     try {
       (next.kind === "beam" ? beamSchema : frameSchema).parse(next);
@@ -172,16 +184,12 @@ export function AnalysisPage({
     setModel(last);
   };
   const open = (s: Selection, candidate = model) => {
+    setParameters(false);
     setSelection(s);
     setEditor(structuredClone(candidate));
   };
   const select = (key: string) => {
     const [type, id] = key.split(":");
-    if (type === "member") {
-      const i =
-        model.kind === "frame" ? model.mem.findIndex((m) => m.id === id) : 0;
-      setMember(Math.max(0, i));
-    }
     open({ type: type as Selection["type"], id });
   };
   const add = (type: Selection["type"], variant = "point") => {
@@ -253,6 +261,7 @@ export function AnalysisPage({
       (editor.kind === "beam" ? beamSchema : frameSchema).parse(editor);
       commit(editor);
       setEditor(null);
+      studyAction("element:applied");
     } catch (e) {
       toast.error(
         e instanceof z.ZodError
@@ -264,7 +273,7 @@ export function AnalysisPage({
   const addMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" data-tour="add">
           <Plus />
           Ajouter
         </Button>
@@ -273,34 +282,34 @@ export function AnalysisPage({
         {kind === "beam" ? (
           <>
             <DropdownMenuItem onSelect={() => add("support")}>
-              Appui
+              <Waypoints size={16} /> Appui
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("load", "point")}>
-              Force ponctuelle
+              <ArrowDown size={16} /> Force ponctuelle
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("load", "dist")}>
-              Charge répartie
+              <ArrowDownWideNarrow size={16} /> Charge répartie
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("load", "moment")}>
-              Moment
+              <RotateCw size={16} /> Moment
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("section")}>
-              Tronçon de section
+              <RectangleHorizontal size={16} /> Tronçon de section
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("hinge")}>
-              Rotule
+              <CircleDot size={16} /> Rotule
             </DropdownMenuItem>
           </>
         ) : (
           <>
             <DropdownMenuItem onSelect={() => add("node")}>
-              Nœud
+              <CircleDot size={16} /> Nœud
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("member")}>
-              Barre
+              <Minus size={16} /> Barre
             </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("nodal")}>
-              Charge nodale
+              <ArrowDown size={16} /> Charge nodale
             </DropdownMenuItem>
           </>
         )}
@@ -325,60 +334,163 @@ export function AnalysisPage({
         }
       />
       <QuickAnalysis kind={kind} open={quick} onOpenChange={setQuick} />
-      <div className="analysis-subbar">
-        <Choice
-          label="Modèle prédéfini"
-          value="current"
-          onChange={(v) => {
-            if (v !== "current")
-              commit(kind === "beam" ? beamPreset(v) : framePreset(v));
-          }}
-          options={
-            kind === "beam"
-              ? [
-                  { value: "current", label: "Modèle en cours" },
-                  { value: "iso", label: "Poutre isostatique" },
-                  { value: "continuous", label: "Deux travées" },
-                  { value: "cantilever", label: "Console" },
-                  { value: "gerber", label: "Poutre Gerber" },
-                  { value: "blank", label: "Sans charge" },
-                ]
-              : [
-                  { value: "current", label: "Modèle en cours" },
-                  { value: "portal", label: "Portique simple" },
-                  { value: "two-storeys", label: "Portique à deux niveaux" },
-                ]
+      <div className="analysis-canvas-workspace" aria-busy={calculation.busy}>
+        <Playground
+          immersive
+          height={600}
+          onSelect={select}
+          selected={selection ? `${selection.type}:${selection.id}` : null}
+          onDeselect={() => setSelection(null)}
+          controls={
+            <>
+              <div className="canvas-tools-left">
+                <IconButton
+                  className="elevated-tool"
+                  label="Ouvrir les paramètres"
+                  data-tour="parameters"
+                  onClick={() => closeParameters(true)}
+                >
+                  <SlidersHorizontal />
+                </IconButton>
+                {addMenu}
+                <IconButton
+                  label="Annuler"
+                  disabled={!history.length}
+                  onClick={() => undo()}
+                >
+                  <Undo2 />
+                </IconButton>
+                <IconButton
+                  label="Rétablir"
+                  disabled={!future.length}
+                  onClick={() => undo(true)}
+                >
+                  <Redo2 />
+                </IconButton>
+              </div>
+              <div className="canvas-tools-right">
+                <Button
+                  data-tour="calculate"
+                  disabled={calculation.busy}
+                  onClick={() => void calculation.run()}
+                >
+                  <Calculator />
+                  Calculer
+                </Button>
+                <IconButton
+                  className="elevated-tool"
+                  label="Ouvrir les résultats"
+                  data-tour="results"
+                  onClick={() => closeResults(true)}
+                >
+                  <ChartNoAxesCombined />
+                </IconButton>
+              </div>
+              <div
+                className="canvas-field-controls"
+                aria-label="Diagrammes sur la structure"
+              >
+                {(["structure", "M", "V", "N", "v", "theta"] as View[]).map(
+                  (v) => (
+                    <Button
+                      key={v}
+                      size="sm"
+                      disabled={v !== "structure" && !calculation.fresh}
+                      variant={view === v ? "secondary" : "ghost"}
+                      onClick={() => setView(v)}
+                      aria-pressed={view === v}
+                    >
+                      {v !== "structure" && (
+                        <i
+                          className="series-key"
+                          style={
+                            {
+                              "--series-color": seriesColors[v],
+                            } as React.CSSProperties
+                          }
+                        />
+                      )}
+                      {fieldNames[v]}
+                    </Button>
+                  ),
+                )}
+              </div>
+              <div className="canvas-result-status">
+                <CalculationStatus
+                  fresh={calculation.fresh}
+                  hasResult={!!calculation.result}
+                />
+              </div>
+              {calculation.error && (
+                <div className="canvas-error">
+                  <Notice danger>{calculation.error}</Notice>
+                </div>
+              )}
+              {calculation.fresh && view === "v" && model.kind === "frame" && (
+                <div className="canvas-amplification">
+                  <Label>Amplification</Label>
+                  <Slider
+                    value={[amplification]}
+                    onValueChange={(v) => setAmplification(v[0])}
+                    min={1}
+                    max={1000}
+                  />
+                  <span className="mono">×{amplification}</span>
+                </div>
+              )}
+            </>
           }
-        />
-        <div className="row-actions">
-          <IconButton
-            label="Annuler"
-            disabled={!history.length}
-            onClick={() => undo()}
-          >
-            <Undo2 />
-          </IconButton>
-          <IconButton
-            label="Rétablir"
-            disabled={!future.length}
-            onClick={() => undo(true)}
-          >
-            <Redo2 />
-          </IconButton>
-          {addMenu}
-        </div>
-      </div>
-      <Tabs value={tab} onValueChange={setTab} className="mobile-tabs">
-        <TabsList>
-          <TabsTrigger value="model">Modèle</TabsTrigger>
-          <TabsTrigger value="scene">Schéma</TabsTrigger>
-          <TabsTrigger value="results">Résultats</TabsTrigger>
-        </TabsList>
-      </Tabs>
-      <div className="analysis-layout">
-        <aside
-          className={`inspector ${tab === "model" ? "mobile-active" : ""}`}
         >
+          {model.kind === "beam" ? (
+            <BeamScene
+              model={model}
+              result={calculation.fresh ? analysis.beam : undefined}
+              reactions={reactions}
+              view={view}
+            />
+          ) : (
+            <FrameScene
+              model={model}
+              result={calculation.fresh ? analysis.frame : undefined}
+              reactions={reactions}
+              view={view}
+              amplification={amplification}
+            />
+          )}
+        </Playground>
+        <CalculationOverlay busy={calculation.busy} />
+      </div>
+      <EditorSheet
+        open={parameters}
+        onOpenChange={closeParameters}
+        title="Paramètres du modèle"
+        description="Définissez la géométrie, les appuis et les charges. Relancez le calcul après vos modifications."
+      >
+        <div className="parameters-sheet-content" data-tour="parameters-inputs">
+          <Choice
+            label="Modèle prédéfini"
+            value="current"
+            onChange={(v) => {
+              if (v !== "current")
+                commit(kind === "beam" ? beamPreset(v) : framePreset(v));
+            }}
+            options={
+              kind === "beam"
+                ? [
+                    { value: "current", label: "Modèle en cours" },
+                    { value: "iso", label: "Poutre isostatique" },
+                    { value: "continuous", label: "Deux travées" },
+                    { value: "cantilever", label: "Console" },
+                    { value: "gerber", label: "Poutre Gerber" },
+                    { value: "blank", label: "Sans charge" },
+                  ]
+                : [
+                    { value: "current", label: "Modèle en cours" },
+                    { value: "portal", label: "Portique simple" },
+                    { value: "two-storeys", label: "Portique à deux niveaux" },
+                  ]
+            }
+          />
           <h2 className="section-caption">Paramètres du modèle</h2>
           {model.kind === "beam" ? (
             <>
@@ -562,7 +674,6 @@ export function AnalysisPage({
                     label={`B${i + 1} · N${m.a} → N${m.b}`}
                     detail={`${fmt(m.bw, 0)} × ${fmt(m.h, 0)} cm · ${fmt(m.w)} kN/m`}
                     onClick={() => {
-                      setMember(i);
                       open({ type: "member", id: m.id });
                     }}
                   />
@@ -599,355 +710,301 @@ export function AnalysisPage({
             supérieure. Aucune vérification complète du béton armé n’est
             effectuée.
           </Notice>
-        </aside>
-        <main className="analysis-workspace">
-          <div
-            className={`scene-area ${tab === "scene" ? "mobile-active" : ""}`}
+
+          <Toggle
+            label="Afficher les réactions"
+            checked={reactions}
+            onChange={setReactions}
+          />
+        </div>
+        <EditorFooter>
+          <Button
+            data-tour="parameters-done"
+            onClick={() => closeParameters(false)}
           >
-            <div className="scene-options">
-              <h2>Schéma interactif</h2>
-              <Toggle
-                label="Réactions"
-                checked={reactions}
-                onChange={setReactions}
-              />
-            </div>
-            {model.kind === "frame" && (
-              <div className="view-chips">
-                {(["structure", "M", "V", "N", "v", "theta"] as View[]).map(
-                  (v) => (
-                    <Button
-                      key={v}
-                      size="sm"
-                      variant={view === v ? "secondary" : "outline"}
-                      onClick={() => setView(v)}
-                    >
-                      {v !== "structure" && (
-                        <i
-                          className="series-key"
-                          style={
-                            {
-                              "--series-color": seriesColors[v],
-                            } as React.CSSProperties
-                          }
-                        />
+            Revenir au schéma
+            <X />
+          </Button>
+        </EditorFooter>
+      </EditorSheet>
+      <EditorSheet
+        open={resultsOpen}
+        onOpenChange={closeResults}
+        desktopSide="right"
+        title="Résultats de l’analyse"
+        description="Valeurs chiffrées. Choisissez les diagrammes directement sur le schéma."
+      >
+        <div className="numerical-results">
+          <CalculationStatus
+            fresh={calculation.fresh}
+            hasResult={!!calculation.result}
+          />
+          {calculation.fresh ? (
+            <>
+              <div className="metrics-grid">
+                {model.kind === "beam" ? (
+                  <>
+                    <Metric
+                      label="Moment maximal |M|"
+                      value={Math.max(
+                        Math.abs(analysis.beam!.extrema.M.max.val),
+                        Math.abs(analysis.beam!.extrema.M.min.val),
                       )}
-                      {fieldNames[v]}
-                    </Button>
-                  ),
+                      unit="kN·m"
+                      tone="purple"
+                    />
+                    <Metric
+                      label="Flèche maximale |v|"
+                      value={
+                        analysis.beam!.caracteristiques.fleche_max_abs * 1000
+                      }
+                      unit="mm"
+                    />
+                    <Metric
+                      label="Fermeture statique"
+                      value={
+                        Math.max(
+                          ...Object.values(
+                            analysis.beam!.caracteristiques.fermeture,
+                          ).map(Math.abs),
+                        ) < 1e-5
+                          ? "Vérifiée"
+                          : "À examiner"
+                      }
+                      tone="teal"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Metric
+                      label="Moment maximal |M|"
+                      value={Math.max(
+                        ...analysis.frame!.mem.flatMap((m) =>
+                          m.pts.map((p) => Math.abs(p.M)),
+                        ),
+                      )}
+                      unit="kN·m"
+                      tone="purple"
+                    />
+                    <Metric
+                      label="Déplacement nodal maximal"
+                      value={
+                        Math.max(
+                          ...model.nodes.map((_, i) =>
+                            Math.hypot(
+                              analysis.frame!.u[3 * i],
+                              analysis.frame!.u[3 * i + 1],
+                            ),
+                          ),
+                        ) * 1000
+                      }
+                      unit="mm"
+                    />
+                    <Metric
+                      label="Équilibre des forces"
+                      value={
+                        Math.max(
+                          Math.abs(analysis.frame!.sx),
+                          Math.abs(analysis.frame!.sy),
+                        ) < 1e-6
+                          ? "Vérifié"
+                          : "À examiner"
+                      }
+                      tone="teal"
+                    />
+                  </>
                 )}
               </div>
-            )}
-            <Playground
-              onSelect={select}
-              selected={selection ? `${selection.type}:${selection.id}` : null}
-              onDeselect={() => setSelection(null)}
-              height={model.kind === "beam" ? 300 : 380}
-            >
-              {model.kind === "beam" ? (
-                <BeamScene
-                  model={model}
-                  result={analysis.beam}
-                  reactions={reactions}
-                />
-              ) : (
-                <FrameScene
-                  model={model}
-                  result={analysis.frame}
-                  reactions={reactions}
-                  view={view}
-                  amplification={amplification}
-                />
-              )}
-            </Playground>
-            {model.kind === "frame" && view === "v" && (
-              <div className="amplification">
-                <Label>Amplification de la déformée</Label>
-                <Slider
-                  value={[amplification]}
-                  onValueChange={(v) => setAmplification(v[0])}
-                  min={1}
-                  max={1000}
-                  step={10}
-                />
-                <span className="mono">×{amplification}</span>
-              </div>
-            )}
-          </div>
-          <div
-            className={`results-area ${tab === "results" ? "mobile-active" : ""}`}
-          >
-            {analysis.error ? (
-              <Notice danger>
-                {analysis.error} Corrigez le modèle pour obtenir des résultats
-                actualisés.
-              </Notice>
-            ) : (
-              <>
-                <Panel
-                  title="Efforts et déplacements"
-                  action={
-                    <span className="live-badge">
-                      <span />
-                      Calcul actualisé
-                    </span>
+              <Panel>
+                <Disclosure
+                  title={
+                    model.kind === "beam"
+                      ? "Extrema des efforts et déplacements"
+                      : "Extrema par barre"
                   }
                 >
-                  {model.kind === "beam" ? (
-                    <>
-                      <div className="view-chips">
-                        {(["M", "V", "N", "v", "theta"] as View[]).map((v) => (
-                          <Button
-                            key={v}
-                            size="sm"
-                            variant={view === v ? "secondary" : "outline"}
-                            onClick={() => setView(v)}
-                          >
-                            {v !== "structure" && (
-                              <i
-                                className="series-key"
-                                style={
-                                  {
-                                    "--series-color": seriesColors[v],
-                                  } as React.CSSProperties
-                                }
-                              />
-                            )}
-                            {fieldNames[v]}
-                          </Button>
-                        ))}
-                      </div>
-                      <Diagram
-                        x={analysis.beam!.x}
-                        values={
-                          analysis.beam![view === "structure" ? "M" : view]
-                        }
-                        title={fieldNames[view === "structure" ? "M" : view]}
-                        unit={
-                          view === "v"
-                            ? "mm"
-                            : view === "theta"
-                              ? "mrad"
-                              : view === "M"
-                                ? "kN·m"
-                                : "kN"
-                        }
-                        color={seriesColors[view === "structure" ? "M" : view]}
-                        factor={view === "v" || view === "theta" ? 1000 : 1}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <Choice
-                        label="Barre analysée"
-                        value={String(Math.min(member, model.mem.length - 1))}
-                        onChange={(v) => setMember(Number(v))}
-                        options={model.mem.map((m, i) => ({
-                          value: String(i),
-                          label: `B${i + 1} · N${m.a} → N${m.b}`,
-                        }))}
-                      />
-                      <div className="view-chips">
-                        {(["M", "V", "N", "v", "theta"] as View[]).map((v) => (
-                          <Button
-                            key={v}
-                            size="sm"
-                            variant={view === v ? "secondary" : "outline"}
-                            onClick={() => setView(v)}
-                          >
-                            {v !== "structure" && (
-                              <i
-                                className="series-key"
-                                style={
-                                  {
-                                    "--series-color": seriesColors[v],
-                                  } as React.CSSProperties
-                                }
-                              />
-                            )}
-                            {fieldNames[v]}
-                          </Button>
-                        ))}
-                      </div>
-                      {(() => {
-                        const pts =
-                          analysis.frame!.mem[
-                            Math.min(member, model.mem.length - 1)
-                          ].pts;
-                        const which = view === "structure" ? "M" : view;
-                        return (
-                          <Diagram
-                            x={pts.map((p) => p.x)}
-                            values={pts.map((p) => p[which])}
-                            title={fieldNames[which]}
-                            unit={
-                              which === "M"
-                                ? "kN·m"
-                                : which === "v"
-                                  ? "mm"
-                                  : which === "theta"
-                                    ? "mrad"
-                                    : "kN"
-                            }
-                            color={seriesColors[which]}
-                            factor={
-                              which === "v" || which === "theta" ? 1000 : 1
-                            }
-                          />
-                        );
-                      })()}
-                    </>
-                  )}
-                </Panel>
-                <div className="metrics-grid">
-                  {model.kind === "beam" ? (
-                    <>
-                      <Metric
-                        label="Moment maximal |M|"
-                        value={Math.max(
-                          Math.abs(analysis.beam!.extrema.M.max.val),
-                          Math.abs(analysis.beam!.extrema.M.min.val),
-                        )}
-                        unit="kN·m"
-                        tone="purple"
-                      />
-                      <Metric
-                        label="Flèche maximale |v|"
-                        value={
-                          analysis.beam!.caracteristiques.fleche_max_abs * 1000
-                        }
-                        unit="mm"
-                      />
-                      <Metric
-                        label="Fermeture statique"
-                        value={
-                          Math.max(
-                            ...Object.values(
-                              analysis.beam!.caracteristiques.fermeture,
-                            ).map(Math.abs),
-                          ) < 1e-5
-                            ? "Vérifiée"
-                            : "À examiner"
-                        }
-                        tone="teal"
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <Metric
-                        label="Moment maximal |M|"
-                        value={Math.max(
-                          ...analysis.frame!.mem.flatMap((m) =>
-                            m.pts.map((p) => Math.abs(p.M)),
-                          ),
-                        )}
-                        unit="kN·m"
-                        tone="purple"
-                      />
-                      <Metric
-                        label="Déplacement nodal maximal"
-                        value={
-                          Math.max(
-                            ...model.nodes.map((_, i) =>
-                              Math.hypot(
-                                analysis.frame!.u[3 * i],
-                                analysis.frame!.u[3 * i + 1],
-                              ),
-                            ),
-                          ) * 1000
-                        }
-                        unit="mm"
-                      />
-                      <Metric
-                        label="Équilibre des forces"
-                        value={
-                          Math.max(
-                            Math.abs(analysis.frame!.sx),
-                            Math.abs(analysis.frame!.sy),
-                          ) < 1e-6
-                            ? "Vérifié"
-                            : "À examiner"
-                        }
-                        tone="teal"
-                      />
-                    </>
-                  )}
-                </div>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>
+                            {model.kind === "beam" ? "Grandeur" : "Barre"}
+                          </th>
+                          {model.kind === "beam" ? (
+                            <>
+                              <th>Minimum</th>
+                              <th>Maximum</th>
+                            </>
+                          ) : (
+                            <>
+                              <th>|M| · kN·m</th>
+                              <th>|V| · kN</th>
+                              <th>|N| · kN</th>
+                              <th>|v| · mm</th>
+                              <th>|θ| · mrad</th>
+                            </>
+                          )}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {model.kind === "beam"
+                          ? (["M", "V", "N", "v", "theta"] as const).map(
+                              (field) => {
+                                const e = analysis.beam!.extrema[field],
+                                  factor =
+                                    field === "v" || field === "theta"
+                                      ? 1000
+                                      : 1;
+                                const unit =
+                                  field === "M"
+                                    ? "kN·m"
+                                    : field === "v"
+                                      ? "mm"
+                                      : field === "theta"
+                                        ? "mrad"
+                                        : "kN";
+                                return (
+                                  <tr key={field}>
+                                    <th>
+                                      {fieldNames[field]} · {unit}
+                                    </th>
+                                    <td>
+                                      {fmt(e.min.val * factor)}
+                                      <small> à {fmt(e.min.x)} m</small>
+                                    </td>
+                                    <td>
+                                      {fmt(e.max.val * factor)}
+                                      <small> à {fmt(e.max.x)} m</small>
+                                    </td>
+                                  </tr>
+                                );
+                              },
+                            )
+                          : analysis.frame!.mem.map((m, i) => (
+                              <tr key={i}>
+                                <th>B{i + 1}</th>
+                                {(["M", "V", "N", "v", "theta"] as const).map(
+                                  (field) => (
+                                    <td key={field}>
+                                      {fmt(
+                                        Math.max(
+                                          ...m.pts.map((p) =>
+                                            Math.abs(p[field]),
+                                          ),
+                                        ) *
+                                          (field === "v" || field === "theta"
+                                            ? 1000
+                                            : 1),
+                                      )}
+                                    </td>
+                                  ),
+                                )}
+                              </tr>
+                            ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Disclosure>
+              </Panel>
+              <Panel>
+                <Disclosure title="Réactions d’appui" defaultOpen>
+                  <div className="table-wrap">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Appui</th>
+                          <th>Rx · kN</th>
+                          <th>Ry · kN</th>
+                          <th>Mz · kN·m</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {model.kind === "beam"
+                          ? analysis.beam!.reactions.map((r, i) => (
+                              <tr key={i}>
+                                <th>
+                                  {String.fromCharCode(65 + i)} · {fmt(r.x)} m
+                                </th>
+                                <td>{fmt(r.Fx)}</td>
+                                <td>{fmt(r.Fy)}</td>
+                                <td>{fmt(r.Mz)}</td>
+                              </tr>
+                            ))
+                          : analysis.frame!.rea.map((r) => (
+                              <tr key={r.i}>
+                                <th>N{r.i + 1}</th>
+                                {r.r.map((v, i) => (
+                                  <td key={i}>{fmt(v)}</td>
+                                ))}
+                              </tr>
+                            ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Disclosure>
+              </Panel>
+              {model.kind === "frame" && (
                 <Panel>
-                  <Disclosure title="Réactions d’appui" defaultOpen>
+                  <Disclosure title="Déplacements des nœuds">
                     <div className="table-wrap">
                       <table>
                         <thead>
                           <tr>
-                            <th>Appui</th>
-                            <th>Rx · kN</th>
-                            <th>Ry · kN</th>
-                            <th>Mz · kN·m</th>
+                            <th>Nœud</th>
+                            <th>ux · mm</th>
+                            <th>uy · mm</th>
+                            <th>θ · mrad</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {model.kind === "beam"
-                            ? analysis.beam!.reactions.map((r, i) => (
-                                <tr key={i}>
-                                  <th>
-                                    {String.fromCharCode(65 + i)} · {fmt(r.x)} m
-                                  </th>
-                                  <td>{fmt(r.Fx)}</td>
-                                  <td>{fmt(r.Fy)}</td>
-                                  <td>{fmt(r.Mz)}</td>
-                                </tr>
-                              ))
-                            : analysis.frame!.rea.map((r) => (
-                                <tr key={r.i}>
-                                  <th>N{r.i + 1}</th>
-                                  {r.r.map((v, i) => (
-                                    <td key={i}>{fmt(v)}</td>
-                                  ))}
-                                </tr>
+                          {model.nodes.map((n, i) => (
+                            <tr key={n.id}>
+                              <th>N{i + 1}</th>
+                              {[0, 1, 2].map((k) => (
+                                <td key={k}>
+                                  {fmt(analysis.frame!.u[3 * i + k] * 1000, 4)}
+                                </td>
                               ))}
+                            </tr>
+                          ))}
                         </tbody>
                       </table>
                     </div>
                   </Disclosure>
                 </Panel>
-                {model.kind === "frame" && (
-                  <Panel>
-                    <Disclosure title="Déplacements des nœuds">
-                      <div className="table-wrap">
-                        <table>
-                          <thead>
-                            <tr>
-                              <th>Nœud</th>
-                              <th>ux · mm</th>
-                              <th>uy · mm</th>
-                              <th>θ · mrad</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {model.nodes.map((n, i) => (
-                              <tr key={n.id}>
-                                <th>N{i + 1}</th>
-                                {[0, 1, 2].map((k) => (
-                                  <td key={k}>
-                                    {fmt(
-                                      analysis.frame!.u[3 * i + k] * 1000,
-                                      4,
-                                    )}
-                                  </td>
-                                ))}
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </Disclosure>
-                  </Panel>
-                )}
-              </>
-            )}
-          </div>
-        </main>
-      </div>
+              )}
+            </>
+          ) : (
+            <div className="results-awaiting">
+              <ChartNoAxesCombined size={36} />
+              <h3>
+                {calculation.result
+                  ? "Le modèle a changé"
+                  : "Votre modèle est prêt à être analysé"}
+              </h3>
+              <p>
+                Lancez le calcul pour afficher les efforts, les déplacements et
+                les réactions d’appui de ce modèle.
+              </p>
+              <Button
+                onClick={() => {
+                  setResultsOpen(false);
+                  void calculation.run();
+                }}
+              >
+                <Calculator />
+                Calculer
+              </Button>
+            </div>
+          )}
+        </div>
+        <EditorFooter>
+          <Button data-tour="results-done" onClick={() => closeResults(false)}>
+            Revenir au schéma
+            <X />
+          </Button>
+        </EditorFooter>
+      </EditorSheet>
       <EditorSheet
         open={!!editor}
         title="Paramètres de l’élément"
@@ -983,7 +1040,9 @@ export function AnalysisPage({
             >
               Annuler
             </Button>
-            <Button type="submit">Appliquer</Button>
+            <Button data-tour="element-apply" type="submit">
+              Appliquer
+            </Button>
           </EditorFooter>
         </form>
       </EditorSheet>
@@ -1562,16 +1621,77 @@ function BeamScene({
   model,
   result,
   reactions,
+  view,
 }: {
   model: BeamModel;
   result?: BeamResult;
   reactions: boolean;
+  view: View;
 }) {
   const { units, height } = useCanvasGeometry();
   const X = (x: number) => 80 + (x / model.L) * 840,
     y = height / 2;
   return (
     <>
+      {result &&
+        view !== "structure" &&
+        (() => {
+          const values = result[view],
+            max = Math.max(1e-12, ...values.map(Math.abs));
+          const curve = result.x
+            .map(
+              (x, i) =>
+                `${i ? "L" : "M"}${X(x)} ${y + (values[i] / max) * 90 * units}`,
+            )
+            .join(" ");
+          const index = values.reduce(
+            (best, v, i) => (Math.abs(v) > Math.abs(values[best]) ? i : best),
+            0,
+          );
+          return (
+            <g
+              className="structural-field"
+              pointerEvents="none"
+              data-field={view}
+            >
+              <path
+                d={`${curve} L${X(model.L)} ${y} L${X(0)} ${y} Z`}
+                fill={seriesColors[view]}
+                fillOpacity=".12"
+              />
+              <path
+                data-testid="diagram-curve"
+                d={curve}
+                fill="none"
+                stroke={seriesColors[view]}
+                strokeWidth="2.5"
+                vectorEffect="non-scaling-stroke"
+              />
+              <text
+                x={X(result.x[index])}
+                y={
+                  y +
+                  (values[index] / max) * 90 * units +
+                  (values[index] >= 0 ? 20 : -12) * units
+                }
+                fill={seriesColors[view]}
+                textAnchor="middle"
+                className="numeric"
+              >
+                {fmt(
+                  values[index] * (view === "v" || view === "theta" ? 1000 : 1),
+                )}{" "}
+                {view === "M"
+                  ? "kN·m"
+                  : view === "v"
+                    ? "mm"
+                    : view === "theta"
+                      ? "mrad"
+                      : "kN"}
+              </text>
+            </g>
+          );
+        })()}
       {model.sections.map((s, i) => (
         <g
           key={s.id}
@@ -1791,9 +1911,9 @@ function BeamScene({
         ))}
       <line
         x1="80"
-        y1={height - 40 * units}
+        y1={height - 105 * units}
         x2="920"
-        y2={height - 40 * units}
+        y2={height - 105 * units}
         stroke="var(--muted-foreground)"
       />
       {[80, 920].map((x) => (
@@ -1801,14 +1921,14 @@ function BeamScene({
           key={x}
           x1={x}
           x2={x}
-          y1={height - 44 * units}
-          y2={height - 36 * units}
+          y1={height - 109 * units}
+          y2={height - 101 * units}
           stroke="var(--muted-foreground)"
         />
       ))}
       <text
         x="500"
-        y={height - 16 * units}
+        y={height - 81 * units}
         textAnchor="middle"
         fill="var(--muted-foreground)"
         fontSize="14"
@@ -1838,11 +1958,15 @@ function FrameScene({
     minY = Math.min(...model.nodes.map((n) => n.y)),
     maxY = Math.max(...model.nodes.map((n) => n.y)),
     scale = Math.min(
-      760 / Math.max(1, maxX - minX),
-      Math.max(80, height - 140 * units) / Math.max(1, maxY - minY),
+      Math.max(100, Math.min(760, 1000 - 170 * units)) /
+        Math.max(1, maxX - minX),
+      Math.max(60, height - 350 * units) / Math.max(1, maxY - minY),
     ),
     X = (x: number) => (1000 - (maxX - minX) * scale) / 2 + (x - minX) * scale,
-    Y = (y: number) => height - 60 * units - (y - minY) * scale;
+    Y = (y: number) =>
+      210 * units +
+      (Math.max(60, height - 350 * units) + (maxY - minY) * scale) / 2 -
+      (y - minY) * scale;
   const diagram =
       view === "M" || view === "V" || view === "N" || view === "theta"
         ? view
@@ -1872,7 +1996,7 @@ function FrameScene({
           path = r.pts
             .map(
               (p, j) =>
-                `${j ? "L" : "M"}${X(a.x + p.x * r.g.c) + ((r.g.s * p[diagram]) / max) * 60} ${Y(a.y + p.x * r.g.s) + ((r.g.c * p[diagram]) / max) * 60}`,
+                `${j ? "L" : "M"}${X(a.x + p.x * r.g.c) + ((r.g.s * p[diagram]) / max) * 60 * units} ${Y(a.y + p.x * r.g.s) + ((r.g.c * p[diagram]) / max) * 60 * units}`,
             )
             .join(" ");
         if (r && view === "v") {
@@ -1906,7 +2030,7 @@ function FrameScene({
               y2={y2}
               stroke="var(--primary)"
               data-selection-bounds="true"
-              strokeWidth="7"
+              strokeWidth="3.5"
               vectorEffect="non-scaling-stroke"
             />
             <line
@@ -1920,6 +2044,8 @@ function FrameScene({
             />
             {path && (
               <path
+                data-testid="diagram-curve"
+                data-field={view}
                 d={path}
                 stroke={seriesColors[view === "structure" ? "M" : view]}
                 strokeWidth="3"
@@ -2059,7 +2185,7 @@ function FrameScene({
         })}
       <text
         x="500"
-        y={height - 12 * units}
+        y={height - 80 * units}
         textAnchor="middle"
         fill="var(--muted-foreground)"
         fontSize="13"
@@ -2068,157 +2194,5 @@ function FrameScene({
         {fmt(maxX - minX)} m × {fmt(maxY - minY)} m
       </text>
     </>
-  );
-}
-function Diagram({
-  x,
-  values,
-  title,
-  unit,
-  factor = 1,
-  color = "var(--plot-m)",
-}: {
-  x: number[];
-  values: number[];
-  title: string;
-  unit: string;
-  factor?: number;
-  color?: string;
-}) {
-  const [read, setRead] = useState(0.5),
-    min = Math.min(...values.map((v) => v * factor), 0),
-    max = Math.max(...values.map((v) => v * factor), 0),
-    range = Math.max(0.0001, max - min),
-    chartLeft = Math.max(
-      110,
-      ...[min, max].map((v) => Math.min(240, fmt(v, 1).length * 14 + 24)),
-    ),
-    chartWidth = 690 - chartLeft,
-    X = (v: number) => chartLeft + (v / x[x.length - 1]) * chartWidth,
-    Y = (v: number) => 30 + ((v - min) / range) * 260,
-    index = x.reduce(
-      (best, v, i) =>
-        Math.abs(v - read * x[x.length - 1]) <
-        Math.abs(x[best] - read * x[x.length - 1])
-          ? i
-          : best,
-      0,
-    ),
-    baseline = Y(0),
-    path = x
-      .map((v, i) => `${i ? "L" : "M"}${X(v)} ${Y(values[i] * factor)}`)
-      .join(" ");
-  return (
-    <div
-      className="diagram"
-      style={{ "--series-color": color } as React.CSSProperties}
-    >
-      <div className="diagram-caption">
-        <strong>{title}</strong>
-        <span>{unit}</span>
-      </div>
-      <svg
-        viewBox="0 0 720 340"
-        role="img"
-        aria-label={`${title}, valeurs calculées`}
-        onPointerMove={(e) => {
-          const r = e.currentTarget.getBoundingClientRect();
-          setRead(
-            Math.max(
-              0,
-              Math.min(
-                1,
-                (((e.clientX - r.left) / r.width) * 720 - chartLeft) /
-                  chartWidth,
-              ),
-            ),
-          );
-        }}
-      >
-        {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-          <g key={t}>
-            <line
-              x1={chartLeft}
-              x2="690"
-              y1={30 + t * 260}
-              y2={30 + t * 260}
-              stroke="var(--border)"
-              strokeOpacity=".5"
-            />
-            <text
-              x={chartLeft - 14}
-              y={36 + t * 260}
-              textAnchor="end"
-              fill="var(--muted-foreground)"
-              fontSize="10"
-              className="numeric"
-            >
-              {fmt(min + t * range, 1)}
-            </text>
-          </g>
-        ))}
-        <path
-          d={`${path}L${X(x[x.length - 1])} ${baseline}L${chartLeft} ${baseline}Z`}
-          fill={color}
-          fillOpacity=".12"
-        />
-        <line
-          x1={chartLeft}
-          x2="690"
-          y1={baseline}
-          y2={baseline}
-          stroke="var(--muted-foreground)"
-        />
-        <path
-          data-testid="diagram-curve"
-          d={path}
-          fill="none"
-          stroke={color}
-          strokeWidth="3"
-          vectorEffect="non-scaling-stroke"
-        />
-        {[0, 0.25, 0.5, 0.75, 1].map((t) => (
-          <text
-            key={t}
-            x={chartLeft + t * chartWidth}
-            y="324"
-            textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"}
-            fill="var(--muted-foreground)"
-            fontSize="11"
-            className="numeric"
-          >
-            {fmt(t * x[x.length - 1])}
-          </text>
-        ))}
-        <line
-          x1={X(x[index])}
-          x2={X(x[index])}
-          y1="18"
-          y2="298"
-          stroke={color}
-          strokeDasharray="4 5"
-        />
-        <circle
-          cx={X(x[index])}
-          cy={Y(values[index] * factor)}
-          r="4"
-          fill={color}
-        />
-      </svg>
-      <div className="diagram-readout mono">
-        <span>x = {fmt(x[index])} m</span>
-        <strong>
-          {fmt(values[index] * factor, 3)} {unit}
-        </strong>
-      </div>
-      <Slider
-        aria-label="Abscisse de lecture"
-        min={0}
-        max={1000}
-        step={1}
-        value={[read * 1000]}
-        onValueChange={(v) => setRead(v[0] / 1000)}
-      />
-    </div>
   );
 }

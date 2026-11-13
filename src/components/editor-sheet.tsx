@@ -1,3 +1,5 @@
+import { useStudyGuide } from "./project-guide";
+import { studyAction } from "@/lib/study-events";
 import { useRef, useState, type ReactNode } from "react";
 import { runtime, useCompactViewport } from "@/lib/runtime";
 import {
@@ -17,6 +19,7 @@ export function EditorSheet({
   description,
   children,
   className = "",
+  desktopSide = "left",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,13 +27,17 @@ export function EditorSheet({
   description?: string;
   children: ReactNode;
   className?: string;
+  desktopSide?: "left" | "right";
 }) {
   const compact = useCompactViewport();
+  const guide = useStudyGuide();
   const start = useRef(0);
   const moved = useRef(false);
   const [drag, setDrag] = useState(0);
   const side =
-    runtime === "mobile" || (runtime === "web" && compact) ? "bottom" : "left";
+    runtime === "mobile" || (runtime === "web" && compact)
+      ? "bottom"
+      : desktopSide;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -75,6 +82,17 @@ export function EditorSheet({
               "Modifiez les paramètres, puis appliquez vos changements."}
           </SheetDescription>
         </SheetHeader>
+        {guide.active && (
+          <div className="sheet-guide-instruction" role="status">
+            <p>{guide.instruction}</p>
+            <button
+              className="sheet-guide-skip"
+              onClick={() => studyAction("guide:skip")}
+            >
+              Passer le guide de prise en main
+            </button>
+          </div>
+        )}
         {children}
       </SheetContent>
     </Sheet>

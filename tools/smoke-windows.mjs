@@ -76,16 +76,20 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await page
         .getByRole("button", { name: "Passer la présentation" })
         .click();
-      await page.getByRole("link", { name: /Calculateur de poutres/ }).click();
-      await expect(
-        page.getByRole("heading", {
-          name: "Calculateur de poutres",
-          exact: true,
-        }),
-      ).toBeVisible();
+      await page.getByRole("link", { name: /Analyse de poutres/ }).click();
       await page
-        .getByLabel("Nom du projet")
+        .getByLabel("Nom du projet", { exact: true })
         .fill("Verification native Windows");
+      await page
+        .getByRole("button", { name: "Créer l’étude", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Explorer librement", exact: true })
+        .click();
+      await page.getByRole("button", { name: "Calculer", exact: true }).click();
+      await expect(page.locator(".canvas-result-status")).toContainText(
+        "Calcul actualisé",
+      );
       await page
         .getByRole("button", { name: "Enregistrer", exact: true })
         .click();
@@ -97,9 +101,19 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       });
     } else {
       await page.evaluate((id) => (location.hash = `/project/${id}`), savedId);
-      await expect(page.getByLabel("Nom du projet")).toHaveValue(
-        "Verification native Windows",
+      await expect(
+        page.getByRole("heading", {
+          name: "Verification native Windows",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Calculer", exact: true }).click();
+      await expect(page.locator(".canvas-result-status")).toContainText(
+        "Calcul actualisé",
       );
+      await page
+        .getByRole("button", { name: "Ouvrir les résultats", exact: true })
+        .click();
       await expect(page.locator(".metric").first()).toContainText("111,00");
       await page.screenshot({
         path: "native-test-results/windows-compatibility.png",

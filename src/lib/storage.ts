@@ -30,6 +30,15 @@ export const workspaceSchema = z
       concrete: z.enum(["C20/25", "C25/30", "C30/37", "C35/45"]),
       quasi: z.boolean(),
     }),
+    guides: z
+      .record(
+        z.string(),
+        z.object({
+          step: z.number().int().nonnegative(),
+          completed: z.boolean(),
+        }),
+      )
+      .default({}),
     projects: z.array(projectSchema).max(5000),
     presets: z.array(
       z.object({
@@ -55,6 +64,7 @@ export const freshWorkspace = (): Workspace => ({
   onboarding: false,
   profile: { name: "", profession: "Ingénieur structure" },
   preferences: { code: "ec2", concrete: "C25/30", quasi: false },
+  guides: {},
   projects: [],
   presets: [],
 });

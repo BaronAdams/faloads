@@ -1,5 +1,17 @@
 import { useEffect, useState } from "react";
-import { z } from "zod";
+import {
+  descentSchema,
+  descentDefaults,
+  descentArea,
+  type DescentModel,
+} from "@/domain/descent";
+export { descentSchema, descentDefaults } from "@/domain/descent";
+import { useCalculation } from "@/lib/use-calculation";
+import {
+  CalculationOverlay,
+  CalculationStatus,
+} from "@/components/calculation-state";
+import { studyAction } from "@/lib/study-events";
 import { toast } from "sonner";
 import { EditorSheet, EditorFooter } from "@/components/editor-sheet";
 import {
@@ -35,47 +47,6 @@ import {
 import { useWorkspace } from "@/lib/workspace";
 import { fmt } from "@/lib/utils";
 import { type Project } from "@/lib/storage";
-export const descentSchema = z.object({
-  kind: z.enum(["column-load", "wall-load"]),
-  system: z.enum(["beams", "slabs"]),
-  code: z.enum(["ec2", "bael91"]),
-  concrete: z.enum(["C20/25", "C25/30", "C30/37", "C35/45"]),
-  spans: z.array(z.number().min(0).max(100)).length(4),
-  wallLength: z.number().positive().max(100),
-  levels: z.array(levelSchema).min(1).max(100),
-  quasi: z.boolean(),
-  zone: z.string(),
-  region: z.string(),
-  terrain: z.string(),
-  direction: z.number(),
-  primaryB: z.number().positive(),
-  primaryH: z.number().positive(),
-  secondaryB: z.number().positive(),
-  secondaryH: z.number().positive(),
-});
-export type DescentModel = z.infer<typeof descentSchema>;
-export function descentDefaults(
-  kind: "column-load" | "wall-load",
-): DescentModel {
-  return {
-    kind,
-    system: "beams",
-    code: "ec2",
-    concrete: "C25/30",
-    spans: [3, 3, 3, 3],
-    wallLength: 4,
-    levels: [newLevel("R+1"), newLevel("RDC")],
-    quasi: false,
-    zone: "II",
-    region: "Intérieure",
-    terrain: "IIIb",
-    direction: 0,
-    primaryB: 25,
-    primaryH: 40,
-    secondaryB: 20,
-    secondaryH: 35,
-  };
-}
 export function DescentPage({
   kind,
   project,
@@ -108,18 +79,20 @@ export function DescentPage({
     drafts.set(key, model);
   }, [model, key, drafts]);
   const wall = kind === "wall-load",
-    area = wall
-      ? (model.wallLength * (model.spans[0] + model.spans[1])) / 2
-      : ((model.spans[0] + model.spans[1]) *
-          (model.spans[2] + model.spans[3])) /
-        4,
-    rows = descent(
-      model.levels,
-      area,
-      wall ? model.wallLength : 0,
-      model.quasi,
-    ),
+    area = descentArea(model);
+  const calculation = useCalculation<ReturnType<typeof descent>>("descent", {
+    ...model,
+    area,
+    wallLength: wall ? model.wallLength : 0,
+  });
+  const rows = calculation.result ?? [],
     base = rows[rows.length - 1];
+  const run = async () => {
+    if (await calculation.run()) {
+      setVisited(4);
+      setStep(4);
+    }
+  };
   const patch = (p: Partial<DescentModel>) => setModel({ ...model, ...p });
   const advance = (next: number) => {
     if (next > step) {
@@ -131,7 +104,12 @@ export function DescentPage({
       if (step === 1 && area <= 0) return;
       setVisited(Math.max(visited, next));
     }
+    if (next === 4 && !calculation.fresh) {
+      void run();
+      return;
+    }
     setStep(next);
+    studyAction(`descent:${next}`);
   };
   const swap = (i: number, j: number) => {
     const a = [...model.levels];
@@ -146,7 +124,10 @@ export function DescentPage({
     "Résultats",
   ];
   return (
-    <div className="project-page">
+    <div
+      className="project-page calculation-workspace"
+      aria-busy={calculation.busy}
+    >
       <ProjectHeader
         type={kind}
         project={project}
@@ -164,6 +145,21 @@ export function DescentPage({
           </Button>
         }
       />
+      <CalculationOverlay busy={calculation.busy} />
+      {calculation.error && <Notice danger>{calculation.error}</Notice>}
+      {calculation.result && (
+        <CalculationStatus fresh={calculation.fresh} hasResult />
+      )}
+      {!wall &&
+        project &&
+        !(project.data as { tributaryConvention?: string })
+          .tributaryConvention && (
+          <Notice>
+            Les anciennes portées ont été converties en longueurs d’influence :
+            la surface et les efforts de votre étude sont conservés. Chaque
+            longueur affichée délimite désormais entièrement la zone colorée.
+          </Notice>
+        )}
       <nav className="stepper" aria-label="Étapes du projet">
         {steps.map((label, i) => (
           <button
@@ -252,7 +248,11 @@ export function DescentPage({
                   ? "Largeur d’influence du voile"
                   : "Portées autour du poteau"
               }
-              description="Une portée nulle représente un côté sans plancher."
+              description={
+                wall
+                  ? "Une portée nulle représente un côté sans plancher."
+                  : "Chaque longueur délimite entièrement la surface d’influence colorée. Une longueur nulle représente un côté sans plancher."
+              }
             >
               <div className="form-stack">
                 {!wall && (
@@ -315,6 +315,7 @@ export function DescentPage({
                     <FormGrid>
                       <Numeric
                         label="Poutre principale b"
+                        labelColor="var(--orange)"
                         value={model.primaryB}
                         min={1}
                         unit="cm"
@@ -322,6 +323,7 @@ export function DescentPage({
                       />
                       <Numeric
                         label="Poutre principale h"
+                        labelColor="var(--orange)"
                         value={model.primaryH}
                         min={1}
                         unit="cm"
@@ -329,6 +331,7 @@ export function DescentPage({
                       />
                       <Numeric
                         label="Poutre secondaire b"
+                        labelColor="var(--teal)"
                         value={model.secondaryB}
                         min={1}
                         unit="cm"
@@ -336,6 +339,7 @@ export function DescentPage({
                       />
                       <Numeric
                         label="Poutre secondaire h"
+                        labelColor="var(--teal)"
                         value={model.secondaryH}
                         min={1}
                         unit="cm"
@@ -359,7 +363,7 @@ export function DescentPage({
                 <div className="formula mono">
                   {wall
                     ? "A = L × (L_av + L_ar)/2"
-                    : "A = (L₁ + L₂)/2 × (L₃ + L₄)/2"}
+                    : "A = (L₁ + L₂) × (L₃ + L₄)"}
                 </div>
               </Panel>
               <Metric label="Aire tributaire" value={area} unit="m²" />
@@ -478,7 +482,7 @@ export function DescentPage({
             </Notice>
           </Panel>
         )}
-        {step === 4 && (
+        {step === 4 && calculation.fresh && base && (
           <>
             <div className="metrics-grid">
               <Metric
@@ -616,6 +620,7 @@ export function DescentPage({
                 : [level, ...model.levels],
             });
             setLevelEditor(null);
+            studyAction("level:applied");
           }}
         >
           <div className="editor-fields">
@@ -635,7 +640,9 @@ export function DescentPage({
             >
               Annuler
             </Button>
-            <Button type="submit">Appliquer</Button>
+            <Button data-tour="element-apply" type="submit">
+              Appliquer
+            </Button>
           </EditorFooter>
         </form>
       </EditorSheet>
@@ -652,7 +659,11 @@ export function DescentPage({
           Étape {step + 1} sur {steps.length}
         </span>
         {step < 4 ? (
-          <Button onClick={() => advance(step + 1)}>
+          <Button
+            data-tour="next"
+            disabled={calculation.busy}
+            onClick={() => (step === 3 ? void run() : advance(step + 1))}
+          >
             {step === 3 ? "Calculer les efforts" : "Suivant"}
             <ArrowRight />
           </Button>

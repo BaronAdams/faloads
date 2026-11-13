@@ -25,6 +25,8 @@ export function Playground({
   label = "Schéma interactif",
   selected,
   onDeselect,
+  controls,
+  immersive = false,
 }: {
   children: ReactNode;
   onSelect?: (key: string) => void;
@@ -32,6 +34,8 @@ export function Playground({
   label?: string;
   selected?: string | null;
   onDeselect?: () => void;
+  controls?: ReactNode;
+  immersive?: boolean;
 }) {
   const svg = useRef<SVGSVGElement>(null),
     content = useRef<SVGGElement>(null),
@@ -141,13 +145,17 @@ export function Playground({
   }, []);
   const positions = () => [...points.current.values()];
   return (
-    <section className="playground" aria-label={label}>
+    <section
+      className={`playground ${immersive ? "immersive-playground" : ""}`}
+      aria-label={label}
+    >
       <div className="playground-toolbar">
         <span className="canvas-caption">{label}</span>
         <div className="segmented">
           <Button
             size="sm"
             variant={!hand ? "secondary" : "ghost"}
+            aria-label="Sélection"
             onClick={() => setHand(false)}
             aria-pressed={!hand}
           >
@@ -157,6 +165,7 @@ export function Playground({
           <Button
             size="sm"
             variant={hand ? "secondary" : "ghost"}
+            aria-label="Déplacer"
             onClick={() => setHand(true)}
             aria-pressed={hand}
           >
@@ -165,6 +174,7 @@ export function Playground({
           </Button>
         </div>
       </div>
+      {controls && <div className="playground-overlays">{controls}</div>}
       <svg
         ref={svg}
         data-testid="playground"

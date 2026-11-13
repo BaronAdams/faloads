@@ -247,7 +247,11 @@ export function PredimPage({
           title="Données du projet"
           description="Unités indiquées à côté de chaque valeur."
         >
-          <form className="form-stack" onSubmit={(e) => e.preventDefault()}>
+          <form
+            data-tour="predim-inputs"
+            className="form-stack"
+            onSubmit={(e) => e.preventDefault()}
+          >
             {(type === "column" || type === "wall" || type === "footing") && (
               <Numeric
                 label={

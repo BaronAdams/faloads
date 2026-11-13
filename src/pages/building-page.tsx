@@ -1,3 +1,8 @@
+import { useCalculation } from "@/lib/use-calculation";
+import {
+  CalculationOverlay,
+  CalculationStatus,
+} from "@/components/calculation-state";
 import { useEffect, useMemo, useState } from "react";
 import { Copy, Plus, Trash2, Undo2, Redo2, Printer } from "lucide-react";
 import { toast } from "sonner";
@@ -65,8 +70,20 @@ export function BuildingPage({ project }: { project?: Project }) {
     [selection, setSelection] = useState<string | null>(null),
     [editor, setEditor] = useState<Floor | null>(null),
     [influence, setInfluence] = useState(true);
+  const calculation = useCalculation<
+    {
+      id: string;
+      results: ReturnType<typeof buildingResults>;
+      wind: ReturnType<typeof floorWind>;
+    }[]
+  >("building", model);
+  const run = async () => {
+    if (await calculation.run()) setTab("results");
+  };
   const floor = model.floors[Math.min(active, model.floors.length - 1)],
-    results = useMemo(() => buildingResults(floor), [floor]),
+    preview = useMemo(() => buildingResults(floor), [floor]),
+    calculated = calculation.result?.find((r) => r.id === floor.id),
+    results = calculation.fresh && calculated ? calculated.results : preview,
     wind = floorWind(model, Math.min(active, model.floors.length - 1));
   useEffect(() => {
     setSelection(null);
@@ -81,6 +98,7 @@ export function BuildingPage({ project }: { project?: Project }) {
     setHistory((h) => [...h.slice(-29), model]);
     setFuture([]);
     setModel(parsed.data);
+    if (tab === "results") setTab("model");
   };
   const patchFloor = (next: Floor) =>
     commit({
@@ -154,7 +172,10 @@ export function BuildingPage({ project }: { project?: Project }) {
     });
   };
   return (
-    <div className="project-page building-page">
+    <div
+      className="project-page building-page calculation-workspace"
+      aria-busy={calculation.busy}
+    >
       <ProjectHeader
         type="building"
         project={project}
@@ -172,12 +193,31 @@ export function BuildingPage({ project }: { project?: Project }) {
           </Button>
         }
       />
+      <CalculationOverlay busy={calculation.busy} />
+      <div className="building-calculation-bar">
+        <CalculationStatus
+          fresh={calculation.fresh}
+          hasResult={!!calculation.result}
+        />
+        <Button
+          data-tour="calculate"
+          disabled={calculation.busy}
+          onClick={() => void run()}
+        >
+          Calculer le bâtiment
+        </Button>
+      </div>
+      {calculation.error && <Notice danger>{calculation.error}</Notice>}
       <Tabs
         value={tab}
         onValueChange={(v) => {
           const invalid =
             document.querySelector<HTMLInputElement>("input:invalid");
           if (invalid) return invalid.reportValidity();
+          if (v === "results" && !calculation.fresh) {
+            void run();
+            return;
+          }
           setTab(v);
         }}
       >
@@ -345,7 +385,13 @@ export function BuildingPage({ project }: { project?: Project }) {
                 </FormGrid>
                 <Disclosure title="Portées des travées" defaultOpen>
                   {(["spanX", "spanY"] as const).map((axis) => (
-                    <div key={axis} className="form-grid">
+                    <div
+                      key={axis}
+                      className="form-grid"
+                      data-tour={
+                        axis === "spanX" ? "building-inputs" : undefined
+                      }
+                    >
                       {floor[axis].map((v, i) => (
                         <Numeric
                           key={i}

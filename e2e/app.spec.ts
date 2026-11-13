@@ -1,3 +1,4 @@
+import { createStudy, parameters, calculate } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 const ready = async (page: Page) => {
   await page.goto("/");
@@ -39,23 +40,37 @@ test("beam parameters apply, actual results change, undo works, and saving survi
 }, info) => {
   await ready(page);
   await page.goto("/#/new/beam");
-  await expect(
-    page.getByRole("heading", { name: "Calculateur de poutres", exact: true }),
-  ).toBeVisible();
+  await createStudy(page);
+  await page.getByRole("button", { name: /Renommer le projet/ }).click();
   await page.getByLabel("Nom du projet").fill("Poutre test");
+  await page
+    .getByRole("button", { name: "Enregistrer le nom", exact: true })
+    .click();
+  await parameters(page);
   await page.getByRole("button", { name: /Force F2/ }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Force verticale Fy", { exact: true }).fill("50,5");
   await dialog.getByRole("button", { name: "Appliquer", exact: true }).click();
-  if (info.project.name === "mobile")
-    await page.getByRole("tab", { name: "Résultats", exact: true }).click();
+  await calculate(page, true);
   await expect(page.locator(".metric").first()).not.toContainText("111,00");
+  await page
+    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .click();
   await page.getByRole("button", { name: "Annuler", exact: true }).click();
+  await expect(page.locator(".canvas-result-status")).toContainText(
+    "Calcul non actualisé",
+  );
+  await calculate(page, true);
   await expect(page.locator(".metric").first()).toContainText("111,00");
+  await page
+    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .click();
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await expect(page).toHaveURL(/project\//);
   await page.reload();
-  await expect(page.getByLabel("Nom du projet")).toHaveValue("Poutre test");
+  await expect(
+    page.getByRole("heading", { name: "Poutre test", exact: true }),
+  ).toBeVisible();
   await page.goto("/#/projects");
   await expect(
     page.getByRole("heading", { name: "Poutre test" }),
@@ -66,8 +81,7 @@ test("canvas supports zoom, mouse pan and reset without changing the model", asy
 }, info) => {
   await ready(page);
   await page.goto("/#/new/beam");
-  if (info.project.name === "mobile")
-    await page.getByRole("tab", { name: "Schéma", exact: true }).click();
+  await createStudy(page);
   await page.getByRole("button", { name: "Augmenter le zoom" }).click();
   await expect(page.getByTestId("zoom-level")).toHaveText("120 %");
   const canvas = page.getByTestId("playground");
@@ -95,14 +109,15 @@ test("canvas supports zoom, mouse pan and reset without changing the model", asy
 test("frame node edits and force results work", async ({ page }, info) => {
   await ready(page);
   await page.goto("/#/new/frame");
+  await createStudy(page);
+  await parameters(page);
   await page.getByRole("button", { name: /N3 · Libre/ }).click();
   await page.getByRole("dialog").getByLabel("Abscisse x").fill("7");
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Appliquer", exact: true })
     .click();
-  if (info.project.name === "mobile")
-    await page.getByRole("tab", { name: "Résultats", exact: true }).click();
+  await calculate(page, true);
   await expect(page.locator(".metric").first()).not.toContainText("67,02");
   await expect(page.locator(".metric").last()).toContainText("Vérifié");
 });
@@ -111,6 +126,7 @@ test("load descent reaches cumulative results and adds independent coatings", as
 }) => {
   await ready(page);
   await page.goto("/#/new/column-load");
+  await createStudy(page);
   await page.getByRole("button", { name: "Suivant", exact: true }).click();
   await page.getByRole("button", { name: "Suivant", exact: true }).click();
   await page
@@ -141,6 +157,7 @@ test("building editing, deleted segments, floor duplication and results work", a
 }) => {
   await ready(page);
   await page.goto("/#/new/building");
+  await createStudy(page);
   await page
     .getByTestId("playground")
     .locator('[data-element="edge|h:0:0"]')
@@ -153,6 +170,9 @@ test("building editing, deleted segments, floor duplication and results work", a
   await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
   await expect(page.getByLabel("Nom du niveau")).toHaveValue("Copie de RDC");
   await page.getByRole("tab", { name: "Résultats", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Résultats du niveau", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Résultats du niveau" }),
   ).toBeVisible();
@@ -174,6 +194,7 @@ test("all eight predimensioning projects expose editable inputs and computed res
     "footing",
   ]) {
     await page.goto(`/#/new/${type}`);
+    await createStudy(page);
     await expect(page.getByTestId("predim-result")).toBeVisible();
     expect(
       (await page.getByTestId("predim-result").innerText()).length,
@@ -187,6 +208,7 @@ test("small viewport and enlarged text retain navigation without horizontal over
   await page.setViewportSize({ width: 320, height: 740 });
   await page.addStyleTag({ content: "html{font-size:22px}" });
   await page.goto("/#/new/column");
+  await createStudy(page);
   await expect(page.getByTestId("predim-result")).toBeVisible();
   expect(
     await page.evaluate(
@@ -200,6 +222,7 @@ test("simplified G/Q calculation responds to load edits in the mobile sheet", as
 }) => {
   await ready(page);
   await page.goto("/#/new/beam");
+  await createStudy(page);
   await page
     .getByRole("button", { name: "Calcul simplifié G/Q", exact: true })
     .click();
@@ -234,6 +257,7 @@ test("corrupt saved data remains intact in a temporary session", async ({
   await page.getByRole("button", { name: "Continuer sans sauvegarde" }).click();
   await page.getByRole("button", { name: "Passer la présentation" }).click();
   await page.goto("/#/new/column");
+  await createStudy(page);
   await expect(
     page.getByRole("button", { name: "Enregistrer", exact: true }),
   ).toBeDisabled();
@@ -251,7 +275,7 @@ test("pinch and touch pan move the camera without opening an element editor", as
   );
   await ready(page);
   await page.goto("/#/new/beam");
-  await page.getByRole("tab", { name: "Schéma", exact: true }).click();
+  await createStudy(page);
   const canvas = page.getByTestId("playground");
   await canvas.scrollIntoViewIfNeeded();
   const box = (await canvas.boundingBox())!;
@@ -304,7 +328,7 @@ test("onboarding demonstrates a real calculation and retains it between steps", 
 }) => {
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Calculez vos structures" }),
+    page.getByRole("heading", { name: "Voyez vos structures réagir." }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Voir un calcul", exact: true })
@@ -409,7 +433,9 @@ test("dashboard resumes real projects in date order and displays their actual co
     "Poutre récente",
   );
   await page.locator(".recent-project").first().click();
-  await expect(page.getByLabel("Nom du projet")).toHaveValue("Poutre récente");
+  await expect(
+    page.getByRole("heading", { name: "Poutre récente", exact: true }),
+  ).toBeVisible();
 });
 
 test("onboarding and catalogue remain usable at 320 pixels", async ({

@@ -1,3 +1,4 @@
+import { ProjectGuide } from "@/components/project-guide";
 import { useEffect } from "react";
 import {
   HashRouter,
@@ -213,10 +214,19 @@ function ProjectRoute() {
       );
     }
   }
-  if (actual === "beam" || actual === "frame")
-    return <AnalysisPage kind={actual} project={project} />;
-  if (actual === "column-load" || actual === "wall-load")
-    return <DescentPage kind={actual} project={project} />;
-  if (actual === "building") return <BuildingPage project={project} />;
-  return <PredimPage type={actual} project={project} />;
+  const content =
+    actual === "beam" || actual === "frame" ? (
+      <AnalysisPage kind={actual} project={project} />
+    ) : actual === "column-load" || actual === "wall-load" ? (
+      <DescentPage kind={actual} project={project} />
+    ) : actual === "building" ? (
+      <BuildingPage project={project} />
+    ) : (
+      <PredimPage type={actual} project={project} />
+    );
+  return (
+    <ProjectGuide type={actual} existing={!!project}>
+      {content}
+    </ProjectGuide>
+  );
 }

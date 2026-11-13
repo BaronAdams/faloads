@@ -18,6 +18,13 @@ pub struct Workspace {
     pub preferences: Value,
     pub projects: Vec<Project>,
     pub presets: Vec<Value>,
+    #[serde(default)]
+    pub guides: std::collections::HashMap<String, GuideProgress>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GuideProgress {
+    pub step: usize,
+    pub completed: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -159,6 +166,32 @@ mod tests {
             serde_json::from_slice(&fs::read(d.path().join("workspace.previous.json")).unwrap())
                 .unwrap();
         assert_eq!(previous.theme, "dark");
+    }
+    #[test]
+    fn old_workspaces_load_and_per_type_guides_survive_native_storage() {
+        let d = tempfile::tempdir().unwrap();
+        let repo = Repository::new(d.path().into());
+        let mut w = value();
+        assert!(w.guides.is_empty());
+        w.guides.insert(
+            "beam".into(),
+            GuideProgress {
+                step: 8,
+                completed: true,
+            },
+        );
+        w.guides.insert(
+            "frame".into(),
+            GuideProgress {
+                step: 2,
+                completed: false,
+            },
+        );
+        repo.write(&w).unwrap();
+        let restored = repo.read().unwrap().unwrap();
+        assert!(restored.guides["beam"].completed);
+        assert!(!restored.guides["frame"].completed);
+        assert_eq!(restored.guides["frame"].step, 2);
     }
     #[test]
     fn malformed_file_is_never_overwritten() {

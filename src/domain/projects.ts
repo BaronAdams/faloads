@@ -2,14 +2,14 @@ export const projectTypes = [
   {
     id: "beam",
     icon: "01C",
-    label: "Calculateur de poutres",
+    label: "Analyse de poutres",
     description: "Appuis, charges, efforts et déplacements",
     family: "Analyse structurale",
   },
   {
     id: "frame",
     icon: "02B",
-    label: "Calculateur de cadres",
+    label: "Analyse de portiques plans",
     description: "Nœuds, barres et portiques plans",
     family: "Analyse structurale",
   },

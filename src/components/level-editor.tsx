@@ -39,6 +39,7 @@ export function LevelEditor({
       <div className="level-summary">
         <button
           type="button"
+          data-tour="level-edit"
           aria-label={`Modifier le niveau ${level.label}`}
           onClick={onEdit}
         >

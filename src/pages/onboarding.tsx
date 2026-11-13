@@ -6,6 +6,7 @@ import {
   CheckCheck,
   FileJson,
   FolderCheck,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,14 +19,14 @@ import { fmt } from "@/lib/utils";
 const steps = [
   {
     label: "Choisir",
-    title: "Calculez vos\nstructures",
+    title: "Voyez vos structures\nréagir.",
     description:
-      "Analysez une poutre ou un cadre, suivez une descente de charges et prédimensionnez vos éléments en béton.",
+      "Analysez une poutre ou un portique, suivez une descente de charges et prédimensionnez vos éléments en béton.",
     detail: "Un point de départ adapté à chaque étude",
   },
   {
     label: "Paramétrer",
-    title: "Des paramètres\naux efforts",
+    title: "Un modèle clair.\nDes efforts lisibles.",
     description:
       "Renseignez la géométrie, les appuis et les charges. Le schéma et les résultats vous aident à comprendre votre modèle.",
     detail: "Essayez : modifiez la portée de la poutre",
@@ -94,6 +95,7 @@ export function Onboarding() {
           </p>
           <div
             className="onboarding-message"
+            key={step}
             aria-live="polite"
             aria-atomic="true"
           >
@@ -172,23 +174,18 @@ function OnboardingPreview({ step }: { step: number }) {
       </header>
       {step === 0 ? (
         <>
-          <div className="preview-catalog">
-            {(["beam", "frame", "building", "column"] as const).map((type) => {
-              const info = projectTypes.find((t) => t.id === type)!;
-              return (
-                <div className="preview-project" key={type}>
-                  <ProjectIcon type={type} size={80} />
-                  <div>
-                    <strong>{info.label}</strong>
-                    <span>{info.family}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="preview-catalog-footer">
-            <span>Du modèle à la section</span>
-            <span className="mono">m · kN · cm</span>
+          <StructuralReveal
+            length={length}
+            load={result.wElu}
+            moment={result.moment}
+          />
+          <div className="onboarding-tool-strip">
+            {(["beam", "frame", "building", "column"] as const).map((type) => (
+              <div key={type}>
+                <ProjectIcon type={type} size={42} />
+                <span>{projectTypes.find((t) => t.id === type)!.label}</span>
+              </div>
+            ))}
           </div>
         </>
       ) : step === 1 ? (
@@ -209,7 +206,9 @@ function OnboardingPreview({ step }: { step: number }) {
               </strong>
             </div>
           </div>
-          <BeamPreview length={length} load={result.wElu} />
+          <div className="interactive-beam-reveal" key={length}>
+            <BeamPreview length={length} load={result.wElu} />
+          </div>
           <div className="preview-results">
             <div>
               <span>Moment maximal ELU</span>
@@ -308,5 +307,173 @@ function BeamPreview({ length, load }: { length: number; load: number }) {
         L = {fmt(length)} m
       </text>
     </svg>
+  );
+}
+
+function StructuralReveal({
+  length,
+  load,
+  moment,
+}: {
+  length: number;
+  load: number;
+  moment: number;
+}) {
+  const [replay, setReplay] = useState(0);
+  return (
+    <div className="structural-reveal" key={replay}>
+      <div className="reveal-topline">
+        <span className="reveal-label">
+          <i />
+          UNE STRUCTURE PREND VIE
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Rejouer l’animation"
+          onClick={() => setReplay((n) => n + 1)}
+        >
+          <RotateCcw size={15} />
+        </Button>
+      </div>
+      <svg
+        viewBox="0 0 600 360"
+        role="img"
+        aria-label="Construction animée d’une poutre, application de la charge puis apparition du diagramme des moments"
+      >
+        <defs>
+          <pattern
+            id="reveal-grid"
+            width="24"
+            height="24"
+            patternUnits="userSpaceOnUse"
+          >
+            <circle
+              cx="1"
+              cy="1"
+              r=".8"
+              fill="var(--muted-foreground)"
+              opacity=".2"
+            />
+          </pattern>
+        </defs>
+        <rect width="600" height="360" fill="url(#reveal-grid)" />
+        <g
+          className="reveal-supports"
+          fill="none"
+          stroke="var(--muted-foreground)"
+          strokeWidth="2"
+        >
+          <path d="M75 155 l-14 24 h28 Z M55 186 h40 M525 155 l-14 24 h28 Z M505 191 h40" />
+          <circle cx="517" cy="185" r="3" />
+          <circle cx="533" cy="185" r="3" />
+        </g>
+        <path
+          className="reveal-beam"
+          d="M75 150 H525"
+          stroke="var(--foreground)"
+          strokeWidth="7"
+          strokeLinecap="round"
+        />
+        <g
+          className="reveal-loads"
+          stroke="var(--orange)"
+          strokeWidth="2"
+          fill="none"
+        >
+          <path d="M75 90 H525" />
+          {Array.from({ length: 11 }, (_, i) => (
+            <path
+              key={i}
+              style={{ animationDelay: `${1.3 + i * 0.055}s` }}
+              d={`M${75 + i * 45} 90 v45 m-5 -8 l5 8 5 -8`}
+            />
+          ))}
+        </g>
+        <text
+          className="reveal-load-label"
+          x="300"
+          y="65"
+          textAnchor="middle"
+          fill="var(--orange)"
+          fontSize="14"
+        >
+          q = {fmt(load)} kN/m
+        </text>
+        <path
+          className="reveal-moment-fill"
+          d="M75 150 Q300 355 525 150 Z"
+          fill="var(--plot-m)"
+          fillOpacity=".15"
+        />
+        <path
+          className="reveal-moment"
+          d="M75 150 Q300 355 525 150"
+          fill="none"
+          stroke="var(--plot-m)"
+          strokeWidth="2.5"
+        />
+        <g className="reveal-value">
+          <line
+            x1="300"
+            y1="150"
+            x2="300"
+            y2="250"
+            stroke="var(--plot-m)"
+            strokeDasharray="3 5"
+          />
+          <text
+            x="300"
+            y="285"
+            textAnchor="middle"
+            fill="var(--plot-m)"
+            fontSize="22"
+            className="mono"
+          >
+            {fmt(moment)}
+            <tspan fontSize="12"> kN·m</tspan>
+          </text>
+          <text
+            x="300"
+            y="307"
+            textAnchor="middle"
+            fill="var(--muted-foreground)"
+            fontSize="12"
+          >
+            Moment maximal · ELU
+          </text>
+        </g>
+        <g
+          className="reveal-supports"
+          stroke="var(--muted-foreground)"
+          strokeWidth="1"
+        >
+          <path d="M75 330 H525 M75 325 v10 M525 325 v10" />
+        </g>
+        <text
+          x="300"
+          y="350"
+          textAnchor="middle"
+          fill="var(--muted-foreground)"
+          fontSize="12"
+        >
+          L = {fmt(length)} m
+        </text>
+      </svg>
+      <div className="reveal-sequence">
+        <span>
+          01 <b>Modélisez</b>
+        </span>
+        <span>
+          02 <b>Chargez</b>
+        </span>
+        <span>
+          03 <b>Comprenez</b>
+        </span>
+      </div>
+      <p className="preview-footnote">
+        Poutre sur deux appuis · G = 8 · Q = 4 kN/m · Exemple illustratif
+      </p>
+    </div>
   );
 }

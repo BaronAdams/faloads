@@ -68,7 +68,7 @@ function TributaryScene({
           y: top,
           w: l1 * k,
           h: l3 * k,
-          area: (l1 * l3) / 4,
+          area: l1 * l3,
           right: false,
           bottom: false,
         },
@@ -77,7 +77,7 @@ function TributaryScene({
           y: top,
           w: l2 * k,
           h: l3 * k,
-          area: (l2 * l3) / 4,
+          area: l2 * l3,
           right: true,
           bottom: false,
         },
@@ -86,7 +86,7 @@ function TributaryScene({
           y: cy + (gapY * k) / 2,
           w: l1 * k,
           h: l4 * k,
-          area: (l1 * l4) / 4,
+          area: l1 * l4,
           right: false,
           bottom: true,
         },
@@ -95,7 +95,7 @@ function TributaryScene({
           y: cy + (gapY * k) / 2,
           w: l2 * k,
           h: l4 * k,
-          area: (l2 * l4) / 4,
+          area: l2 * l4,
           right: true,
           bottom: true,
         },
@@ -105,10 +105,10 @@ function TributaryScene({
       {quadrants
         .filter((q) => q.w > 0 && q.h > 0)
         .map((q, i) => {
-          const iw = q.w / 2,
-            ih = wall ? q.h : q.h / 2;
-          const ix = q.right ? q.x : q.x + q.w / 2,
-            iy = wall ? q.y : q.bottom ? q.y : q.y + q.h / 2;
+          const iw = wall ? q.w / 2 : q.w,
+            ih = q.h;
+          const ix = wall && !q.right ? q.x + q.w / 2 : q.x,
+            iy = q.y;
           return (
             <g key={i}>
               <rect

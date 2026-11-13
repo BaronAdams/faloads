@@ -10,6 +10,7 @@ import { Button } from "./components/ui/button";
 import "./index.css";
 import "./styles/entry-pages.css";
 import "./styles/workspace.css";
+import "./styles/study-experience.css";
 import { runtime } from "./lib/runtime";
 document.documentElement.dataset.runtime = runtime;
 class ErrorBoundary extends React.Component<

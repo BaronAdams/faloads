@@ -1,3 +1,4 @@
+import { createStudy, parameters, calculate } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 
 async function native(page: Page, mobile: boolean) {
@@ -55,9 +56,22 @@ test("native desktop has its own workbench while the browser keeps its sidebar",
   await expect(page.locator(".desktop-commandbar")).toBeVisible();
   expect((await page.locator(".app-sidebar").boundingBox())!.width).toBe(76);
   await page.goto("/#/new/beam");
-  const scene = (await page.locator(".scene-area").boundingBox())!;
-  const results = (await page.locator(".results-area").boundingBox())!;
-  expect(results.x).toBeGreaterThan(scene.x + scene.width);
+  await createStudy(page);
+  const scene = (await page
+    .locator(".analysis-canvas-workspace")
+    .boundingBox())!;
+  expect(scene.width).toBeGreaterThan(1250);
+  await page
+    .getByRole("button", { name: "Ouvrir les résultats", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveAttribute(
+    "data-editor-side",
+    "right",
+  );
+  await page
+    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .click();
+  await parameters(page);
   await page.getByRole("button", { name: /Force F2/ }).click();
   const sheet = page.getByRole("dialog");
   await expect(sheet).toHaveAttribute("data-editor-side", "left");
@@ -86,6 +100,7 @@ test("mobile header respects the safe area while scrolling and uses a bottom edi
     document.documentElement.style.setProperty("--safe-top", "24px"),
   );
   await page.goto("/#/new/building");
+  await createStudy(page);
   await page.getByTestId("playground").scrollIntoViewIfNeeded();
   await expect
     .poll(async () =>
@@ -154,6 +169,8 @@ test("beam and frame vertical springs render, retain stiffness and change actual
 }, info) => {
   await ready(page);
   await page.goto("/#/new/beam");
+  await createStudy(page);
+  await parameters(page);
   await page.getByRole("button", { name: /Appui B/ }).click();
   let sheet = page.getByRole("dialog");
   await sheet.getByLabel("Type d’appui", { exact: true }).click();
@@ -162,11 +179,11 @@ test("beam and frame vertical springs render, retain stiffness and change actual
     .click();
   await sheet.getByLabel("Raideur verticale kᵧ").fill("2000");
   await sheet.getByRole("button", { name: "Appliquer", exact: true }).click();
-  if (info.project.name === "mobile")
-    await page.getByRole("tab", { name: "Schéma", exact: true }).click();
   await expect(page.locator('[data-support-type="spring"]')).toHaveCount(1);
   await expect(page.getByTestId("selection-highlight")).toBeVisible();
   await page.goto("/#/new/frame");
+  await createStudy(page);
+  await parameters(page);
   await page.getByRole("button", { name: /N1 · Encastrement/ }).click();
   sheet = page.getByRole("dialog");
   await sheet.getByLabel("Liaison au sol").click();
@@ -175,14 +192,15 @@ test("beam and frame vertical springs render, retain stiffness and change actual
     .click();
   await sheet.getByLabel("Raideur verticale kᵧ").fill("5000");
   await sheet.getByRole("button", { name: "Appliquer", exact: true }).click();
-  if (info.project.name === "mobile")
-    await page.getByRole("tab", { name: "Schéma", exact: true }).click();
   await expect(page.locator('[data-support-type="spring"]')).toHaveCount(1);
-  if (info.project.name === "mobile")
-    await page.getByRole("tab", { name: "Résultats", exact: true }).click();
+  await calculate(page, true);
   await expect(page.locator(".metric").last()).toContainText("Vérifié");
+  await page
+    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .click();
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await page.reload();
+  await parameters(page);
   await page.getByRole("button", { name: /N1 · Ressort vertical/ }).click();
   await expect(
     page.getByRole("dialog").getByLabel("Raideur verticale kᵧ"),
@@ -194,8 +212,8 @@ test("each internal force, displacement and rotation has its own consistent colo
 }, info) => {
   await ready(page);
   await page.goto("/#/new/beam");
-  if (info.project.name === "mobile")
-    await page.getByRole("tab", { name: "Résultats", exact: true }).click();
+  await createStudy(page);
+  await calculate(page);
   const colours = [];
   for (const name of [
     "Moment M",
@@ -206,10 +224,12 @@ test("each internal force, displacement and rotation has its own consistent colo
   ]) {
     await page.getByRole("button", { name, exact: true }).click();
     const curve = page.getByTestId("diagram-curve");
-    await expect(page.locator(".diagram-caption strong")).toHaveText(name);
+    await expect(
+      page.getByRole("button", { name, exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
     // A zero axial-force curve is a horizontal SVG path: its DOM bounding
     // box has zero height even though the coloured stroke is rendered.
-    await expect(page.locator(".diagram > svg")).toBeVisible();
+    await expect(page.getByTestId("playground")).toBeVisible();
     colours.push(await curve.evaluate((el) => getComputedStyle(el).stroke));
   }
   expect(new Set(colours).size).toBe(5);
@@ -220,6 +240,7 @@ test("load descent profiles and graphs reflect validated level edits, not cancel
 }) => {
   await ready(page);
   await page.goto("/#/new/wall-load");
+  await createStudy(page);
   await page.getByRole("button", { name: "Suivant", exact: true }).click();
   await expect(page.getByTestId("playground")).toContainText("6,00 m²");
   await page.getByRole("button", { name: "Suivant", exact: true }).click();
@@ -254,7 +275,11 @@ test("building influence selection highlights only real contributors without ope
 }) => {
   await ready(page);
   await page.goto("/#/new/building");
+  await createStudy(page);
   await page.getByRole("tab", { name: "Résultats", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Résultats du niveau", exact: true }),
+  ).toBeVisible();
   const canvas = page.getByTestId("playground");
   await canvas
     .locator('[data-element="edge|h:0:0"]')
@@ -281,5 +306,12 @@ test("building influence selection highlights only real contributors without ope
     .click();
   await page.getByRole("dialog").getByRole("switch").click();
   await page.getByRole("button", { name: "Appliquer", exact: true }).click();
+  await expect(page.locator(".building-calculation-bar")).toContainText(
+    "Calcul non actualisé",
+  );
+  await page
+    .getByRole("button", { name: "Calculer le bâtiment", exact: true })
+    .click();
+  await expect(page.locator(".calculation-veil")).toHaveCount(0);
   await expect(page.getByTestId("node-influence")).toHaveCount(0);
 });

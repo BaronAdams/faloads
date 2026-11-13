@@ -1,8 +1,18 @@
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "./ui/dialog";
+import { studyAction } from "@/lib/study-events";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppTheme as useTheme } from "@/lib/theme";
 import {
   ArrowLeft,
+  Pencil,
+  CircleHelp,
   Check,
   ChevronDown,
   Download,
@@ -150,7 +160,13 @@ export function Choice({
   return (
     <div className="field">
       <Label htmlFor={id}>{label}</Label>
-      <Select value={value} onValueChange={onChange}>
+      <Select
+        value={value}
+        onValueChange={(v) => {
+          onChange(v);
+          studyAction("input:edited");
+        }}
+      >
         <SelectTrigger id={id}>
           <SelectValue />
         </SelectTrigger>
@@ -178,6 +194,7 @@ export function Numeric({
   max = 1e9,
   step,
   disabled = false,
+  labelColor,
 }: {
   label: string;
   value: number;
@@ -187,6 +204,7 @@ export function Numeric({
   max?: number;
   step?: number;
   disabled?: boolean;
+  labelColor?: string;
 }) {
   const id = useId(),
     [text, setText] = useState(String(value).replace(".", ",")),
@@ -201,7 +219,16 @@ export function Numeric({
   }, [value]);
   return (
     <div className="field">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id}>
+        {labelColor && (
+          <i
+            className="field-swatch"
+            style={{ background: labelColor }}
+            aria-hidden="true"
+          />
+        )}
+        {label}
+      </Label>
       <div className="number-input">
         <Input
           ref={ref}
@@ -222,7 +249,10 @@ export function Numeric({
             e.target.setCustomValidity(
               valid ? "" : `Valeur attendue entre ${min} et ${max}`,
             );
-            if (valid) onChange(n);
+            if (valid) {
+              onChange(n);
+              studyAction("input:edited");
+            }
           }}
           step={step}
         />
@@ -294,7 +324,10 @@ export function ProjectHeader({
   const nav = useNavigate(),
     { saveProject, temporary } = useWorkspace(),
     [saving, setSaving] = useState(false),
-    [saved, setSaved] = useState(false);
+    [saved, setSaved] = useState(false),
+    [naming, setNaming] = useState(!project),
+    [created, setCreated] = useState(!!project),
+    [nameDraft, setNameDraft] = useState(project?.name ?? "");
   useEffect(() => setSaved(false), [data, name]);
   const save = async () => {
     const invalid = document.querySelector<HTMLInputElement>("input:invalid");
@@ -314,6 +347,7 @@ export function ProjectHeader({
       };
       await saveProject(p);
       setSaved(true);
+      studyAction("project:saved");
       toast.success("Projet enregistré sur cet appareil.");
       if (!project) nav(`/project/${p.id}`, { replace: true });
     } catch (e) {
@@ -325,16 +359,97 @@ export function ProjectHeader({
     }
   };
   return (
-    <header className="project-header">
+    <header className="project-header compact-project-header">
+      <Dialog
+        open={naming}
+        onOpenChange={(open) => {
+          if (created) setNaming(open);
+        }}
+      >
+        <DialogContent
+          showCloseButton={created}
+          className="name-study-dialog"
+          onEscapeKeyDown={(e) => {
+            if (!created) e.preventDefault();
+          }}
+          onInteractOutside={(e) => {
+            if (!created) e.preventDefault();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle>
+              {created ? "Renommer l’étude" : "Comment s’appelle votre étude ?"}
+            </DialogTitle>
+            <DialogDescription>
+              {created
+                ? "Ce nom apparaîtra dans vos projets et vos exports."
+                : `${typeInfo(type).label} · Donnez un nom à ce projet pour le retrouver facilement.`}
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!nameDraft.trim()) return;
+              setName(nameDraft.trim());
+              setCreated(true);
+              setNaming(false);
+              if (!created) studyAction("name:created");
+            }}
+          >
+            <Label htmlFor="study-name">Nom du projet</Label>
+            <Input
+              id="study-name"
+              autoFocus
+              required
+              maxLength={200}
+              placeholder="Ex. Résidence Horizon — plancher R+1"
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+            />
+            <p className="name-hint">
+              Vous pourrez le renommer à tout moment en cliquant sur son nom.
+            </p>
+            <div className="name-actions">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => (created ? setNaming(false) : nav("/"))}
+              >
+                Annuler
+              </Button>
+              <Button type="submit" disabled={!nameDraft.trim()}>
+                {created ? "Enregistrer le nom" : "Créer l’étude"}
+                <ChevronDown className="-rotate-90" />
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       <IconButton label="Retour aux calculs" onClick={() => nav("/")}>
         <ArrowLeft />
       </IconButton>
       <div className="project-heading">
-        <span className="eyebrow">{typeInfo(type).family}</span>
-        <h1>{typeInfo(type).label}</h1>
+        <span className="eyebrow">{typeInfo(type).label}</span>
+        <button
+          className="study-name-button"
+          onClick={() => {
+            setNameDraft(name);
+            setNaming(true);
+          }}
+          aria-label={`Renommer le projet ${name}`}
+        >
+          <h1>{name}</h1>
+          <Pencil size={13} />
+        </button>
       </div>
       <div className="project-actions">
         {extra}
+        <IconButton
+          label="Rejouer le guide"
+          onClick={() => studyAction("guide:replay")}
+        >
+          <CircleHelp />
+        </IconButton>
         <IconButton
           label="Exporter le projet"
           onClick={() =>
@@ -362,7 +477,8 @@ export function ProjectHeader({
                 : "Enregistrer"
           }
           onClick={() => void save()}
-          disabled={saving || temporary}
+          data-tour="save"
+          disabled={saving || temporary || !created}
         >
           {saving ? (
             <LoaderCircle className="animate-spin" />
@@ -375,17 +491,6 @@ export function ProjectHeader({
             {saved ? "Enregistré" : "Enregistrer"}
           </span>
         </Button>
-      </div>
-      <div className="project-name">
-        <Label htmlFor="project-name">Nom du projet</Label>
-        <Input
-          id="project-name"
-          maxLength={200}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <span className="status-dot" />
-        {saved ? "Sauvegardé" : "Brouillon"}
       </div>
     </header>
   );
