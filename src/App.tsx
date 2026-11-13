@@ -31,6 +31,7 @@ import { AnalysisPage } from "@/pages/analysis-page";
 import { DescentPage } from "@/pages/descent-page";
 import { PredimPage } from "@/pages/predim-page";
 import { BuildingPage } from "@/pages/building-page";
+import { runtime } from "@/lib/runtime";
 const navigation = [
   { to: "/", label: "Calculs", Icon: Calculator },
   { to: "/projects", label: "Mes projets", Icon: FolderOpen },
@@ -57,6 +58,17 @@ function Shell() {
       className={`app-shell${location.pathname === "/" ? " dashboard-shell" : ""}`}
       data-testid="app-shell"
     >
+      {runtime === "desktop" && (
+        <header className="desktop-commandbar">
+          <Link to="/" className="desktop-wordmark">
+            <span>σ</span> StructCalc
+          </Link>
+          <span className="desktop-context">Atelier de structure</span>
+          <Link to="/projects">
+            <FolderOpen size={16} /> Ouvrir un projet
+          </Link>
+        </header>
+      )}
       <aside className="app-sidebar">
         <Link to="/" className="brand">
           <span className="brand-mark">σ</span>
@@ -145,6 +157,20 @@ function Shell() {
           ))}
         </nav>
       </div>
+      {runtime === "desktop" && (
+        <footer className="desktop-statusbar">
+          <span>
+            <FolderCheck size={14} />{" "}
+            {temporary ? "Session temporaire" : "Espace local"}
+          </span>
+          <span>
+            {workspace.projects.length} projet
+            {workspace.projects.length > 1 ? "s" : ""} enregistré
+            {workspace.projects.length > 1 ? "s" : ""}
+          </span>
+          <span>m · kN · MPa</span>
+        </footer>
+      )}
     </div>
   );
 }

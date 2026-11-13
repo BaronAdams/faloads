@@ -29,6 +29,7 @@ import {
   resizeFloor,
   mergePanels,
   edgeKey,
+  splitPanelRect,
 } from "./building";
 describe("Numerical parity with independently generated Dart fixtures", () => {
   for (const f of fixtures)
@@ -90,6 +91,57 @@ describe("Numerical parity with independently generated Dart fixtures", () => {
     });
 });
 describe("Actual beam and frame analysis", () => {
+  const cantilever = () => ({
+    kind: "frame" as const,
+    E: 30,
+    nodes: [
+      { id: "a", x: 0, y: 0, s: 1 },
+      { id: "b", x: 4, y: 0, s: 0 },
+    ],
+    mem: [{ id: "ab", a: 1, b: 2, bw: 30, h: 50, w: 0, q: 0 }],
+    nl: [{ id: "force", n: 2, fx: 0, fy: -10, m: 0 }],
+  });
+  it("matches analytical cantilever displacement and rotation along the member", () => {
+    const model = cantilever(),
+      result = solveFrame(model),
+      ei = (30e6 * 0.3 * 0.5 ** 3) / 12;
+    for (const p of result.mem[0].pts) {
+      expect(p.v).toBeCloseTo((-10 * p.x ** 2 * (12 - p.x)) / (6 * ei), 10);
+      expect(p.theta).toBeCloseTo((-10 * p.x * (8 - p.x)) / (2 * ei), 10);
+    }
+    model.nl = [];
+    model.mem[0].w = 10;
+    const distributed = solveFrame(model).mem[0].pts.at(-1)!;
+    expect(distributed.v).toBeCloseTo((-10 * 4 ** 4) / (8 * ei), 10);
+    expect(distributed.theta).toBeCloseTo((-10 * 4 ** 3) / (6 * ei), 10);
+  });
+  it("balances a real vertical spring against a cantilever's flexural stiffness", () => {
+    const model = cantilever();
+    model.nodes[1].s = 5;
+    const spring = {
+      ...model,
+      nodes: model.nodes.map((node) => ({ ...node, ky: 10000 })),
+    };
+    const r = solveFrame(spring),
+      ei = (30e6 * 0.3 * 0.5 ** 3) / 12,
+      displacement = -10 / ((3 * ei) / 4 ** 3 + 10000);
+    expect(r.u[4]).toBeCloseTo(displacement, 10);
+    expect(r.rea.find((reaction) => reaction.i === 1)!.r[1]).toBeCloseTo(
+      -10000 * displacement,
+      8,
+    );
+    expect(Math.abs(r.sx) + Math.abs(r.sy)).toBeLessThan(1e-7);
+  });
+  it("accepts elastic stabilization with only two rigid DOFs, but rejects free horizontal translation", () => {
+    const model = cantilever();
+    model.nodes[0].s = 2;
+    model.nodes[1].s = 5;
+    const r = solveFrame(model);
+    expect(r.u[4]).toBeCloseTo(-10 / 10000, 10);
+    expect(r.rea.find((reaction) => reaction.i === 1)!.r[1]).toBeCloseTo(10, 7);
+    model.nodes[0].s = 5;
+    expect(() => solveFrame(model)).toThrow(/instable/);
+  });
   it("reproduces the supplied partial-load beam reference", () => {
     const r = solveBeam(beamPreset());
     expect(r.reactions[0].Fy).toBeCloseTo(51, 5);
@@ -167,6 +219,32 @@ describe("Actual beam and frame analysis", () => {
     expect(next.nodes).toHaveLength(3);
     expect(next.nl).toHaveLength(0);
     expect(next.mem.every((b) => b.a <= 3 && b.b <= 3)).toBe(true);
+  });
+});
+
+describe("Influence surfaces reconstructed from Flutter", () => {
+  const area = (points: number[][]) =>
+    Math.abs(
+      points.reduce((sum, [x, y], i) => {
+        const next = points[(i + 1) % points.length];
+        return sum + x * next[1] - next[0] * y;
+      }, 0),
+    ) / 2;
+  it.each([
+    [4, 8],
+    [8, 4],
+    [4, 4],
+  ])("partitions a %s × %s panel into four exact bisector regions", (w, h) => {
+    const regions = splitPanelRect(3, 5, w, h);
+    expect(
+      Object.values(regions).reduce((sum, points) => sum + area(points), 0),
+    ).toBeCloseTo(w * h, 10);
+    expect(area(regions[w <= h ? "top" : "left"])).toBeCloseTo(
+      Math.min(w, h) ** 2 / 4,
+      10,
+    );
+    expect(area(regions.top)).toBeCloseTo(area(regions.bottom), 10);
+    expect(area(regions.left)).toBeCloseTo(area(regions.right), 10);
   });
 });
 describe("Load paths and plan", () => {

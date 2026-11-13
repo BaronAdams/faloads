@@ -25,7 +25,9 @@ npm run tauri dev      # application native desktop
 npm run tauri build    # bundles desktop de votre système
 ```
 
-Le navigateur utilise son stockage local ; l’application native utilise un fichier JSON géré par Rust. Les données restent sur l’appareil. Pour Android : JDK 17, SDK/NDK Android et cible Rust `aarch64-linux-android` ; puis `npm run icons`, `npm run tauri android init` et `npm run tauri android dev`. Pour iOS, utilisez macOS/Xcode et `npm run tauri ios init`.
+Le navigateur utilise son stockage local ; l’application native utilise un fichier JSON géré par Rust. Les données restent sur l’appareil. Pour Android : JDK 17, SDK/NDK Android et cible Rust `aarch64-linux-android` ; puis `npm run icons`, `npm run android:init` et `npm run tauri android dev`. La commande d’initialisation applique aussi les zones de sécurité de la WebView Android. Pour iOS, utilisez macOS/Xcode et `npm run tauri ios init`.
+
+Le layout natif desktop dispose d’un atelier distinct du navigateur. Les éditeurs s’ouvrent à gauche sur desktop et en bas sur mobile ; les schémas et les graphes sont décrits dans les [aperçus des espaces de travail](docs/workspaces-and-diagrams.md).
 
 ## Builds GitHub Actions
 

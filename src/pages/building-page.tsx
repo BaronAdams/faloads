@@ -7,14 +7,8 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { EditorSheet, EditorFooter } from "@/components/editor-sheet";
+
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -32,7 +26,7 @@ import {
   IconButton,
   Disclosure,
 } from "@/components/common";
-import { Playground } from "@/components/playground";
+import { Playground, useCanvasGeometry } from "@/components/playground";
 import { LevelEditor } from "@/components/level-editor";
 import { WindFields } from "./descent-page";
 import {
@@ -47,6 +41,7 @@ import {
   edgeKey,
   mergeNeighbors,
   mergePanels,
+  splitPanelRect,
   type BuildingModel,
   type Floor,
 } from "@/domain/building";
@@ -73,6 +68,10 @@ export function BuildingPage({ project }: { project?: Project }) {
   const floor = model.floors[Math.min(active, model.floors.length - 1)],
     results = useMemo(() => buildingResults(floor), [floor]),
     wind = floorWind(model, Math.min(active, model.floors.length - 1));
+  useEffect(() => {
+    setSelection(null);
+    setEditor(null);
+  }, [floor.id]);
   useEffect(() => {
     drafts.set(key, model);
   }, [model, key, drafts]);
@@ -131,7 +130,6 @@ export function BuildingPage({ project }: { project?: Project }) {
     if (!parsed.success) return toast.error(parsed.error.issues[0].message);
     patchFloor(parsed.data);
     setEditor(null);
-    setSelection(null);
   };
   const [selectedType, selectedKey] = (selection ?? "").split("|");
   const slot = editor
@@ -428,15 +426,77 @@ export function BuildingPage({ project }: { project?: Project }) {
             >
               <Playground
                 height={440}
-                onSelect={select}
+                onSelect={(key) =>
+                  tab === "results" ? setSelection(key) : select(key)
+                }
+                selected={selection}
+                onDeselect={() => setSelection(null)}
                 label="Plan 2D du niveau"
               >
                 <BuildingScene
                   floor={floor}
                   showInfluence={influence}
                   selected={selection}
+                  results={results}
+                  showResults={tab === "results"}
                 />
               </Playground>
+              {selection && (
+                <div
+                  className="selected-result"
+                  data-testid="selected-building-result"
+                >
+                  <strong>
+                    {selection.startsWith("node|")
+                      ? `Poteau ${(() => {
+                          const [c, r] = selection
+                            .slice(5)
+                            .split(",")
+                            .map(Number);
+                          return nodeName(c, r);
+                        })()}`
+                      : selection.startsWith("edge|")
+                        ? "Élément porteur sélectionné"
+                        : selection.startsWith("panel|")
+                          ? `Panneau ${floor.panels[selection.slice(6)]?.label ?? ""}`
+                          : "Élément libre sélectionné"}
+                  </strong>
+                  {selection.startsWith("node|") &&
+                    (() => {
+                      const [c, r] = selection.slice(5).split(",").map(Number);
+                      const result = results.columns.find(
+                        (item) => item.label === nodeName(c, r),
+                      );
+                      return (
+                        <span className="mono">
+                          {result
+                            ? `N_ELU ${fmt(result.nElu)} kN · A ${fmt(result.area)} m²`
+                            : "Élément absent ou sans contribution"}
+                        </span>
+                      );
+                    })()}
+                  {selection.startsWith("edge|") &&
+                    (() => {
+                      const result = results.edges.find(
+                        (item) => item.key === selection.slice(5),
+                      );
+                      return (
+                        <span className="mono">
+                          {result
+                            ? `q_ELU ${fmt(result.elu)} kN/m · L ${fmt(result.length)} m`
+                            : "Élément absent ou sans contribution"}
+                        </span>
+                      );
+                    })()}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => select(selection)}
+                  >
+                    Modifier l’élément
+                  </Button>
+                </div>
+              )}
               <div className="plan-legend">
                 <span>
                   <i className="legend-node" />
@@ -451,6 +511,11 @@ export function BuildingPage({ project }: { project?: Project }) {
                   Voile
                 </span>
                 <span>— — Élément supprimé</span>
+                <span>
+                  {tab === "results"
+                    ? "Panneaux : kN/m² · porteurs : kN/m"
+                    : "Sections : cm · panneaux : kN/m²"}
+                </span>
               </div>
             </Panel>
             <div className="metrics-grid">
@@ -582,315 +647,302 @@ export function BuildingPage({ project }: { project?: Project }) {
           </main>
         </div>
       )}
-      <Dialog
+      <EditorSheet
         open={!!editor}
-        onOpenChange={(v) => {
-          if (!v) {
-            setEditor(null);
-            setSelection(null);
-          }
+        title={
+          selectedType === "panel"
+            ? "Panneau de dalle"
+            : selectedType === "node"
+              ? "Poteau de la grille"
+              : selectedType === "edge"
+                ? "Élément porteur"
+                : "Élément libre"
+        }
+        description="Modifiez les données, puis appliquez les changements au niveau actif."
+        onOpenChange={(open) => {
+          if (!open) setEditor(null);
         }}
       >
-        <DialogContent className="element-editor building-element-editor">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedType === "panel"
-                ? "Panneau de dalle"
-                : selectedType === "node"
-                  ? "Poteau de la grille"
-                  : selectedType === "edge"
-                    ? "Élément porteur"
-                    : "Élément libre"}
-            </DialogTitle>
-            <DialogDescription>
-              Modifiez les données, puis appliquez les changements au niveau
-              actif.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={apply}>
-            <div className="editor-fields">
-              {slot && (
-                <>
-                  <Label className="toggle">
-                    <Switch
-                      checked={slot.exists}
-                      onCheckedChange={(exists) => patchSlot({ exists })}
-                    />
-                    Élément présent
-                  </Label>
-                  {selectedType === "edge" && (
-                    <Choice
-                      label="Nature de l’élément"
-                      value={slot.kind}
-                      options={[
-                        { value: "beam", label: "Poutre" },
-                        { value: "wall", label: "Voile" },
-                      ]}
-                      onChange={(kind) =>
-                        patchSlot({ kind: kind as "beam" | "wall" })
-                      }
-                    />
-                  )}
+        <form onSubmit={apply}>
+          <div className="editor-fields">
+            {slot && (
+              <>
+                <Label className="toggle">
+                  <Switch
+                    checked={slot.exists}
+                    onCheckedChange={(exists) => patchSlot({ exists })}
+                  />
+                  Élément présent
+                </Label>
+                {selectedType === "edge" && (
                   <Choice
-                    label="Préréglage de section"
-                    value={
-                      workspace.presets.find(
-                        (p) => p.a === slot.b && (!p.b || p.b === slot.h),
-                      )?.id ?? "custom"
-                    }
+                    label="Nature de l’élément"
+                    value={slot.kind}
                     options={[
-                      { value: "custom", label: "Personnalisée" },
-                      ...workspace.presets.map((p) => ({
-                        value: p.id,
-                        label: p.name,
+                      { value: "beam", label: "Poutre" },
+                      { value: "wall", label: "Voile" },
+                    ]}
+                    onChange={(kind) =>
+                      patchSlot({ kind: kind as "beam" | "wall" })
+                    }
+                  />
+                )}
+                <Choice
+                  label="Préréglage de section"
+                  value={
+                    workspace.presets.find(
+                      (p) => p.a === slot.b && (!p.b || p.b === slot.h),
+                    )?.id ?? "custom"
+                  }
+                  options={[
+                    { value: "custom", label: "Personnalisée" },
+                    ...workspace.presets.map((p) => ({
+                      value: p.id,
+                      label: p.name,
+                    })),
+                  ]}
+                  onChange={(id) => {
+                    const p = workspace.presets.find((p) => p.id === id);
+                    if (p) patchSlot({ b: p.a, h: p.b ?? slot.h });
+                  }}
+                />
+                <FormGrid>
+                  <Numeric
+                    label={slot.kind === "wall" ? "Épaisseur" : "Largeur b"}
+                    value={slot.b}
+                    min={1}
+                    max={1000}
+                    unit="cm"
+                    onChange={(b) => patchSlot({ b })}
+                  />
+                  <Numeric
+                    label="Hauteur h"
+                    value={slot.h}
+                    min={1}
+                    max={1000}
+                    unit="cm"
+                    onChange={(h) => patchSlot({ h })}
+                  />
+                </FormGrid>
+              </>
+            )}
+            {panel && editor && (
+              <>
+                <Label className="toggle">
+                  <Switch
+                    checked={panel.exists}
+                    onCheckedChange={(exists) =>
+                      setEditor({
+                        ...editor,
+                        panels: {
+                          ...editor.panels,
+                          [selectedKey]: { ...panel, exists },
+                        },
+                      })
+                    }
+                  />
+                  Panneau présent
+                </Label>
+                <div className="field">
+                  <Label htmlFor="panel-name">Désignation</Label>
+                  <Input
+                    id="panel-name"
+                    value={panel.label}
+                    onChange={(e) =>
+                      setEditor({
+                        ...editor,
+                        panels: {
+                          ...editor.panels,
+                          [selectedKey]: { ...panel, label: e.target.value },
+                        },
+                      })
+                    }
+                  />
+                </div>
+                <LevelEditor
+                  panel
+                  level={panel.level}
+                  onChange={(level) => {
+                    const next = structuredClone(editor);
+                    for (const [key, p] of Object.entries(next.panels))
+                      if (
+                        key === selectedKey ||
+                        (panel.group && p.group === panel.group)
+                      )
+                        p.level = structuredClone(level);
+                    setEditor(next);
+                  }}
+                />
+                {mergeNeighbors(editor, selectedKey).length > 0 && (
+                  <Choice
+                    label="Regrouper sans poutre séparatrice"
+                    value="none"
+                    options={[
+                      { value: "none", label: "Choisir un panneau adjacent" },
+                      ...mergeNeighbors(editor, selectedKey).map((key) => ({
+                        value: key,
+                        label: editor.panels[key].label,
                       })),
                     ]}
-                    onChange={(id) => {
-                      const p = workspace.presets.find((p) => p.id === id);
-                      if (p) patchSlot({ b: p.a, h: p.b ?? slot.h });
+                    onChange={(key) => {
+                      if (key !== "none")
+                        setEditor(mergePanels(editor, selectedKey, key));
                     }}
                   />
-                  <FormGrid>
-                    <Numeric
-                      label={slot.kind === "wall" ? "Épaisseur" : "Largeur b"}
-                      value={slot.b}
-                      min={1}
-                      max={1000}
-                      unit="cm"
-                      onChange={(b) => patchSlot({ b })}
-                    />
-                    <Numeric
-                      label="Hauteur h"
-                      value={slot.h}
-                      min={1}
-                      max={1000}
-                      unit="cm"
-                      onChange={(h) => patchSlot({ h })}
-                    />
-                  </FormGrid>
-                </>
-              )}
-              {panel && editor && (
-                <>
-                  <Label className="toggle">
-                    <Switch
-                      checked={panel.exists}
-                      onCheckedChange={(exists) =>
-                        setEditor({
-                          ...editor,
-                          panels: {
-                            ...editor.panels,
-                            [selectedKey]: { ...panel, exists },
-                          },
-                        })
-                      }
-                    />
-                    Panneau présent
-                  </Label>
-                  <div className="field">
-                    <Label htmlFor="panel-name">Désignation</Label>
-                    <Input
-                      id="panel-name"
-                      value={panel.label}
-                      onChange={(e) =>
-                        setEditor({
-                          ...editor,
-                          panels: {
-                            ...editor.panels,
-                            [selectedKey]: { ...panel, label: e.target.value },
-                          },
-                        })
-                      }
-                    />
-                  </div>
-                  <LevelEditor
-                    panel
-                    level={panel.level}
-                    onChange={(level) => {
-                      const next = structuredClone(editor);
-                      for (const [key, p] of Object.entries(next.panels))
-                        if (
-                          key === selectedKey ||
-                          (panel.group && p.group === panel.group)
-                        )
-                          p.level = structuredClone(level);
-                      setEditor(next);
-                    }}
-                  />
-                  {mergeNeighbors(editor, selectedKey).length > 0 && (
-                    <Choice
-                      label="Regrouper sans poutre séparatrice"
-                      value="none"
-                      options={[
-                        { value: "none", label: "Choisir un panneau adjacent" },
-                        ...mergeNeighbors(editor, selectedKey).map((key) => ({
-                          value: key,
-                          label: editor.panels[key].label,
-                        })),
-                      ]}
-                      onChange={(key) => {
-                        if (key !== "none")
-                          setEditor(mergePanels(editor, selectedKey, key));
+                )}
+                {panel.group && (
+                  <>
+                    <p className="hint">
+                      Les changements de charges s’appliquent à tous les
+                      panneaux de ce groupe.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const next = structuredClone(editor);
+                        next.panels[selectedKey].group = null;
+                        setEditor(next);
                       }}
+                    >
+                      Dissocier ce panneau
+                    </Button>
+                  </>
+                )}
+              </>
+            )}
+            {oblique && editor && (
+              <>
+                <FormGrid>
+                  {(
+                    [
+                      "x1",
+                      "y1",
+                      ...(oblique.kind === "beam" ? ["x2", "y2"] : []),
+                    ] as ("x1" | "y1" | "x2" | "y2")[]
+                  ).map((axis) => (
+                    <Numeric
+                      key={axis}
+                      label={axis}
+                      value={oblique[axis]}
+                      min={-1000}
+                      max={1000}
+                      unit="m"
+                      onChange={(v) =>
+                        setEditor({
+                          ...editor,
+                          obliques: editor.obliques.map((o) =>
+                            o.id === oblique.id ? { ...o, [axis]: v } : o,
+                          ),
+                        })
+                      }
                     />
-                  )}
-                  {panel.group && (
-                    <>
-                      <p className="hint">
-                        Les changements de charges s’appliquent à tous les
-                        panneaux de ce groupe.
-                      </p>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          const next = structuredClone(editor);
-                          next.panels[selectedKey].group = null;
-                          setEditor(next);
-                        }}
-                      >
-                        Dissocier ce panneau
-                      </Button>
-                    </>
-                  )}
-                </>
-              )}
-              {oblique && editor && (
-                <>
-                  <FormGrid>
-                    {(
-                      [
-                        "x1",
-                        "y1",
-                        ...(oblique.kind === "beam" ? ["x2", "y2"] : []),
-                      ] as ("x1" | "y1" | "x2" | "y2")[]
-                    ).map((axis) => (
-                      <Numeric
-                        key={axis}
-                        label={axis}
-                        value={oblique[axis]}
-                        min={-1000}
-                        max={1000}
-                        unit="m"
-                        onChange={(v) =>
-                          setEditor({
-                            ...editor,
-                            obliques: editor.obliques.map((o) =>
-                              o.id === oblique.id ? { ...o, [axis]: v } : o,
-                            ),
-                          })
-                        }
-                      />
-                    ))}
-                  </FormGrid>
-                  <FormGrid>
-                    {(["b", "h"] as const).map((axis) => (
-                      <Numeric
-                        key={axis}
-                        label={axis === "b" ? "Largeur b" : "Hauteur h"}
-                        value={oblique[axis]}
-                        min={1}
-                        unit="cm"
-                        onChange={(v) =>
-                          setEditor({
-                            ...editor,
-                            obliques: editor.obliques.map((o) =>
-                              o.id === oblique.id ? { ...o, [axis]: v } : o,
-                            ),
-                          })
-                        }
-                      />
-                    ))}
-                  </FormGrid>
-                  {oblique.kind === "column" && (
-                    <>
-                      <Numeric
-                        label="Rotation en plan"
-                        value={oblique.angle}
-                        min={-360}
-                        max={360}
-                        unit="°"
-                        onChange={(angle) =>
-                          setEditor({
-                            ...editor,
-                            obliques: editor.obliques.map((o) =>
-                              o.id === oblique.id ? { ...o, angle } : o,
-                            ),
-                          })
-                        }
-                      />
-                      <Numeric
-                        label="Aire d’influence saisie"
-                        value={oblique.area}
-                        unit="m²"
-                        onChange={(area) =>
-                          setEditor({
-                            ...editor,
-                            obliques: editor.obliques.map((o) =>
-                              o.id === oblique.id ? { ...o, area } : o,
-                            ),
-                          })
-                        }
-                      />
-                    </>
-                  )}
-                  <FormGrid>
-                    {(["g", "q"] as const).map((axis) => (
-                      <Numeric
-                        key={axis}
-                        label={
-                          axis === "g"
-                            ? "Charge permanente G"
-                            : "Exploitation Q"
-                        }
-                        value={oblique[axis]}
-                        unit={oblique.kind === "beam" ? "kN/m" : "kN/m²"}
-                        onChange={(v) =>
-                          setEditor({
-                            ...editor,
-                            obliques: editor.obliques.map((o) =>
-                              o.id === oblique.id ? { ...o, [axis]: v } : o,
-                            ),
-                          })
-                        }
-                      />
-                    ))}
-                  </FormGrid>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => {
-                      patchFloor({
-                        ...editor,
-                        obliques: editor.obliques.filter(
-                          (o) => o.id !== oblique.id,
-                        ),
-                      });
-                      setEditor(null);
-                      setSelection(null);
-                    }}
-                  >
-                    Supprimer cet élément
-                  </Button>
-                </>
-              )}
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setEditor(null);
-                  setSelection(null);
-                }}
-              >
-                Annuler
-              </Button>
-              <Button type="submit">Appliquer</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+                  ))}
+                </FormGrid>
+                <FormGrid>
+                  {(["b", "h"] as const).map((axis) => (
+                    <Numeric
+                      key={axis}
+                      label={axis === "b" ? "Largeur b" : "Hauteur h"}
+                      value={oblique[axis]}
+                      min={1}
+                      unit="cm"
+                      onChange={(v) =>
+                        setEditor({
+                          ...editor,
+                          obliques: editor.obliques.map((o) =>
+                            o.id === oblique.id ? { ...o, [axis]: v } : o,
+                          ),
+                        })
+                      }
+                    />
+                  ))}
+                </FormGrid>
+                {oblique.kind === "column" && (
+                  <>
+                    <Numeric
+                      label="Rotation en plan"
+                      value={oblique.angle}
+                      min={-360}
+                      max={360}
+                      unit="°"
+                      onChange={(angle) =>
+                        setEditor({
+                          ...editor,
+                          obliques: editor.obliques.map((o) =>
+                            o.id === oblique.id ? { ...o, angle } : o,
+                          ),
+                        })
+                      }
+                    />
+                    <Numeric
+                      label="Aire d’influence saisie"
+                      value={oblique.area}
+                      unit="m²"
+                      onChange={(area) =>
+                        setEditor({
+                          ...editor,
+                          obliques: editor.obliques.map((o) =>
+                            o.id === oblique.id ? { ...o, area } : o,
+                          ),
+                        })
+                      }
+                    />
+                  </>
+                )}
+                <FormGrid>
+                  {(["g", "q"] as const).map((axis) => (
+                    <Numeric
+                      key={axis}
+                      label={
+                        axis === "g" ? "Charge permanente G" : "Exploitation Q"
+                      }
+                      value={oblique[axis]}
+                      unit={oblique.kind === "beam" ? "kN/m" : "kN/m²"}
+                      onChange={(v) =>
+                        setEditor({
+                          ...editor,
+                          obliques: editor.obliques.map((o) =>
+                            o.id === oblique.id ? { ...o, [axis]: v } : o,
+                          ),
+                        })
+                      }
+                    />
+                  ))}
+                </FormGrid>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={() => {
+                    patchFloor({
+                      ...editor,
+                      obliques: editor.obliques.filter(
+                        (o) => o.id !== oblique.id,
+                      ),
+                    });
+                    setEditor(null);
+                    setSelection(null);
+                  }}
+                >
+                  Supprimer cet élément
+                </Button>
+              </>
+            )}
+          </div>
+          <EditorFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setEditor(null);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button type="submit">Appliquer</Button>
+          </EditorFooter>
+        </form>
+      </EditorSheet>
     </div>
   );
 }
@@ -898,18 +950,26 @@ function BuildingScene({
   floor,
   showInfluence,
   selected,
+  results,
+  showResults,
 }: {
   floor: Floor;
   showInfluence: boolean;
   selected: string | null;
+  results: ReturnType<typeof buildingResults>;
+  showResults: boolean;
 }) {
+  const { units, height } = useCanvasGeometry();
   const xs = [0],
     ys = [0];
   for (const n of floor.spanX) xs.push(xs[xs.length - 1] + n);
   for (const n of floor.spanY) ys.push(ys[ys.length - 1] + n);
-  const scale = Math.min(780 / xs[xs.length - 1], 270 / ys[ys.length - 1]),
+  const scale = Math.min(
+      (1000 - 80 * units) / xs[xs.length - 1],
+      Math.max(100, height - 110 * units) / ys[ys.length - 1],
+    ),
     ox = (1000 - xs[xs.length - 1] * scale) / 2,
-    oy = 65,
+    oy = 42 * units,
     X = (x: number) => ox + x * scale,
     Y = (y: number) => oy + y * scale;
   return (
@@ -919,21 +979,21 @@ function BuildingScene({
           <line
             x1={X(x)}
             x2={X(x)}
-            y1="36"
+            y1={oy - 18 * units}
             y2={Y(ys[ys.length - 1]) + 30}
             stroke="var(--border)"
             strokeDasharray="5 5"
           />
           <circle
             cx={X(x)}
-            cy="28"
-            r="12"
+            cy={oy - 24 * units}
+            r={9 * units}
             fill="var(--card)"
             stroke="var(--border)"
           />
           <text
             x={X(x)}
-            y="32"
+            y={oy - 20 * units}
             textAnchor="middle"
             fill="var(--muted-foreground)"
             fontSize="12"
@@ -945,15 +1005,15 @@ function BuildingScene({
       {ys.map((y, r) => (
         <g key={r}>
           <line
-            x1={ox - 35}
-            x2={X(xs[xs.length - 1]) + 35}
+            x1={ox - 24 * units}
+            x2={X(xs[xs.length - 1]) + 24 * units}
             y1={Y(y)}
             y2={Y(y)}
             stroke="var(--border)"
             strokeDasharray="5 5"
           />
           <text
-            x={ox - 45}
+            x={ox - 34 * units}
             y={Y(y) + 4}
             fill="var(--muted-foreground)"
             fontSize="12"
@@ -969,7 +1029,13 @@ function BuildingScene({
           w = floor.spanX[c] * scale,
           h = floor.spanY[r] * scale;
         return (
-          <g key={key} data-element={`panel|${key}`} className="svg-element">
+          <g
+            key={key}
+            data-element={`panel|${key}`}
+            className="svg-element"
+            tabIndex={0}
+            role="button"
+          >
             <rect
               x={x + 5}
               y={y + 5}
@@ -986,17 +1052,74 @@ function BuildingScene({
               stroke={p.exists ? "var(--border)" : "var(--muted-foreground)"}
               strokeDasharray={p.exists ? undefined : "4 6"}
             />
-            {showInfluence && p.exists && (
-              <path
-                d={`M${x} ${y}L${x + w / 2} ${y + h / 2}L${x + w} ${y}M${x} ${y + h}L${x + w / 2} ${y + h / 2}L${x + w} ${y + h}`}
-                stroke="var(--primary)"
-                strokeOpacity=".3"
-                fill="none"
-              />
-            )}
+            {showInfluence &&
+              p.exists &&
+              Object.entries(splitPanelRect(x, y, w, h)).map(
+                ([side, points]) => {
+                  const edge =
+                    side === "top"
+                      ? edgeKey(true, r, c)
+                      : side === "bottom"
+                        ? edgeKey(true, r + 1, c)
+                        : side === "left"
+                          ? edgeKey(false, c, r)
+                          : edgeKey(false, c + 1, r);
+                  const support = floor.edges[edge];
+                  const picked =
+                    selected?.startsWith("edge|") &&
+                    floor.edges[selected.slice(5)]?.exists;
+                  const highlighted =
+                    selected === `edge|${edge}` && support?.exists;
+                  return (
+                    <polygon
+                      key={side}
+                      data-influence-side={side}
+                      data-influence-edge={edge}
+                      data-influence-active={!!highlighted}
+                      points={points.map((point) => point.join(",")).join(" ")}
+                      fill={
+                        !support?.exists
+                          ? "var(--muted-foreground)"
+                          : support.kind === "wall"
+                            ? "var(--teal)"
+                            : "var(--orange)"
+                      }
+                      fillOpacity={highlighted ? 0.3 : picked ? 0.035 : 0.1}
+                      stroke={highlighted ? "var(--orange)" : "var(--border)"}
+                      strokeWidth={highlighted ? 2 : 0.75}
+                      vectorEffect="non-scaling-stroke"
+                    />
+                  );
+                },
+              )}
+            {showInfluence &&
+              p.exists &&
+              selected?.startsWith("node|") &&
+              (() => {
+                const [sc, sr] = selected.slice(5).split(",").map(Number);
+                if (
+                  !floor.nodes[`${sc},${sr}`]?.exists ||
+                  (sc !== c && sc !== c + 1) ||
+                  (sr !== r && sr !== r + 1)
+                )
+                  return null;
+                return (
+                  <rect
+                    data-testid="node-influence"
+                    x={sc === c ? x : x + w / 2}
+                    y={sr === r ? y : y + h / 2}
+                    width={w / 2}
+                    height={h / 2}
+                    fill="var(--primary)"
+                    fillOpacity=".3"
+                    stroke="var(--primary)"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })()}
             <text
               x={x + w / 2}
-              y={y + h / 2 - 4}
+              y={y + h / 2 - 6 * units}
               textAnchor="middle"
               fill="var(--foreground)"
               fontSize="14"
@@ -1006,13 +1129,13 @@ function BuildingScene({
             {p.exists && (
               <text
                 x={x + w / 2}
-                y={y + h / 2 + 15}
+                y={y + h / 2 + 12 * units}
                 textAnchor="middle"
                 fill="var(--muted-foreground)"
                 fontSize="10"
                 className="numeric"
               >
-                {fmt(elu(levelG(p.level) + coatingG(p.level), p.level.q))} kN/m²
+                {fmt(elu(levelG(p.level) + coatingG(p.level), p.level.q))}
               </text>
             )}
           </g>
@@ -1028,7 +1151,13 @@ function BuildingScene({
           x2 = X(horizontal ? xs[segment + 1] : xs[line]),
           y2 = Y(horizontal ? ys[line] : ys[segment + 1]);
         return (
-          <g key={key} data-element={`edge|${key}`} className="svg-element">
+          <g
+            key={key}
+            data-element={`edge|${key}`}
+            className="svg-element"
+            tabIndex={0}
+            role="button"
+          >
             <line
               x1={x1}
               y1={y1}
@@ -1041,16 +1170,37 @@ function BuildingScene({
                     : "var(--primary)"
                   : "var(--muted-foreground)"
               }
-              strokeWidth={e.exists ? (e.kind === "wall" ? 7 : 4) : 1.5}
+              data-selection-bounds="true"
+              strokeWidth={e.exists ? (e.kind === "wall" ? 9 : 5) : 1.5}
+              vectorEffect="non-scaling-stroke"
               strokeDasharray={e.exists ? undefined : "5 6"}
             />
+            {e.exists && (
+              <text
+                x={(x1 + x2) / 2 + (horizontal ? 0 : -10 * units)}
+                y={(y1 + y2) / 2 - (horizontal ? 10 * units : 0)}
+                textAnchor="middle"
+                transform={
+                  horizontal
+                    ? undefined
+                    : `rotate(-90 ${(x1 + x2) / 2 - 10 * units} ${(y1 + y2) / 2})`
+                }
+                className="numeric"
+                style={{ fontSize: `${10 * units}px` }}
+              >
+                {showResults
+                  ? `${fmt(results.edges.find((item) => item.key === key)?.elu ?? 0, 1)} kN/m`
+                  : `${fmt(e.b, 0)}×${fmt(e.h, 0)}`}
+              </text>
+            )}
             <line
               x1={x1}
               y1={y1}
               x2={x2}
               y2={y2}
               stroke="transparent"
-              strokeWidth="15"
+              strokeWidth="28"
+              vectorEffect="non-scaling-stroke"
             />
           </g>
         );
@@ -1058,22 +1208,47 @@ function BuildingScene({
       {Object.entries(floor.nodes).map(([key, n]) => {
         const [c, r] = key.split(",").map(Number);
         return (
-          <g key={key} data-element={`node|${key}`} className="svg-element">
+          <g
+            key={key}
+            data-element={`node|${key}`}
+            className="svg-element"
+            tabIndex={0}
+            role="button"
+          >
             <rect
-              x={X(xs[c]) - 5}
-              y={Y(ys[r]) - 5}
-              width="10"
-              height="10"
+              data-selection-bounds="true"
+              x={X(xs[c]) - 7 * units}
+              y={Y(ys[r]) - 7 * units}
+              width={14 * units}
+              height={14 * units}
               fill={n.exists ? "var(--primary)" : "var(--plot)"}
               stroke="var(--primary)"
               strokeDasharray={n.exists ? undefined : "2 2"}
             />
-            <circle cx={X(xs[c])} cy={Y(ys[r])} r="12" fill="transparent" />
+            <circle
+              cx={X(xs[c])}
+              cy={Y(ys[r])}
+              r={18 * units}
+              fill="transparent"
+            />
+            <text
+              x={X(xs[c]) + 10 * units}
+              y={Y(ys[r]) + 17 * units}
+              className="numeric"
+            >
+              {nodeName(c, r)}
+            </text>
           </g>
         );
       })}
       {floor.obliques.map((o, i) => (
-        <g key={o.id} data-element={`oblique|${o.id}`} className="svg-element">
+        <g
+          key={o.id}
+          data-element={`oblique|${o.id}`}
+          className="svg-element"
+          tabIndex={0}
+          role="button"
+        >
           {o.kind === "beam" ? (
             <>
               <line
@@ -1082,7 +1257,8 @@ function BuildingScene({
                 x2={X(o.x2)}
                 y2={Y(o.y2)}
                 stroke="var(--orange)"
-                strokeWidth="5"
+                strokeWidth="6"
+                vectorEffect="non-scaling-stroke"
               />
               <line
                 x1={X(o.x1)}
@@ -1090,15 +1266,16 @@ function BuildingScene({
                 x2={X(o.x2)}
                 y2={Y(o.y2)}
                 stroke="transparent"
-                strokeWidth="20"
+                strokeWidth="28"
+                vectorEffect="non-scaling-stroke"
               />
             </>
           ) : (
             <rect
-              x={X(o.x1) - 7}
-              y={Y(o.y1) - 7}
-              width="14"
-              height="14"
+              x={X(o.x1) - 7 * units}
+              y={Y(o.y1) - 7 * units}
+              width={14 * units}
+              height={14 * units}
               fill="var(--orange)"
               transform={`rotate(${o.angle} ${X(o.x1)} ${Y(o.y1)})`}
             />
@@ -1117,7 +1294,7 @@ function BuildingScene({
         <text
           key={i}
           x={X((xs[i] + xs[i + 1]) / 2)}
-          y={Y(ys[ys.length - 1]) + 35}
+          y={Y(ys[ys.length - 1]) + 30 * units}
           textAnchor="middle"
           fontSize="12"
           fill="var(--muted-foreground)"
@@ -1129,7 +1306,7 @@ function BuildingScene({
       {floor.spanY.map((v, i) => (
         <text
           key={i}
-          x={X(xs[xs.length - 1]) + 30}
+          x={X(xs[xs.length - 1]) + 12 * units}
           y={Y((ys[i] + ys[i + 1]) / 2)}
           fontSize="12"
           fill="var(--muted-foreground)"

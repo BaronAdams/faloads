@@ -56,7 +56,7 @@ jobs:
           key: android-arm64
       - run: npm ci
       - run: npm run icons
-      - run: npm run tauri android init -- --ci --skip-targets-install
+      - run: npm run android:init
       - run: npm run tauri android build -- --ci --target aarch64 --apk
       - name: Sign installable APK
         run: bash tools/sign-android.sh

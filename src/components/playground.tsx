@@ -1,4 +1,13 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Hand, LocateFixed, Minus, MousePointer2, Plus } from "lucide-react";
 import { Button } from "./ui/button";
 import { IconButton } from "./common";
@@ -7,18 +16,32 @@ interface View {
   x: number;
   y: number;
 }
+const CanvasGeometry = createContext({ units: 1, height: 420 });
+export const useCanvasGeometry = () => useContext(CanvasGeometry);
 export function Playground({
   children,
   onSelect,
   height = 350,
   label = "Schéma interactif",
+  selected,
+  onDeselect,
 }: {
   children: ReactNode;
   onSelect?: (key: string) => void;
   height?: number;
   label?: string;
+  selected?: string | null;
+  onDeselect?: () => void;
 }) {
   const svg = useRef<SVGSVGElement>(null),
+    content = useRef<SVGGElement>(null),
+    [geometry, setGeometry] = useState({ units: 1, height: 420 }),
+    [selectionBox, setSelectionBox] = useState<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    } | null>(null),
     [view, setView] = useState<View>({ k: 1, x: 0, y: 0 }),
     v = useRef(view),
     [hand, setHand] = useState(false),
@@ -41,7 +64,7 @@ export function Playground({
     p.y = y;
     return p.matrixTransform(svg.current!.getScreenCTM()!.inverse());
   };
-  const zoom = (factor: number, x = 500, y = 210) => {
+  const zoom = (factor: number, x = 500, y = geometry.height / 2) => {
     const old = v.current,
       k = Math.max(0.3, Math.min(7, old.k * factor));
     apply({
@@ -50,6 +73,62 @@ export function Playground({
       y: y - ((y - old.y) * k) / old.k,
     });
   };
+  useLayoutEffect(() => {
+    const element = svg.current!;
+    const resize = () => {
+      const { width, height } = element.getBoundingClientRect();
+      if (!width || !height) return;
+      const viewHeight = Math.max(320, (1000 * height) / width);
+      setGeometry({
+        units: Math.max(1000 / width, viewHeight / height),
+        height: viewHeight,
+      });
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(element);
+    resize();
+    return () => observer.disconnect();
+  }, []);
+  useLayoutEffect(() => {
+    const target = [
+      ...(content.current?.querySelectorAll<SVGGraphicsElement>(
+        "[data-element]",
+      ) ?? []),
+    ].find((element) => element.getAttribute("data-element") === selected);
+    if (!target) {
+      setSelectionBox(null);
+      return;
+    }
+    const shape =
+      target.querySelector<SVGGraphicsElement>("[data-selection-bounds]") ??
+      target;
+    const bounds = shape.getBBox();
+    const cameraMatrix = content.current?.getCTM();
+    const shapeMatrix = shape.getCTM();
+    const matrix =
+      cameraMatrix && shapeMatrix
+        ? cameraMatrix.inverse().multiply(shapeMatrix)
+        : null;
+    const corners = [
+      [bounds.x, bounds.y],
+      [bounds.x + bounds.width, bounds.y],
+      [bounds.x, bounds.y + bounds.height],
+      [bounds.x + bounds.width, bounds.y + bounds.height],
+    ].map(([x, y]) =>
+      matrix ? new DOMPoint(x, y).matrixTransform(matrix) : { x, y },
+    );
+    const left = Math.min(...corners.map((point) => point.x)),
+      top = Math.min(...corners.map((point) => point.y));
+    const right = Math.max(...corners.map((point) => point.x)),
+      bottom = Math.max(...corners.map((point) => point.y));
+    const gap = 5 * geometry.units;
+    setSelectionBox({
+      x: left - gap,
+      y: top - gap,
+      width: right - left + gap * 2,
+      height: bottom - top + gap * 2,
+    });
+  }, [selected, children, geometry]);
   useEffect(() => {
     const el = svg.current!;
     const wheel = (event: WheelEvent) => {
@@ -89,16 +168,28 @@ export function Playground({
       <svg
         ref={svg}
         data-testid="playground"
-        viewBox="0 0 1000 420"
-        style={{
-          height,
-          cursor: hand ? "grab" : "default",
-          touchAction: "none",
-        }}
+        viewBox={`0 0 1000 ${geometry.height}`}
+        style={
+          {
+            height,
+            cursor: hand ? "grab" : "default",
+            touchAction: "none",
+            "--drawing-text-size": `${12 * geometry.units}px`,
+            "--drawing-number-size": `${11 * geometry.units}px`,
+          } as React.CSSProperties
+        }
         tabIndex={0}
         role="application"
         aria-label="Schéma zoomable et déplaçable"
         onKeyDown={(e) => {
+          const key = (e.target as Element)
+            .closest("[data-element]")
+            ?.getAttribute("data-element");
+          if (key && e.key === "Enter") {
+            e.preventDefault();
+            onSelect?.(key);
+            return;
+          }
           if (e.code === "Space") {
             e.preventDefault();
             space.current = true;
@@ -183,6 +274,14 @@ export function Playground({
             drag.current.key
           )
             onSelect?.(drag.current.key);
+          else if (
+            drag.current &&
+            !drag.current.moved &&
+            !drag.current.key &&
+            !hand &&
+            !space.current
+          )
+            onDeselect?.();
           drag.current = null;
         }}
         onPointerCancel={(e) => {
@@ -206,12 +305,24 @@ export function Playground({
             />
           </pattern>
         </defs>
-        <rect width="1000" height="420" fill={`url(#${pattern})`} />
+        <rect width="1000" height={geometry.height} fill={`url(#${pattern})`} />
         <g
+          ref={content}
           data-testid="camera"
           transform={`translate(${view.x} ${view.y}) scale(${view.k})`}
         >
-          {children}
+          <CanvasGeometry.Provider value={geometry}>
+            {children}
+          </CanvasGeometry.Provider>
+          {selectionBox && (
+            <rect
+              {...selectionBox}
+              data-testid="selection-highlight"
+              className="selection-highlight"
+              pointerEvents="none"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
         </g>
       </svg>
       <footer className="playground-footer">
@@ -254,6 +365,7 @@ export function Arrow({
   color?: string;
   label?: string;
 }) {
+  const { units } = useCanvasGeometry();
   const len = Math.hypot(dx, dy) || 1,
     nx = dx / len,
     ny = dy / len,
@@ -261,16 +373,23 @@ export function Arrow({
     tipY = y + dy;
   return (
     <g stroke={color} fill={color}>
-      <line x1={x} y1={y} x2={tipX} y2={tipY} strokeWidth="2" />
+      <line
+        x1={x}
+        y1={y}
+        x2={tipX}
+        y2={tipY}
+        strokeWidth="2"
+        vectorEffect="non-scaling-stroke"
+      />
       <path
-        d={`M${tipX} ${tipY}L${tipX - 8 * nx + 4 * ny} ${tipY - 8 * ny - 4 * nx}L${tipX - 8 * nx - 4 * ny} ${tipY - 8 * ny + 4 * nx}Z`}
+        d={`M${tipX} ${tipY}L${tipX - 7 * units * nx + 3 * units * ny} ${tipY - 7 * units * ny - 3 * units * nx}L${tipX - 7 * units * nx - 3 * units * ny} ${tipY - 7 * units * ny + 3 * units * nx}Z`}
         stroke="none"
       />
       {label && (
         <text
-          x={x + dx / 2 + (x > 800 ? -8 : 8)}
+          x={x + dx / 2 + (x > 800 ? -8 : 8) * units}
           textAnchor={x > 800 ? "end" : "start"}
-          y={y + dy / 2 - 8}
+          y={y + dy / 2 - 8 * units}
           fontSize="13"
           stroke="none"
           className="numeric"
@@ -290,14 +409,29 @@ export function Support({
   y: number;
   type?: number;
 }) {
+  const { units } = useCanvasGeometry();
   return (
     <g
-      transform={`translate(${x} ${y})`}
+      transform={`translate(${x} ${y})${type === 4 ? " rotate(-90)" : ""} scale(${Math.max(1, units * 0.85)})`}
+      data-support-type={type === 5 ? "spring" : type}
+      data-selection-bounds="true"
       stroke="var(--foreground)"
       strokeWidth="1.6"
       fill="var(--plot)"
     >
-      {type === 1 ? (
+      {type === 5 ? (
+        <>
+          <path
+            d="M0 0V6L-8 10L8 16L-8 22L8 28L-8 34L0 38V44"
+            fill="none"
+            strokeWidth="2.4"
+          />
+          <line x1="-15" x2="15" y1="44" y2="44" strokeWidth="2.4" />
+          {[-12, -4, 4, 12].map((p) => (
+            <line key={p} x1={p} y1="44" x2={p - 6} y2="51" />
+          ))}
+        </>
+      ) : type === 1 ? (
         <>
           <line x1="-15" y1="4" x2="15" y2="4" strokeWidth="4" />
           {[-12, -4, 4, 12].map((p) => (
@@ -307,7 +441,7 @@ export function Support({
       ) : (
         <>
           <path d="M0 1L-11 18H11Z" />
-          {type === 3 ? (
+          {type === 3 || type === 4 ? (
             <>
               <circle cx="-6" cy="23" r="2.3" />
               <circle cx="6" cy="23" r="2.3" />

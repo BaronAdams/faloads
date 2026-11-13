@@ -22,6 +22,7 @@ export function LevelEditor({
   onDown,
   wall = false,
   panel = false,
+  onEdit,
 }: {
   level: Level;
   onChange: (v: Level) => void;
@@ -30,8 +31,43 @@ export function LevelEditor({
   onDown?: () => void;
   wall?: boolean;
   panel?: boolean;
+  onEdit?: () => void;
 }) {
   const patch = (v: Partial<Level>) => onChange({ ...level, ...v });
+  if (onEdit)
+    return (
+      <div className="level-summary">
+        <button
+          type="button"
+          aria-label={`Modifier le niveau ${level.label}`}
+          onClick={onEdit}
+        >
+          <strong>{level.label}</strong>
+          <small className="mono">
+            {level.height} m ·{" "}
+            {wall ? `e ${level.e} cm` : `${level.b} × ${level.h} cm`} · Q{" "}
+            {level.q} kN/m²
+          </small>
+        </button>
+        <div className="row-actions">
+          {onUp && (
+            <IconButton label="Monter le niveau" onClick={onUp}>
+              <ArrowUp size={14} />
+            </IconButton>
+          )}
+          {onDown && (
+            <IconButton label="Descendre le niveau" onClick={onDown}>
+              <ArrowDown size={14} />
+            </IconButton>
+          )}
+          {onRemove && (
+            <IconButton label="Supprimer ce niveau" onClick={onRemove}>
+              <Trash2 size={14} />
+            </IconButton>
+          )}
+        </div>
+      </div>
+    );
   return (
     <Panel
       title={panel ? "Charges du panneau" : level.label}
@@ -171,6 +207,7 @@ export function LevelEditor({
             </div>
           ))}
           <Button
+            type="button"
             variant="ghost"
             onClick={() =>
               patch({

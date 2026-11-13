@@ -1,11 +1,5 @@
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "./ui/dialog";
+import { EditorSheet } from "./editor-sheet";
 import { Numeric, Choice, FormGrid, Metric, Notice } from "./common";
 import { concreteClasses, quickBeam, quickFrame } from "@/domain/engineering";
 export function QuickAnalysis({
@@ -43,126 +37,117 @@ export function QuickAnalysis({
             data.ch,
           );
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="element-editor quick-analysis">
-        <DialogHeader>
-          <DialogTitle>Calcul simplifié G/Q</DialogTitle>
-          <DialogDescription>
-            {kind === "beam"
-              ? "Poutre sur deux appuis, charge uniforme."
-              : "Portique symétrique, bases encastrées, charge uniforme sur la traverse."}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="editor-fields">
-          <FormGrid>
+    <EditorSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Calcul simplifié G/Q"
+      description={
+        kind === "beam"
+          ? "Poutre sur deux appuis, charge uniforme."
+          : "Portique symétrique, bases encastrées, charge uniforme sur la traverse."
+      }
+    >
+      <div className="editor-fields">
+        <FormGrid>
+          <Numeric
+            label="Portée L"
+            value={data.length}
+            min={0.1}
+            max={1000}
+            unit="m"
+            onChange={(length) => patch({ length })}
+          />
+          {kind === "frame" && (
             <Numeric
-              label="Portée L"
-              value={data.length}
+              label="Hauteur des poteaux"
+              value={data.height}
               min={0.1}
-              max={1000}
+              max={100}
               unit="m"
-              onChange={(length) => patch({ length })}
+              onChange={(height) => patch({ height })}
             />
-            {kind === "frame" && (
-              <Numeric
-                label="Hauteur des poteaux"
-                value={data.height}
-                min={0.1}
-                max={100}
-                unit="m"
-                onChange={(height) => patch({ height })}
-              />
-            )}
-          </FormGrid>
+          )}
+        </FormGrid>
+        <FormGrid>
+          <Numeric
+            label="Charge permanente G"
+            value={data.g}
+            unit="kN/m"
+            onChange={(g) => patch({ g })}
+          />
+          <Numeric
+            label="Exploitation Q"
+            value={data.q}
+            unit="kN/m"
+            onChange={(q) => patch({ q })}
+          />
+          <Numeric
+            label="Largeur de poutre b"
+            value={data.b}
+            min={1}
+            unit="cm"
+            onChange={(b) => patch({ b })}
+          />
+          <Numeric
+            label="Hauteur de poutre h"
+            value={data.h}
+            min={1}
+            unit="cm"
+            onChange={(h) => patch({ h })}
+          />
+        </FormGrid>
+        {kind === "beam" ? (
+          <Choice
+            label="Béton"
+            value={data.concrete}
+            options={concreteClasses}
+            onChange={(concrete) => patch({ concrete })}
+          />
+        ) : (
           <FormGrid>
             <Numeric
-              label="Charge permanente G"
-              value={data.g}
-              unit="kN/m"
-              onChange={(g) => patch({ g })}
-            />
-            <Numeric
-              label="Exploitation Q"
-              value={data.q}
-              unit="kN/m"
-              onChange={(q) => patch({ q })}
-            />
-            <Numeric
-              label="Largeur de poutre b"
-              value={data.b}
+              label="Poteaux · largeur b"
+              value={data.cb}
               min={1}
               unit="cm"
-              onChange={(b) => patch({ b })}
+              onChange={(cb) => patch({ cb })}
             />
             <Numeric
-              label="Hauteur de poutre h"
-              value={data.h}
+              label="Poteaux · hauteur h"
+              value={data.ch}
               min={1}
               unit="cm"
-              onChange={(h) => patch({ h })}
+              onChange={(ch) => patch({ ch })}
             />
           </FormGrid>
-          {kind === "beam" ? (
-            <Choice
-              label="Béton"
-              value={data.concrete}
-              options={concreteClasses}
-              onChange={(concrete) => patch({ concrete })}
-            />
+        )}
+        <div className="metrics-grid">
+          {"deflection" in r ? (
+            <>
+              <Metric label="Moment ELU" value={r.moment} unit="kN·m" />
+              <Metric label="Réaction par appui" value={r.reaction} unit="kN" />
+              <Metric label="Flèche ELS" value={r.deflection} unit="mm" />
+              <Metric label="Limite L/250" value={r.limit} unit="mm" />
+            </>
           ) : (
-            <FormGrid>
-              <Numeric
-                label="Poteaux · largeur b"
-                value={data.cb}
-                min={1}
-                unit="cm"
-                onChange={(cb) => patch({ cb })}
+            <>
+              <Metric label="Moment de nœud" value={r.joint} unit="kN·m" />
+              <Metric label="Moment de base" value={r.base} unit="kN·m" />
+              <Metric label="Moment de travée" value={r.midspan} unit="kN·m" />
+              <Metric
+                label="Effort horizontal par poteau"
+                value={r.shear}
+                unit="kN"
               />
-              <Numeric
-                label="Poteaux · hauteur h"
-                value={data.ch}
-                min={1}
-                unit="cm"
-                onChange={(ch) => patch({ ch })}
-              />
-            </FormGrid>
+            </>
           )}
-          <div className="metrics-grid">
-            {"deflection" in r ? (
-              <>
-                <Metric label="Moment ELU" value={r.moment} unit="kN·m" />
-                <Metric
-                  label="Réaction par appui"
-                  value={r.reaction}
-                  unit="kN"
-                />
-                <Metric label="Flèche ELS" value={r.deflection} unit="mm" />
-                <Metric label="Limite L/250" value={r.limit} unit="mm" />
-              </>
-            ) : (
-              <>
-                <Metric label="Moment de nœud" value={r.joint} unit="kN·m" />
-                <Metric label="Moment de base" value={r.base} unit="kN·m" />
-                <Metric
-                  label="Moment de travée"
-                  value={r.midspan}
-                  unit="kN·m"
-                />
-                <Metric
-                  label="Effort horizontal par poteau"
-                  value={r.shear}
-                  unit="kN"
-                />
-              </>
-            )}
-          </div>
-          <Notice>
-            Fonctions G/Q conservées de la version précédente. ELU : 1,35G +
-            1,5Q. La flèche de poutre est une estimation élastique non fissurée
-            sous G + Q à l’ELS.
-          </Notice>
         </div>
-      </DialogContent>
-    </Dialog>
+        <Notice>
+          Fonctions G/Q conservées de la version précédente. ELU : 1,35G + 1,5Q.
+          La flèche de poutre est une estimation élastique non fissurée sous G +
+          Q à l’ELS.
+        </Notice>
+      </div>
+    </EditorSheet>
   );
 }

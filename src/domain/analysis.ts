@@ -106,7 +106,8 @@ export const frameSchema = z
           id,
           x: n.min(-1000).max(1000),
           y: n.min(-1000).max(1000),
-          s: z.number().int().min(0).max(4),
+          s: z.number().int().min(0).max(5),
+          ky: n.positive().max(1e12).optional(),
         }),
       )
       .min(2)
@@ -181,7 +182,14 @@ export interface FrameResult {
     };
     ul: number[];
     fe: number[];
-    pts: { x: number; N: number; V: number; M: number }[];
+    pts: {
+      x: number;
+      N: number;
+      V: number;
+      M: number;
+      v: number;
+      theta: number;
+    }[];
   }[];
   sx: number;
   sy: number;
@@ -230,7 +238,7 @@ const frameResultSchema = z.object({
       }),
       ul: vector,
       fe: vector,
-      pts: z.array(z.object({ x: n, N: n, V: n, M: n })),
+      pts: z.array(z.object({ x: n, N: n, V: n, M: n, v: n, theta: n })),
     }),
   ),
   sx: n,
@@ -387,6 +395,7 @@ export const frameSupportNames = [
   "Articulé",
   "Bloqué verticalement",
   "Bloqué horizontalement",
+  "Ressort vertical",
 ];
 export function removeFrameNode(model: FrameModel, index: number): FrameModel {
   const n = index + 1;

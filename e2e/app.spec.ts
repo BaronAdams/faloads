@@ -114,10 +114,19 @@ test("load descent reaches cumulative results and adds independent coatings", as
   await page.getByRole("button", { name: "Suivant", exact: true }).click();
   await page.getByRole("button", { name: "Suivant", exact: true }).click();
   await page
+    .locator(".level-summary")
+    .first()
+    .getByRole("button", { name: /Modifier le niveau/ })
+    .click();
+  await page
     .getByRole("button", { name: "Ajouter un revêtement" })
     .first()
     .click();
   await page.getByLabel("Nom du revêtement").fill("Carrelage");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Appliquer", exact: true })
+    .click();
   await page.getByRole("button", { name: "Suivant", exact: true }).click();
   await page.getByRole("button", { name: "Calculer les efforts" }).click();
   await expect(

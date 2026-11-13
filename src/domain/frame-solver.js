@@ -96,7 +96,7 @@ export function frameSolve(S) {
       P[r] += pg[p];
       d.forEach((q, o) => (K[r][q] += Kg[p][o]));
     });
-    G.push({ A, L, c, s, k, T, pe, qx, qy, d });
+    G.push({ A, L, c, s, k, T, pe, qx, qy, d, ei });
   }
   for (const l of S.nl) {
     if (!S.nodes[l.n - 1]) return { err: "Charge nodale : nœud inexistant." };
@@ -110,9 +110,11 @@ export function frameSolve(S) {
     if (s == 1 || s == 2 || s == 4) fx.add(3 * i);
     if (s == 1 || s == 2 || s == 3) fx.add(3 * i + 1);
     if (s == 1) fx.add(3 * i + 2);
+    if (s == 5) K[3 * i + 1][3 * i + 1] += nd.ky ?? 10000;
   });
   const fr = [...Array(N3).keys()].filter((j) => !fx.has(j));
-  if (fx.size < 3) return { err: "Structure instable : appuis insuffisants." };
+  // Elastic restraints also stabilize rigid-body motion; the stiffness
+  // matrix, rather than a count of fixed DOFs, detects mechanisms.
   const sol = gauss(
     fr.map((i) => fr.map((j) => K[i][j])),
     fr.map((i) => P[i]),
@@ -133,6 +135,7 @@ export function frameSolve(S) {
         r[q] = K[3 * i + q].reduce((t, v, j) => t + v * u[j], 0) - P[3 * i + q];
         any = 1;
       }
+    if (nd.s == 5) r[1] = -(nd.ky ?? 10000) * u[3 * i + 1];
     rea.push({ i, r });
   });
   let sx = 0,
@@ -156,12 +159,29 @@ export function frameSolve(S) {
       if (x0 > 0 && x0 < g.L) xs.push(x0);
     }
     xs.sort((a, b) => a - b);
-    const pts = xs.map((x) => ({
-      x,
-      N: -fe[0] - g.qx * x,
-      V: fe[1] + g.qy * x,
-      M: -fe[2] + fe[1] * x + (g.qy * x * x) / 2,
-    }));
+    const pts = xs.map((x) => {
+      const t = x / g.L;
+      const v =
+        (1 - 3 * t * t + 2 * t ** 3) * ul[1] +
+        g.L * (t - 2 * t * t + t ** 3) * ul[2] +
+        (3 * t * t - 2 * t ** 3) * ul[4] +
+        g.L * (-t * t + t ** 3) * ul[5] +
+        (g.qy * x * x * (g.L - x) ** 2) / (24 * g.ei);
+      const theta =
+        ((6 * t * t - 6 * t) / g.L) * ul[1] +
+        (1 - 4 * t + 3 * t * t) * ul[2] +
+        ((6 * t - 6 * t * t) / g.L) * ul[4] +
+        (-2 * t + 3 * t * t) * ul[5] +
+        (g.qy * x * (g.L - x) * (g.L - 2 * x)) / (12 * g.ei);
+      return {
+        x,
+        N: -fe[0] - g.qx * x,
+        V: fe[1] + g.qy * x,
+        M: -fe[2] + fe[1] * x + (g.qy * x * x) / 2,
+        v,
+        theta,
+      };
+    });
     return { g, ul, fe, pts };
   });
   return { u, rea, mem, sx, sy };

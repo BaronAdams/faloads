@@ -1,5 +1,12 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
+import { toast } from "sonner";
+import { EditorSheet, EditorFooter } from "@/components/editor-sheet";
+import {
+  TributarySketch,
+  DescentProfile,
+  LoadEvolutionChart,
+} from "@/components/descent-graphs";
 import { ArrowLeft, ArrowRight, Check, Plus, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +30,7 @@ import {
   levelG,
   coatingG,
   type Code,
+  type Level,
 } from "@/domain/engineering";
 import { useWorkspace } from "@/lib/workspace";
 import { fmt } from "@/lib/utils";
@@ -94,7 +102,8 @@ export function DescentPage({
         `${kind === "column-load" ? "Poteau" : "Voile"} — descente de charges`,
     ),
     [step, setStep] = useState(0),
-    [visited, setVisited] = useState(0);
+    [visited, setVisited] = useState(0),
+    [levelEditor, setLevelEditor] = useState<Level | null>(null);
   useEffect(() => {
     drafts.set(key, model);
   }, [model, key, drafts]);
@@ -343,6 +352,9 @@ export function DescentPage({
                   spans={model.spans}
                   wall={wall}
                   wallLength={model.wallLength}
+                  withBeams={model.system === "beams"}
+                  primaryB={model.primaryB}
+                  secondaryB={model.secondaryB}
                 />
                 <div className="formula mono">
                   {wall
@@ -370,51 +382,58 @@ export function DescentPage({
                 </p>
               </div>
               <Button
-                variant="outline"
                 onClick={() =>
-                  patch({
-                    levels: [
-                      newLevel(`Niveau ${model.levels.length + 1}`),
-                      ...model.levels,
-                    ],
-                  })
+                  setLevelEditor(newLevel(`Niveau ${model.levels.length + 1}`))
                 }
               >
-                <Plus />
-                Ajouter un niveau
+                <Plus /> Ajouter un niveau
               </Button>
             </div>
-            <div className="levels-grid">
-              {model.levels.map((level, i) => (
-                <LevelEditor
-                  key={level.id}
-                  level={level}
+            <div className="level-layout">
+              <div className="levels-grid">
+                {model.levels.map((level, i) => (
+                  <LevelEditor
+                    key={level.id}
+                    level={level}
+                    wall={wall}
+                    onEdit={() => setLevelEditor(structuredClone(level))}
+                    onChange={(next) =>
+                      patch({
+                        levels: model.levels.map((l) =>
+                          l.id === level.id ? next : l,
+                        ),
+                      })
+                    }
+                    onRemove={
+                      model.levels.length > 1
+                        ? () =>
+                            patch({
+                              levels: model.levels.filter(
+                                (l) => l.id !== level.id,
+                              ),
+                            })
+                        : undefined
+                    }
+                    onUp={i > 0 ? () => swap(i, i - 1) : undefined}
+                    onDown={
+                      i < model.levels.length - 1
+                        ? () => swap(i, i + 1)
+                        : undefined
+                    }
+                  />
+                ))}
+              </div>
+              <Panel
+                title="Coupe verticale"
+                description="Hauteurs et sections, du haut vers le bas"
+                className="profile-panel"
+              >
+                <DescentProfile
+                  levels={model.levels}
                   wall={wall}
-                  onChange={(next) =>
-                    patch({
-                      levels: model.levels.map((l) =>
-                        l.id === level.id ? next : l,
-                      ),
-                    })
-                  }
-                  onRemove={
-                    model.levels.length > 1
-                      ? () =>
-                          patch({
-                            levels: model.levels.filter(
-                              (l) => l.id !== level.id,
-                            ),
-                          })
-                      : undefined
-                  }
-                  onUp={i > 0 ? () => swap(i, i - 1) : undefined}
-                  onDown={
-                    i < model.levels.length - 1
-                      ? () => swap(i, i + 1)
-                      : undefined
-                  }
+                  onEdit={(level) => setLevelEditor(structuredClone(level))}
                 />
-              ))}
+              </Panel>
             </div>
           </>
         )}
@@ -488,6 +507,20 @@ export function DescentPage({
                 />
               )}
             </div>
+            <div className="descent-graphs">
+              <Panel
+                title="Efforts cumulés par niveau"
+                description="Valeurs calculées en kN"
+              >
+                <LoadEvolutionChart rows={rows} />
+              </Panel>
+              <Panel
+                title="Coupe du support"
+                description="Sections saisies dans le modèle"
+              >
+                <DescentProfile levels={model.levels} wall={wall} />
+              </Panel>
+            </div>
             <Panel
               title="Descente de charges cumulée"
               description="Chaque ligne porte son propre niveau et tous ceux placés au-dessus."
@@ -559,6 +592,53 @@ export function DescentPage({
           </>
         )}
       </div>
+      <EditorSheet
+        open={!!levelEditor}
+        title="Paramètres du niveau"
+        onOpenChange={(open) => {
+          if (!open) setLevelEditor(null);
+        }}
+      >
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            const parsed = levelSchema.safeParse(levelEditor);
+            if (!parsed.success) {
+              toast.error(parsed.error.issues[0].message);
+              return;
+            }
+            const level = parsed.data;
+            patch({
+              levels: model.levels.some((item) => item.id === level.id)
+                ? model.levels.map((item) =>
+                    item.id === level.id ? level : item,
+                  )
+                : [level, ...model.levels],
+            });
+            setLevelEditor(null);
+          }}
+        >
+          <div className="editor-fields">
+            {levelEditor && (
+              <LevelEditor
+                level={levelEditor}
+                wall={wall}
+                onChange={setLevelEditor}
+              />
+            )}
+          </div>
+          <EditorFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setLevelEditor(null)}
+            >
+              Annuler
+            </Button>
+            <Button type="submit">Appliquer</Button>
+          </EditorFooter>
+        </form>
+      </EditorSheet>
       <footer className="step-footer">
         <Button
           variant="outline"
@@ -635,91 +715,5 @@ export function WindFields({
         conservé du logiciel d’origine dépend uniquement de la hauteur.
       </p>
     </Panel>
-  );
-}
-function TributarySketch({
-  spans,
-  wall,
-  wallLength,
-}: {
-  spans: number[];
-  wall: boolean;
-  wallLength: number;
-}) {
-  const a = spans[0] + spans[1],
-    b = wall ? wallLength : spans[2] + spans[3],
-    scale = Math.min(300 / Math.max(a, 1), 250 / Math.max(b, 1)),
-    x = 70 + spans[0] * scale,
-    y = wall ? 170 : 50 + spans[2] * scale;
-  return (
-    <svg
-      className="tributary-sketch"
-      viewBox="0 0 460 340"
-      role="img"
-      aria-label="Surface d’influence du support en deux dimensions"
-    >
-      <rect
-        x="70"
-        y="50"
-        width={a * scale}
-        height={b * scale}
-        fill="var(--primary)"
-        fillOpacity=".08"
-        stroke="var(--border)"
-      />
-      <rect
-        x={70 + (spans[0] * scale) / 2}
-        y={wall ? 50 : 50 + (spans[2] * scale) / 2}
-        width={(a * scale) / 2}
-        height={wall ? b * scale : (b * scale) / 2}
-        fill="var(--primary)"
-        fillOpacity=".25"
-        stroke="var(--primary)"
-        strokeDasharray="4 3"
-      />
-      {wall ? (
-        <line
-          x1={x}
-          x2={x}
-          y1="50"
-          y2={50 + b * scale}
-          stroke="var(--primary)"
-          strokeWidth="9"
-        />
-      ) : (
-        <>
-          <line
-            x1="70"
-            x2={70 + a * scale}
-            y1={y}
-            y2={y}
-            stroke="var(--muted-foreground)"
-          />
-          <line
-            x1={x}
-            x2={x}
-            y1="50"
-            y2={50 + b * scale}
-            stroke="var(--muted-foreground)"
-          />
-          <rect
-            x={x - 7}
-            y={y - 7}
-            width="14"
-            height="14"
-            fill="var(--primary)"
-          />
-        </>
-      )}
-      <text
-        x="230"
-        y="325"
-        textAnchor="middle"
-        fill="var(--muted-foreground)"
-        fontSize="13"
-      >
-        Zone bleue : surface reprise par le {wall ? "voile" : "poteau"}
-      </text>
-    </svg>
   );
 }

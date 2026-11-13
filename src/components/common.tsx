@@ -49,7 +49,13 @@ export function IconButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button size="icon" variant="ghost" aria-label={label} {...props}>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          aria-label={label}
+          {...props}
+        >
           {children}
         </Button>
       </TooltipTrigger>

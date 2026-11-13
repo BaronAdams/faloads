@@ -14,14 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { EditorSheet, EditorFooter } from "@/components/editor-sheet";
+
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -41,7 +35,12 @@ import {
   IconButton,
 } from "@/components/common";
 import { QuickAnalysis } from "@/components/quick-analysis";
-import { Playground, Arrow, Support } from "@/components/playground";
+import {
+  Playground,
+  Arrow,
+  Support,
+  useCanvasGeometry,
+} from "@/components/playground";
 import {
   beamPreset,
   framePreset,
@@ -76,6 +75,13 @@ const fieldNames = {
   v: "Déformée",
   theta: "Rotation",
   structure: "Structure",
+};
+const seriesColors = {
+  M: "var(--plot-m)",
+  V: "var(--plot-v)",
+  N: "var(--plot-n)",
+  v: "var(--plot-displacement)",
+  theta: "var(--plot-rotation)",
 };
 const supportType = (s: BeamModel["supports"][number]) =>
   s.rz === true && s.ux === true && s.uy === true
@@ -247,7 +253,6 @@ export function AnalysisPage({
       (editor.kind === "beam" ? beamSchema : frameSchema).parse(editor);
       commit(editor);
       setEditor(null);
-      setSelection(null);
     } catch (e) {
       toast.error(
         e instanceof z.ZodError
@@ -609,20 +614,34 @@ export function AnalysisPage({
             </div>
             {model.kind === "frame" && (
               <div className="view-chips">
-                {(["structure", "M", "V", "N", "v"] as View[]).map((v) => (
-                  <Button
-                    key={v}
-                    size="sm"
-                    variant={view === v ? "secondary" : "outline"}
-                    onClick={() => setView(v)}
-                  >
-                    {fieldNames[v]}
-                  </Button>
-                ))}
+                {(["structure", "M", "V", "N", "v", "theta"] as View[]).map(
+                  (v) => (
+                    <Button
+                      key={v}
+                      size="sm"
+                      variant={view === v ? "secondary" : "outline"}
+                      onClick={() => setView(v)}
+                    >
+                      {v !== "structure" && (
+                        <i
+                          className="series-key"
+                          style={
+                            {
+                              "--series-color": seriesColors[v],
+                            } as React.CSSProperties
+                          }
+                        />
+                      )}
+                      {fieldNames[v]}
+                    </Button>
+                  ),
+                )}
               </div>
             )}
             <Playground
               onSelect={select}
+              selected={selection ? `${selection.type}:${selection.id}` : null}
+              onDeselect={() => setSelection(null)}
               height={model.kind === "beam" ? 300 : 380}
             >
               {model.kind === "beam" ? (
@@ -684,6 +703,16 @@ export function AnalysisPage({
                             variant={view === v ? "secondary" : "outline"}
                             onClick={() => setView(v)}
                           >
+                            {v !== "structure" && (
+                              <i
+                                className="series-key"
+                                style={
+                                  {
+                                    "--series-color": seriesColors[v],
+                                  } as React.CSSProperties
+                                }
+                              />
+                            )}
                             {fieldNames[v]}
                           </Button>
                         ))}
@@ -703,6 +732,7 @@ export function AnalysisPage({
                                 ? "kN·m"
                                 : "kN"
                         }
+                        color={seriesColors[view === "structure" ? "M" : view]}
                         factor={view === "v" || view === "theta" ? 1000 : 1}
                       />
                     </>
@@ -718,13 +748,23 @@ export function AnalysisPage({
                         }))}
                       />
                       <div className="view-chips">
-                        {(["M", "V", "N"] as View[]).map((v) => (
+                        {(["M", "V", "N", "v", "theta"] as View[]).map((v) => (
                           <Button
                             key={v}
                             size="sm"
                             variant={view === v ? "secondary" : "outline"}
                             onClick={() => setView(v)}
                           >
+                            {v !== "structure" && (
+                              <i
+                                className="series-key"
+                                style={
+                                  {
+                                    "--series-color": seriesColors[v],
+                                  } as React.CSSProperties
+                                }
+                              />
+                            )}
                             {fieldNames[v]}
                           </Button>
                         ))}
@@ -734,14 +774,25 @@ export function AnalysisPage({
                           analysis.frame!.mem[
                             Math.min(member, model.mem.length - 1)
                           ].pts;
-                        const which =
-                          view === "V" ? "V" : view === "N" ? "N" : "M";
+                        const which = view === "structure" ? "M" : view;
                         return (
                           <Diagram
                             x={pts.map((p) => p.x)}
                             values={pts.map((p) => p[which])}
                             title={fieldNames[which]}
-                            unit={which === "M" ? "kN·m" : "kN"}
+                            unit={
+                              which === "M"
+                                ? "kN·m"
+                                : which === "v"
+                                  ? "mm"
+                                  : which === "theta"
+                                    ? "mrad"
+                                    : "kN"
+                            }
+                            color={seriesColors[which]}
+                            factor={
+                              which === "v" || which === "theta" ? 1000 : 1
+                            }
                           />
                         );
                       })()}
@@ -897,55 +948,45 @@ export function AnalysisPage({
           </div>
         </main>
       </div>
-      <Dialog
+      <EditorSheet
         open={!!editor}
-        onOpenChange={(o) => {
-          if (!o) {
-            setEditor(null);
-            setSelection(null);
-          }
+        title="Paramètres de l’élément"
+        description="Les modifications s’appliquent après validation du formulaire."
+        onOpenChange={(open) => {
+          if (!open) setEditor(null);
         }}
       >
-        <DialogContent className="element-editor">
-          <DialogHeader>
-            <DialogTitle>Paramètres de l’élément</DialogTitle>
-            <DialogDescription>
-              Les modifications s’appliquent après validation du formulaire.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={apply}>
-            {editor && selection && (
-              <ElementEditor
-                model={editor}
-                selection={selection}
-                onChange={setEditor}
-              />
-            )}
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="ghost"
-                className="text-destructive"
-                onClick={remove}
-              >
-                <Trash2 />
-                Supprimer
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setEditor(null);
-                  setSelection(null);
-                }}
-              >
-                Annuler
-              </Button>
-              <Button type="submit">Appliquer</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+        <form onSubmit={apply}>
+          {editor && selection && (
+            <ElementEditor
+              model={editor}
+              selection={selection}
+              onChange={setEditor}
+            />
+          )}
+          <EditorFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              className="text-destructive"
+              onClick={remove}
+            >
+              <Trash2 />
+              Supprimer
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setEditor(null);
+              }}
+            >
+              Annuler
+            </Button>
+            <Button type="submit">Appliquer</Button>
+          </EditorFooter>
+        </form>
+      </EditorSheet>
     </div>
   );
 }
@@ -1072,6 +1113,15 @@ function ElementEditor({
                 });
             }}
           />
+          {typeof s.uy === "number" && (
+            <Numeric
+              label="Raideur verticale kᵧ"
+              value={s.uy}
+              min={0.001}
+              unit="kN/m"
+              onChange={(uy) => patch({ uy })}
+            />
+          )}
           <Disclosure title="Liaisons et déplacements imposés">
             {(["ux", "uy", "rz"] as const).map((axis) => (
               <div key={axis}>
@@ -1388,6 +1438,16 @@ function ElementEditor({
           }))}
           onChange={(s) => patch({ s: Number(s) })}
         />
+        {n.s === 5 && (
+          <Numeric
+            label="Raideur verticale kᵧ"
+            value={n.ky ?? 10000}
+            min={0.001}
+            max={1e12}
+            unit="kN/m"
+            onChange={(ky) => patch({ ky })}
+          />
+        )}
         <Notice>
           Supprimer ce nœud supprime aussi ses barres et ses charges nodales.
         </Notice>
@@ -1507,19 +1567,28 @@ function BeamScene({
   result?: BeamResult;
   reactions: boolean;
 }) {
+  const { units, height } = useCanvasGeometry();
   const X = (x: number) => 80 + (x / model.L) * 840,
-    y = 210;
+    y = height / 2;
   return (
     <>
       {model.sections.map((s, i) => (
-        <g key={s.id} data-element={`section:${s.id}`} className="svg-element">
+        <g
+          key={s.id}
+          data-element={`section:${s.id}`}
+          className="svg-element"
+          tabIndex={0}
+          role="button"
+        >
           <line
             x1={X(s.x1)}
             y1={y}
             x2={X(s.x2)}
             y2={y}
             stroke="var(--foreground)"
-            strokeWidth="5"
+            data-selection-bounds="true"
+            strokeWidth="7"
+            vectorEffect="non-scaling-stroke"
           />
           <line
             x1={X(s.x1)}
@@ -1527,11 +1596,12 @@ function BeamScene({
             x2={X(s.x2)}
             y2={y}
             stroke="transparent"
-            strokeWidth="24"
+            strokeWidth="32"
+            vectorEffect="non-scaling-stroke"
           />
           <text
             x={(X(s.x1) + X(s.x2)) / 2}
-            y={y + 47}
+            y={y + 52 * units}
             fill="var(--muted-foreground)"
             fontSize="12"
             textAnchor="middle"
@@ -1541,7 +1611,13 @@ function BeamScene({
         </g>
       ))}
       {model.loads.map((l, i) => (
-        <g key={l.id} data-element={`load:${l.id}`} className="svg-element">
+        <g
+          key={l.id}
+          data-element={`load:${l.id}`}
+          className="svg-element"
+          tabIndex={0}
+          role="button"
+        >
           {l.type === "dist" ? (
             <>
               <rect
@@ -1661,7 +1737,13 @@ function BeamScene({
         />
       ))}
       {model.supports.map((s, i) => (
-        <g key={s.id} data-element={`support:${s.id}`} className="svg-element">
+        <g
+          key={s.id}
+          data-element={`support:${s.id}`}
+          className="svg-element"
+          tabIndex={0}
+          role="button"
+        >
           <rect
             x={X(s.x) - 20}
             y={y - 15}
@@ -1672,7 +1754,15 @@ function BeamScene({
           <Support
             x={X(s.x)}
             y={y + 3}
-            type={s.rz === true ? 1 : s.ux === true ? 2 : 3}
+            type={
+              typeof s.uy === "number"
+                ? 5
+                : s.rz === true
+                  ? 1
+                  : s.ux === true
+                    ? 2
+                    : 3
+            }
           />
           <text
             x={X(s.x)}
@@ -1691,8 +1781,8 @@ function BeamScene({
             {Math.abs(r.Fy) > 1e-6 && (
               <Arrow
                 x={X(r.x)}
-                y={y + 107}
-                dy={-Math.sign(r.Fy) * 48}
+                y={y + 95 * units}
+                dy={-Math.sign(r.Fy) * 34 * units}
                 color="var(--teal)"
                 label={`${fmt(r.Fy)} kN`}
               />
@@ -1701,9 +1791,9 @@ function BeamScene({
         ))}
       <line
         x1="80"
-        y1="365"
+        y1={height - 40 * units}
         x2="920"
-        y2="365"
+        y2={height - 40 * units}
         stroke="var(--muted-foreground)"
       />
       {[80, 920].map((x) => (
@@ -1711,14 +1801,14 @@ function BeamScene({
           key={x}
           x1={x}
           x2={x}
-          y1="359"
-          y2="371"
+          y1={height - 44 * units}
+          y2={height - 36 * units}
           stroke="var(--muted-foreground)"
         />
       ))}
       <text
         x="500"
-        y="390"
+        y={height - 16 * units}
         textAnchor="middle"
         fill="var(--muted-foreground)"
         fontSize="14"
@@ -1742,21 +1832,25 @@ function FrameScene({
   view: View;
   amplification: number;
 }) {
+  const { units, height } = useCanvasGeometry();
   const minX = Math.min(...model.nodes.map((n) => n.x)),
     maxX = Math.max(...model.nodes.map((n) => n.x)),
     minY = Math.min(...model.nodes.map((n) => n.y)),
     maxY = Math.max(...model.nodes.map((n) => n.y)),
     scale = Math.min(
       760 / Math.max(1, maxX - minX),
-      230 / Math.max(1, maxY - minY),
+      Math.max(80, height - 140 * units) / Math.max(1, maxY - minY),
     ),
     X = (x: number) => (1000 - (maxX - minX) * scale) / 2 + (x - minX) * scale,
-    Y = (y: number) => 335 - (y - minY) * scale;
-  const diagram = view === "M" || view === "V" || view === "N" ? view : null,
+    Y = (y: number) => height - 60 * units - (y - minY) * scale;
+  const diagram =
+      view === "M" || view === "V" || view === "N" || view === "theta"
+        ? view
+        : null,
     max =
       diagram && result
         ? Math.max(
-            1,
+            1e-12,
             ...result.mem.flatMap((m) =>
               m.pts.map((p) => Math.abs(p[diagram])),
             ),
@@ -1798,14 +1892,22 @@ function FrameScene({
           }).join(" ");
         }
         return (
-          <g key={b.id} data-element={`member:${b.id}`} className="svg-element">
+          <g
+            key={b.id}
+            data-element={`member:${b.id}`}
+            className="svg-element"
+            tabIndex={0}
+            role="button"
+          >
             <line
               x1={x1}
               y1={y1}
               x2={x2}
               y2={y2}
               stroke="var(--primary)"
-              strokeWidth="5"
+              data-selection-bounds="true"
+              strokeWidth="7"
+              vectorEffect="non-scaling-stroke"
             />
             <line
               x1={x1}
@@ -1813,13 +1915,15 @@ function FrameScene({
               x2={x2}
               y2={y2}
               stroke="transparent"
-              strokeWidth="25"
+              strokeWidth="32"
+              vectorEffect="non-scaling-stroke"
             />
             {path && (
               <path
                 d={path}
-                stroke="var(--purple)"
-                strokeWidth="2.2"
+                stroke={seriesColors[view === "structure" ? "M" : view]}
+                strokeWidth="3"
+                vectorEffect="non-scaling-stroke"
                 fill="none"
               />
             )}
@@ -1868,18 +1972,18 @@ function FrameScene({
         );
       })}
       {model.nodes.map((n, i) => (
-        <g key={n.id} data-element={`node:${n.id}`} className="svg-element">
-          {n.s > 0 && (
-            <Support
-              x={X(n.x)}
-              y={Y(n.y) + 3}
-              type={n.s === 1 ? 1 : n.s === 2 ? 2 : 3}
-            />
-          )}
+        <g
+          key={n.id}
+          data-element={`node:${n.id}`}
+          className="svg-element"
+          tabIndex={0}
+          role="button"
+        >
+          {n.s > 0 && <Support x={X(n.x)} y={Y(n.y) + 3} type={n.s} />}
           <circle
             cx={X(n.x)}
             cy={Y(n.y)}
-            r="6"
+            r={6 * units}
             fill="var(--plot)"
             stroke="var(--primary)"
             strokeWidth="2"
@@ -1899,7 +2003,13 @@ function FrameScene({
         const n = model.nodes[l.n - 1];
         if (!n) return null;
         return (
-          <g key={l.id} data-element={`nodal:${l.id}`} className="svg-element">
+          <g
+            key={l.id}
+            data-element={`nodal:${l.id}`}
+            className="svg-element"
+            tabIndex={0}
+            role="button"
+          >
             {l.fx !== 0 && (
               <Arrow
                 x={X(n.x) - Math.sign(l.fx) * 95}
@@ -1949,7 +2059,7 @@ function FrameScene({
         })}
       <text
         x="500"
-        y="405"
+        y={height - 12 * units}
         textAnchor="middle"
         fill="var(--muted-foreground)"
         fontSize="13"
@@ -1966,24 +2076,26 @@ function Diagram({
   title,
   unit,
   factor = 1,
+  color = "var(--plot-m)",
 }: {
   x: number[];
   values: number[];
   title: string;
   unit: string;
   factor?: number;
+  color?: string;
 }) {
   const [read, setRead] = useState(0.5),
     min = Math.min(...values.map((v) => v * factor), 0),
     max = Math.max(...values.map((v) => v * factor), 0),
     range = Math.max(0.0001, max - min),
     chartLeft = Math.max(
-      100,
-      ...[min, max].map((v) => fmt(v, 1).length * 16 + 20),
+      110,
+      ...[min, max].map((v) => Math.min(240, fmt(v, 1).length * 14 + 24)),
     ),
-    chartWidth = 940 - chartLeft,
+    chartWidth = 690 - chartLeft,
     X = (v: number) => chartLeft + (v / x[x.length - 1]) * chartWidth,
-    Y = (v: number) => 30 + ((v - min) / range) * 110,
+    Y = (v: number) => 30 + ((v - min) / range) * 260,
     index = x.reduce(
       (best, v, i) =>
         Math.abs(v - read * x[x.length - 1]) <
@@ -1997,13 +2109,16 @@ function Diagram({
       .map((v, i) => `${i ? "L" : "M"}${X(v)} ${Y(values[i] * factor)}`)
       .join(" ");
   return (
-    <div className="diagram">
+    <div
+      className="diagram"
+      style={{ "--series-color": color } as React.CSSProperties}
+    >
       <div className="diagram-caption">
         <strong>{title}</strong>
         <span>{unit}</span>
       </div>
       <svg
-        viewBox="0 0 980 188"
+        viewBox="0 0 720 340"
         role="img"
         aria-label={`${title}, valeurs calculées`}
         onPointerMove={(e) => {
@@ -2013,7 +2128,7 @@ function Diagram({
               0,
               Math.min(
                 1,
-                (((e.clientX - r.left) / r.width) * 980 - chartLeft) /
+                (((e.clientX - r.left) / r.width) * 720 - chartLeft) /
                   chartWidth,
               ),
             ),
@@ -2024,15 +2139,15 @@ function Diagram({
           <g key={t}>
             <line
               x1={chartLeft}
-              x2="940"
-              y1={30 + t * 110}
-              y2={30 + t * 110}
+              x2="690"
+              y1={30 + t * 260}
+              y2={30 + t * 260}
               stroke="var(--border)"
               strokeOpacity=".5"
             />
             <text
               x={chartLeft - 14}
-              y={34 + t * 110}
+              y={36 + t * 260}
               textAnchor="end"
               fill="var(--muted-foreground)"
               fontSize="10"
@@ -2044,23 +2159,30 @@ function Diagram({
         ))}
         <path
           d={`${path}L${X(x[x.length - 1])} ${baseline}L${chartLeft} ${baseline}Z`}
-          fill="var(--purple)"
+          fill={color}
           fillOpacity=".12"
         />
         <line
           x1={chartLeft}
-          x2="940"
+          x2="690"
           y1={baseline}
           y2={baseline}
           stroke="var(--muted-foreground)"
         />
-        <path d={path} fill="none" stroke="var(--purple)" strokeWidth="2.2" />
+        <path
+          data-testid="diagram-curve"
+          d={path}
+          fill="none"
+          stroke={color}
+          strokeWidth="3"
+          vectorEffect="non-scaling-stroke"
+        />
         {[0, 0.25, 0.5, 0.75, 1].map((t) => (
           <text
             key={t}
             x={chartLeft + t * chartWidth}
-            y="174"
-            textAnchor="middle"
+            y="324"
+            textAnchor={t === 0 ? "start" : t === 1 ? "end" : "middle"}
             fill="var(--muted-foreground)"
             fontSize="11"
             className="numeric"
@@ -2072,15 +2194,15 @@ function Diagram({
           x1={X(x[index])}
           x2={X(x[index])}
           y1="18"
-          y2="147"
-          stroke="var(--purple)"
+          y2="298"
+          stroke={color}
           strokeDasharray="4 5"
         />
         <circle
           cx={X(x[index])}
           cy={Y(values[index] * factor)}
           r="4"
-          fill="var(--purple)"
+          fill={color}
         />
       </svg>
       <div className="diagram-readout mono">

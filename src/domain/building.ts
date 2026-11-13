@@ -327,8 +327,9 @@ export function buildingResults(f: Floor) {
     area,
     totalElu,
     columns,
-    edges: [...edges.values()].map((e) => ({
+    edges: [...edges.entries()].map(([key, e]) => ({
       ...e,
+      key,
       moment: (e.elu * e.length ** 2) / 8,
       shear: (e.elu * e.length) / 2,
     })),
@@ -387,5 +388,32 @@ export function floorWind(model: BuildingModel, index: number) {
     z,
     pressure: windPressure(z),
     force: windPressure(z) * width * floor.height * 1.5,
+  };
+}
+
+/** True 45-degree bisectors, including trapezoids on rectangular panels. */
+export function splitPanelRect(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): Record<string, number[][]> {
+  if (w <= h) {
+    const top = [x + w / 2, y + w / 2],
+      bottom = [x + w / 2, y + h - w / 2];
+    return {
+      top: [[x, y], [x + w, y], top],
+      bottom: [[x, y + h], [x + w, y + h], bottom],
+      left: [[x, y], top, bottom, [x, y + h]],
+      right: [[x + w, y], top, bottom, [x + w, y + h]],
+    };
+  }
+  const left = [x + h / 2, y + h / 2],
+    right = [x + w - h / 2, y + h / 2];
+  return {
+    left: [[x, y], [x, y + h], left],
+    right: [[x + w, y], [x + w, y + h], right],
+    top: [[x, y], left, right, [x + w, y]],
+    bottom: [[x, y + h], left, right, [x + w, y + h]],
   };
 }
