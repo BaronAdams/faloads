@@ -654,7 +654,7 @@ html[data-runtime="desktop"] .analysis-page {
     transform: none;
     max-width: none;
   }
-  .canvas-field-controls button {
+  .canvas-field-controls button:not([data-slot="switch"]) {
     font-size: 10px;
     padding: 0 8px;
     height: 30px;
