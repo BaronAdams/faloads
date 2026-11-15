@@ -26,10 +26,10 @@ export function characteristicIndices(values: readonly number[]) {
 /** Frame translation in the global plane; the reported magnitude is unamplified. */
 export function frameDisplacement(
   member: FrameResult["mem"][number],
-  station: { x: number; v: number },
+  station: { x: number; v: number; u?: number },
 ) {
   const t = station.x / member.g.L;
-  const axial = member.ul[0] * (1 - t) + member.ul[3] * t;
+  const axial = station.u ?? member.ul[0] * (1 - t) + member.ul[3] * t;
   return {
     dx: axial * member.g.c - station.v * member.g.s,
     dy: axial * member.g.s + station.v * member.g.c,

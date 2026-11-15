@@ -1,10 +1,11 @@
 import { uid } from "@/lib/utils";
+import { reducedLive, psi2, type Reduction } from "./load-reduction";
 /** Port of the shipped Dart domain. kN, m and cm are explicit at boundaries. */
 export type Code = "ec2" | "bael91";
 export const concreteClasses = ["C20/25", "C25/30", "C30/37", "C35/45"];
 export const slabs = [
   { id: "cc12", label: "CC 12+4", g: 2.8 },
-  { id: "cc16", label: "CC 16+4", g: 3.54 },
+  { id: "cc16", label: "CC 16+4", g: 2.85 },
   { id: "cc20", label: "CC 20+5", g: 4.4 },
   { id: "dp", label: "Dalle pleine", g: 0 },
 ];
@@ -161,9 +162,14 @@ export function descent(
   area: number,
   wallLength = 0,
   quasi = false,
+  options: {
+    reduction?: Reduction;
+    primary?: number;
+    secondary?: number;
+    selfWeight?: boolean;
+  } = {},
 ) {
   let g = 0,
-    q = 0,
     w = 0;
   const elevations = new Array(levels.length).fill(0);
   let z = 0;
@@ -175,8 +181,21 @@ export function descent(
     const gs = levelG(level) * area,
       gr = coatingG(level) * area,
       ql = level.q * area;
-    g += gs + gr;
-    q += ql;
+    const gp = options.primary ?? 0,
+      gsec = options.secondary ?? 0;
+    const gv = options.selfWeight
+      ? (wallLength
+          ? (wallLength * level.e) / 100
+          : (level.b * level.h) / 1e4) *
+        level.height *
+        25
+      : 0;
+    g += gs + gr + gp + gsec + gv;
+    const live = levels
+      .slice(0, i + 1)
+      .map((l) => ({ floor: l.id, usage: l.usage, q: l.q * area }));
+    const reduced = reducedLive(live, options.reduction);
+    const q = reduced.q;
     w += wallLength
       ? windPressure(elevations[i]) * wallLength * level.height
       : 0;
@@ -186,11 +205,20 @@ export function descent(
       height: level.height,
       gs,
       gr,
+      gp,
+      gsec,
+      gv,
       ql,
       g,
       q,
+      qRaw: reduced.raw,
+      alpha: reduced.alpha,
+      reductionDetails: reduced.details,
       nElu: elu(g, q),
-      nEls: els(g, q, quasi),
+      // Do not combine the storey reduction with the quasi-permanent psi factor.
+      nEls: quasi
+        ? g + live.reduce((s, l) => s + psi2(l.usage) * l.q, 0)
+        : els(g, q),
       windElu: 1.5 * w,
       windDominant: 1.5 * w > 0.15 * elu(g, q),
     };

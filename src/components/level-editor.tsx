@@ -12,6 +12,7 @@ import {
   IconButton,
 } from "./common";
 import { slabs, usages, type Level } from "@/domain/engineering";
+import type { SectionType } from "@/domain/section-types";
 import { uid } from "@/lib/utils";
 export { levelSchema } from "@/domain/levels";
 export function LevelEditor({
@@ -23,6 +24,7 @@ export function LevelEditor({
   wall = false,
   panel = false,
   onEdit,
+  sectionTypes = [],
 }: {
   level: Level;
   onChange: (v: Level) => void;
@@ -32,6 +34,7 @@ export function LevelEditor({
   wall?: boolean;
   panel?: boolean;
   onEdit?: () => void;
+  sectionTypes?: SectionType[];
 }) {
   const patch = (v: Partial<Level>) => onChange({ ...level, ...v });
   if (onEdit)
@@ -115,6 +118,22 @@ export function LevelEditor({
               onChange={(height) => patch({ height })}
             />
           </FormGrid>
+        )}
+        {sectionTypes.some((t) => t.kind === "slab") && (
+          <Choice
+            label="Dimension type du plancher"
+            value="custom"
+            options={[
+              { value: "custom", label: "Choisir une dimension du projet" },
+              ...sectionTypes
+                .filter((t) => t.kind === "slab")
+                .map((t) => ({ value: t.id, label: t.name })),
+            ]}
+            onChange={(id) => {
+              const t = sectionTypes.find((t) => t.id === id);
+              if (t) patch({ slab: t.slab ?? "dp", thickness: t.h / 100 });
+            }}
+          />
         )}
         <FormGrid>
           <Choice
@@ -225,6 +244,25 @@ export function LevelEditor({
         </Disclosure>
         {!panel && (
           <Disclosure title="Section porteuse du niveau">
+            {sectionTypes.some(
+              (t) => t.kind === (wall ? "wall" : "column"),
+            ) && (
+              <Choice
+                label="Dimension type de la section porteuse"
+                value="custom"
+                options={[
+                  { value: "custom", label: "Choisir une section du projet" },
+                  ...sectionTypes
+                    .filter((t) => t.kind === (wall ? "wall" : "column"))
+                    .map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                onChange={(id) => {
+                  const t = sectionTypes.find((t) => t.id === id);
+                  if (t) patch(wall ? { e: t.b } : { b: t.b, h: t.h });
+                }}
+              />
+            )}
+
             {wall ? (
               <Numeric
                 label="Épaisseur du voile"

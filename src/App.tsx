@@ -1,3 +1,4 @@
+import { NewStudyDialog } from "@/components/new-study-dialog";
 import { ProjectGuide } from "@/components/project-guide";
 import { useEffect } from "react";
 import {
@@ -59,6 +60,7 @@ function Shell() {
       className={`app-shell${location.pathname === "/" ? " dashboard-shell" : ""}`}
       data-testid="app-shell"
     >
+      <NewStudyDialog />
       {runtime === "desktop" && (
         <header className="desktop-commandbar">
           <Link to="/" className="desktop-wordmark">
@@ -130,11 +132,23 @@ function Shell() {
             <Route path="/profile" element={<SettingsPage profile />} />
             <Route
               path="/new/:type"
-              element={<ProjectRoute key={location.pathname} />}
+              element={
+                <ProjectRoute
+                  key={
+                    location.pathname + (location.state?.creationToken ?? "")
+                  }
+                />
+              }
             />
             <Route
               path="/project/:id"
-              element={<ProjectRoute key={location.pathname} />}
+              element={
+                <ProjectRoute
+                  key={
+                    location.pathname + (location.state?.creationToken ?? "")
+                  }
+                />
+              }
             />
             <Route
               path="*"
@@ -176,6 +190,7 @@ function Shell() {
   );
 }
 function ProjectRoute() {
+  const location = useLocation();
   const { type, id } = useParams(),
     { workspace } = useWorkspace(),
     project = id ? workspace.projects.find((p) => p.id === id) : undefined;
@@ -214,6 +229,7 @@ function ProjectRoute() {
       );
     }
   }
+  if (!id && !location.state?.newStudyName) return <Dashboard />;
   const content =
     actual === "beam" || actual === "frame" ? (
       <AnalysisPage kind={actual} project={project} />

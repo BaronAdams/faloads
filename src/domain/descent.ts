@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { levelSchema } from "./levels";
 import { newLevel } from "./engineering";
+import { reductionSchema } from "./load-reduction";
+import { sectionTypesSchema } from "./section-types";
 export const descentSchema = z
   .object({
     tributaryConvention: z.literal("full-spans").optional(),
@@ -12,6 +14,8 @@ export const descentSchema = z
     wallLength: z.number().positive().max(100),
     levels: z.array(levelSchema).min(1).max(100),
     quasi: z.boolean(),
+    reduction: reductionSchema.default("none"),
+    sectionTypes: sectionTypesSchema,
     zone: z.string(),
     region: z.string(),
     terrain: z.string(),
@@ -45,6 +49,8 @@ export function descentDefaults(
     wallLength: 4,
     levels: [newLevel("R+1"), newLevel("RDC")],
     quasi: false,
+    reduction: "ec1",
+    sectionTypes: [],
     zone: "II",
     region: "Intérieure",
     terrain: "IIIb",
@@ -59,3 +65,17 @@ export const descentArea = (model: DescentModel) =>
   model.kind === "wall-load"
     ? (model.wallLength * (model.spans[0] + model.spans[1])) / 2
     : (model.spans[0] + model.spans[1]) * (model.spans[2] + model.spans[3]);
+
+/** Spans are the full influence lengths entered by the user (not halved again). */
+export function descentBeamWeights(model: DescentModel) {
+  return model.kind === "column-load" && model.system === "beams"
+    ? {
+        primary:
+          ((25 * model.primaryB * model.primaryH) / 1e4) *
+          (model.spans[0] + model.spans[1]),
+        secondary:
+          ((25 * model.secondaryB * model.secondaryH) / 1e4) *
+          (model.spans[2] + model.spans[3]),
+      }
+    : { primary: 0, secondary: 0 };
+}

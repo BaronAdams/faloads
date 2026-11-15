@@ -2,6 +2,7 @@ import { z } from "zod";
 import { beamSolve } from "./beam-solver.js";
 import { frameSolve } from "./frame-solver.js";
 import { uid } from "@/lib/utils";
+import { sectionTypesSchema } from "./section-types";
 const n = z.number().finite(),
   position = n.min(0).max(1000),
   id = z.string().min(1).max(100);
@@ -9,6 +10,7 @@ const restraint = z.union([z.boolean(), n.nonnegative().max(1e12)]);
 export const beamSchema = z
   .object({
     kind: z.literal("beam"),
+    sectionTypes: sectionTypesSchema,
     L: n.positive().max(1000),
     material: z.object({ E: n.positive().max(1e7), nu: n.min(-0.9).max(0.49) }),
     timoshenko: z.boolean(),
@@ -99,6 +101,11 @@ export type BeamLoad = BeamModel["loads"][number];
 export const frameSchema = z
   .object({
     kind: z.literal("frame"),
+    sectionTypes: sectionTypesSchema,
+    pl: z
+      .array(z.object({ id, member: id, t: n.min(0).max(1), fx: n, fy: n }))
+      .max(100)
+      .default([]),
     E: n.positive().max(1e4),
     nodes: z
       .array(
@@ -137,7 +144,8 @@ export const frameSchema = z
       m.mem.some(
         (b) => !m.nodes[b.a - 1] || !m.nodes[b.b - 1] || b.a === b.b,
       ) ||
-      m.nl.some((l) => l.n > m.nodes.length)
+      m.nl.some((l) => l.n > m.nodes.length) ||
+      m.pl.some((l) => !m.mem.some((b) => b.id === l.member))
     )
       ctx.addIssue({
         code: "custom",
@@ -189,6 +197,7 @@ export interface FrameResult {
       M: number;
       v: number;
       theta: number;
+      u?: number;
     }[];
   }[];
   sx: number;
@@ -247,11 +256,75 @@ const frameResultSchema = z.object({
 export function solveBeam(model: BeamModel): BeamResult {
   return beamResultSchema.parse(beamSolve(beamSchema.parse(model), 180));
 }
-export function solveFrame(model: FrameModel): FrameResult {
-  const raw = frameSolve(frameSchema.parse(model));
+export function solveFrame(model: z.input<typeof frameSchema>): FrameResult {
+  const parsed = frameSchema.parse(model);
+  // Exact FE subdivision at point loads. Keep the public result indexed by the
+  // user's members and nodes; auxiliary load nodes never leak into the editor.
+  const expanded = structuredClone(parsed);
+  expanded.mem = [];
+  const ranges: { start: number; offsets: number[]; length: number }[] = [];
+  for (const member of parsed.mem) {
+    const a = parsed.nodes[member.a - 1],
+      b = parsed.nodes[member.b - 1];
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    const loads = parsed.pl.filter((l) => l.member === member.id);
+    const stations = [...new Set([0, ...loads.map((l) => l.t), 1])].sort(
+      (a, b) => a - b,
+    );
+    const nodes = stations.map((t) => {
+      if (t === 0) return member.a;
+      if (t === 1) return member.b;
+      expanded.nodes.push({
+        id: uid(),
+        x: a.x + t * (b.x - a.x),
+        y: a.y + t * (b.y - a.y),
+        s: 0,
+      });
+      return expanded.nodes.length;
+    });
+    for (const l of loads)
+      expanded.nl.push({
+        id: l.id,
+        n: nodes[stations.indexOf(l.t)],
+        fx: l.fx,
+        fy: l.fy,
+        m: 0,
+      });
+    ranges.push({
+      start: expanded.mem.length,
+      offsets: stations.slice(0, -1).map((t) => t * length),
+      length,
+    });
+    for (let i = 0; i < nodes.length - 1; i++)
+      expanded.mem.push({ ...member, a: nodes[i], b: nodes[i + 1] });
+  }
+  const raw = frameSolve(expanded);
   const error = z.object({ err: z.string() }).safeParse(raw);
   if (error.success) throw Error(error.data.err);
-  return frameResultSchema.parse(raw);
+  const result = frameResultSchema.parse(raw);
+  return {
+    ...result,
+    u: result.u.slice(0, parsed.nodes.length * 3),
+    rea: result.rea.filter((r) => r.i < parsed.nodes.length),
+    mem: ranges.map(({ start, offsets, length }) => {
+      const pieces = result.mem.slice(start, start + offsets.length),
+        first = pieces[0],
+        last = pieces.at(-1)!;
+      return {
+        ...first,
+        g: { ...first.g, L: length },
+        ul: [...first.ul.slice(0, 3), ...last.ul.slice(3)],
+        fe: [...first.fe.slice(0, 3), ...last.fe.slice(3)],
+        pts: pieces.flatMap((p, i) =>
+          p.pts.map((v) => ({
+            ...v,
+            u: p.ul[0] * (1 - v.x / p.g.L) + (p.ul[3] * v.x) / p.g.L,
+            x: v.x + offsets[i],
+          })),
+        ),
+      };
+    }),
+  };
 }
 export const section = (
   x1: number,
@@ -294,6 +367,7 @@ export const load = (type: BeamLoad["type"], L: number): BeamLoad => ({
 export function beamPreset(type = "iso"): BeamModel {
   const base: BeamModel = {
     kind: "beam",
+    sectionTypes: [],
     L: 8,
     material: { E: 30000, nu: 0.2 },
     timoshenko: true,
@@ -363,6 +437,8 @@ export function framePreset(type = "portal"): FrameModel {
   }
   return {
     kind: "frame",
+    sectionTypes: [],
+    pl: [],
     E: 30,
     nodes,
     mem,
@@ -412,5 +488,8 @@ export function removeFrameNode(model: FrameModel, index: number): FrameModel {
     nl: model.nl
       .filter((l) => l.n !== n)
       .map((l) => ({ ...l, n: l.n > n ? l.n - 1 : l.n })),
+    pl: model.pl.filter((l) =>
+      model.mem.some((b) => b.id === l.member && b.a !== n && b.b !== n),
+    ),
   };
 }

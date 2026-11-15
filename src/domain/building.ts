@@ -1,3 +1,9 @@
+import {
+  reductionSchema,
+  reducedLive,
+  type LiveContribution,
+} from "./load-reduction";
+import { sectionTypesSchema } from "./section-types";
 import { z } from "zod";
 import { levelSchema } from "./levels";
 import {
@@ -7,7 +13,6 @@ import {
   elu,
   els,
   panelTributary,
-  tributaryWidth,
   windPressure,
 } from "./engineering";
 import { uid } from "@/lib/utils";
@@ -86,6 +91,8 @@ export const floorSchema = z
   });
 export const buildingSchema = z.object({
   kind: z.literal("building"),
+  reduction: reductionSchema.default("none"),
+  sectionTypes: sectionTypesSchema,
   floors: z.array(floorSchema).min(1).max(60),
   zone: z.string(),
   region: z.string(),
@@ -193,155 +200,306 @@ export const newFloor = (name = "RDC"): Floor =>
   );
 export const buildingDefaults = (): BuildingModel => ({
   kind: "building",
+  reduction: "ec1",
+  sectionTypes: [],
   floors: [newFloor()],
   zone: "II",
   region: "Intérieure",
   terrain: "IIIb",
   direction: 0,
 });
+export function floorCoordinates(f: Floor) {
+  const xs = [0],
+    ys = [0];
+  f.spanX.forEach((v) => xs.push(xs.at(-1)! + v));
+  f.spanY.forEach((v) => ys.push(ys.at(-1)! + v));
+  return { xs, ys };
+}
 export function buildingResults(f: Floor) {
-  const nx = f.spanX.length,
-    ny = f.spanY.length,
-    columns: {
-      label: string;
-      area: number;
-      g: number;
-      q: number;
-      nElu: number;
-      nEls: number;
-    }[] = [],
-    edges = new Map<
-      string,
-      {
-        label: string;
-        kind: string;
-        length: number;
-        elu: number;
-        els: number;
-        contributions: string[];
-      }
-    >();
-  let area = 0,
-    totalElu = 0;
-  const add = (
-    key: string,
-    pressureElu: number,
-    pressureEls: number,
-    panel: string,
-  ) => {
-    const e = f.edges[key];
-    if (!e?.exists) return;
-    const [orientation, line, segment] = key.split(":"),
-      horizontal = orientation === "h",
-      length = horizontal ? f.spanX[Number(segment)] : f.spanY[Number(segment)];
-    const current = edges.get(key) ?? {
-      label: `${e.kind === "beam" ? "Poutre" : "Voile"} ${horizontal ? Number(line) + 1 : String.fromCharCode(65 + Number(line))}·${Number(segment) + 1}`,
-      kind: e.kind,
-      length,
-      elu: 0,
-      els: 0,
-      contributions: [],
-    };
-    current.elu += pressureElu;
-    current.els += pressureEls;
-    current.contributions.push(panel);
-    edges.set(key, current);
-  };
-  for (let c = 0; c < nx; c++)
-    for (let r = 0; r < ny; r++) {
-      const p = f.panels[`${c},${r}`];
-      if (!p?.exists) continue;
-      const g = levelG(p.level) + coatingG(p.level),
-        q = p.level.q,
-        w = f.spanX[c],
-        h = f.spanY[r],
-        e = panelTributary(w, h, elu(g, q)),
-        s = panelTributary(w, h, els(g, q)),
-        horizontalElu = w <= h ? e.shortLoad : e.longLoad,
-        verticalElu = w <= h ? e.longLoad : e.shortLoad,
-        horizontalEls = w <= h ? s.shortLoad : s.longLoad,
-        verticalEls = w <= h ? s.longLoad : s.shortLoad;
-      const factor = p.mode === "full" ? 1 : 0.5;
-      area += w * h * factor;
-      totalElu += elu(g, q) * w * h * factor;
-      if (p.mode === "full" || p.mode === "ne") {
-        add(
-          edgeKey(true, r, c),
-          horizontalElu * factor,
-          horizontalEls * factor,
-          p.label,
-        );
-        add(
-          edgeKey(false, c + 1, r),
-          verticalElu * factor,
-          verticalEls * factor,
-          p.label,
-        );
-      }
-      if (p.mode === "full" || p.mode === "sw") {
-        add(
-          edgeKey(true, r + 1, c),
-          horizontalElu * factor,
-          horizontalEls * factor,
-          p.label,
-        );
-        add(
-          edgeKey(false, c, r),
-          verticalElu * factor,
-          verticalEls * factor,
-          p.label,
-        );
-      }
-    }
-  // Preserve the original app's per-floor method: full geometric tributary
-  // area × arithmetic mean of adjacent existing panels, not a global FEM.
-  for (let c = 0; c <= nx; c++)
-    for (let r = 0; r <= ny; r++) {
-      if (!f.nodes[`${c},${r}`]?.exists) continue;
-      const adjacent = [
-        [-1, -1],
-        [0, -1],
-        [-1, 0],
-        [0, 0],
-      ]
-        .map(([dc, dr]) => f.panels[`${c + dc},${r + dr}`])
-        .filter((p) => p?.exists);
-      if (!adjacent.length) continue;
-      const a = tributaryWidth(f.spanX, c) * tributaryWidth(f.spanY, r),
-        g =
-          adjacent.reduce(
-            (s, p) => s + levelG(p.level) + coatingG(p.level),
-            0,
-          ) / adjacent.length,
-        q = adjacent.reduce((s, p) => s + p.level.q, 0) / adjacent.length;
-      columns.push({
+  const { xs, ys } = floorCoordinates(f);
+  const warnings: string[] = [];
+  const columns = Object.entries(f.nodes)
+    .filter(([, n]) => n.exists)
+    .map(([key, n]) => {
+      const [c, r] = key.split(",").map(Number);
+      return {
+        key,
         label: nodeName(c, r),
-        area: a,
-        g: g * a,
-        q: q * a,
-        nElu: elu(g * a, q * a),
-        nEls: els(g * a, q * a),
-      });
+        x: xs[c],
+        y: ys[r],
+        area: 0,
+        g: ((n.b * n.h) / 1e4) * f.height * 25,
+        q: 0,
+        live: [] as LiveContribution[],
+        nElu: 0,
+        nEls: 0,
+      };
+    });
+  const edges = Object.entries(f.edges)
+    .filter(([, e]) => e.exists)
+    .map(([key, e]) => {
+      const [axis, l, s] = key.split(":"),
+        line = +l,
+        segment = +s,
+        horizontal = axis === "h";
+      const a = horizontal ? `${segment},${line}` : `${line},${segment}`;
+      const b = horizontal
+        ? `${segment + 1},${line}`
+        : `${line},${segment + 1}`;
+      const length = horizontal ? f.spanX[segment] : f.spanY[segment];
+      return {
+        key,
+        a,
+        b,
+        label: `${e.kind === "beam" ? "Poutre" : "Voile"} ${nodeName(...(a.split(",").map(Number) as [number, number]))}–${nodeName(...(b.split(",").map(Number) as [number, number]))}`,
+        kind: e.kind,
+        length,
+        area: 0,
+        g: (e.b / 100) * (e.kind === "wall" ? f.height : e.h / 100) * 25,
+        q: 0,
+        live: [] as LiveContribution[],
+        contributions: [] as string[],
+        elu: 0,
+        els: 0,
+        moment: 0,
+        shear: 0,
+      };
+    });
+  let area = 0;
+  for (const [key, p] of Object.entries(f.panels)) {
+    if (!p.exists) continue;
+    const [c, r] = key.split(",").map(Number),
+      w = f.spanX[c],
+      h = f.spanY[r];
+    const t = panelTributary(w, h, 1),
+      horizontal = w <= h ? t.shortArea : t.longArea,
+      vertical = w <= h ? t.longArea : t.shortArea;
+    const candidates: [string, number][] = [];
+    if (p.mode !== "sw")
+      candidates.push(
+        [edgeKey(true, r, c), horizontal],
+        [edgeKey(false, c + 1, r), vertical],
+      );
+    if (p.mode !== "ne")
+      candidates.push(
+        [edgeKey(true, r + 1, c), horizontal],
+        [edgeKey(false, c, r), vertical],
+      );
+    const supports = candidates
+      .map(([key, a]) => ({ edge: edges.find((e) => e.key === key), a }))
+      .filter((s) => s.edge);
+    const panelArea = w * h * (p.mode === "full" ? 1 : 0.5),
+      sum = supports.reduce((s, v) => s + v.a, 0);
+    area += panelArea;
+    if (!sum) {
+      warnings.push(`Panneau ${p.label} sans poutre ni voile porteur.`);
+      continue;
     }
+    for (const { edge, a } of supports) {
+      const share = (panelArea * a) / sum;
+      edge!.area += share;
+      edge!.g += (share * (levelG(p.level) + coatingG(p.level))) / edge!.length;
+      edge!.q += (share * p.level.q) / edge!.length;
+      edge!.live.push({
+        floor: f.id,
+        usage: p.level.usage,
+        q: share * p.level.q,
+      });
+      edge!.contributions.push(p.label);
+    }
+  }
+  const transmit = (
+    key: string,
+    g: number,
+    live: LiveContribution[],
+    area: number,
+  ) => {
+    const node = columns.find((n) => n.key === key);
+    if (!node) {
+      warnings.push(
+        `Appui ${key} absent : ajoutez un poteau ou modélisez explicitement le transfert.`,
+      );
+      return;
+    }
+    node.area += area;
+    node.g += g;
+    node.live.push(...live);
+    node.q += live.reduce((s, v) => s + v.q, 0);
+  };
+  for (const e of edges) {
+    e.elu = elu(e.g, e.q);
+    e.els = els(e.g, e.q);
+    e.moment = (e.elu * e.length ** 2) / 8;
+    e.shear = (e.elu * e.length) / 2;
+    if (e.kind === "beam")
+      for (const key of [e.a, e.b])
+        transmit(
+          key,
+          (e.g * e.length) / 2,
+          e.live.map((v) => ({ ...v, q: v.q / 2 })),
+          e.area / 2,
+        );
+  }
+  const obliques = f.obliques.map((o, i) => {
+    const length = Math.hypot(o.x2 - o.x1, o.y2 - o.y1);
+    const g =
+      o.kind === "beam"
+        ? o.g + ((o.b * o.h) / 1e4) * 25
+        : o.g * o.area + ((o.b * o.h) / 1e4) * f.height * 25;
+    const q = o.kind === "beam" ? o.q : o.q * o.area;
+    if (o.kind === "beam")
+      for (const [x, y] of [
+        [o.x1, o.y1],
+        [o.x2, o.y2],
+      ]) {
+        const node = columns.find((n) => Math.hypot(n.x - x, n.y - y) < 1e-6);
+        if (node)
+          transmit(
+            node.key,
+            (g * length) / 2,
+            [{ floor: f.id, usage: "E", q: (q * length) / 2 }],
+            0,
+          );
+        else
+          warnings.push(
+            `Poutre libre ${i + 1} : extrémité sans poteau de grille.`,
+          );
+      }
+    return {
+      ...o,
+      label: `${o.kind === "beam" ? "Poutre" : "Poteau"} libre ${i + 1}`,
+      length,
+      g,
+      q,
+      elu: elu(g, q),
+      els: els(g, q),
+    };
+  });
+  columns.forEach((n) => {
+    n.nElu = elu(n.g, n.q);
+    n.nEls = els(n.g, n.q);
+  });
+  const totalG =
+    columns.reduce((s, n) => s + n.g, 0) +
+    edges
+      .filter((e) => e.kind === "wall")
+      .reduce((s, e) => s + e.g * e.length, 0) +
+    obliques.filter((o) => o.kind === "column").reduce((s, o) => s + o.g, 0);
+  const totalQ =
+    columns.reduce((s, n) => s + n.q, 0) +
+    edges
+      .filter((e) => e.kind === "wall")
+      .reduce((s, e) => s + e.q * e.length, 0) +
+    obliques.filter((o) => o.kind === "column").reduce((s, o) => s + o.q, 0);
   return {
     area,
-    totalElu,
+    totalElu: elu(totalG, totalQ),
+    totalG,
+    totalQ,
     columns,
-    edges: [...edges.entries()].map(([key, e]) => ({
-      ...e,
-      key,
-      moment: (e.elu * e.length ** 2) / 8,
-      shear: (e.elu * e.length) / 2,
-    })),
-    obliques: f.obliques.map((o, i) => ({
-      id: o.id,
-      label: `${o.kind === "beam" ? "Poutre" : "Poteau"} oblique ${i + 1}`,
-      kind: o.kind,
-      length: Math.hypot(o.x2 - o.x1, o.y2 - o.y1),
-      elu: o.kind === "beam" ? elu(o.g, o.q) : elu(o.g * o.area, o.q * o.area),
-    })),
+    edges,
+    obliques,
+    warnings: [...new Set(warnings)],
   };
 }
+
+/** Floors are stored ground→roof. Transmit raw G/Q roof→ground, then reduce Q once at each level. */
+export function buildingDescent(model: BuildingModel) {
+  const rows = model.floors.map((f) => ({
+    id: f.id,
+    name: f.name,
+    results: buildingResults(f),
+    wind: floorWind(model, model.floors.indexOf(f)),
+  }));
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const current = rows[i].results;
+    if (current.warnings.length)
+      throw Error(`${rows[i].name} : ${current.warnings[0]}`);
+    const above = rows[i + 1]?.results;
+    if (above) {
+      for (const upper of above.columns) {
+        const lower = current.columns.find(
+          (n) => Math.hypot(n.x - upper.x, n.y - upper.y) < 1e-6,
+        );
+        if (!lower)
+          throw Error(
+            `${rows[i].name} : le poteau supérieur ${upper.label} n’a pas de poteau aligné. Un transfert doit être modélisé.`,
+          );
+        lower.g += upper.g;
+        lower.live.push(...upper.live);
+      }
+      for (const upper of above.edges.filter((e) => e.kind === "wall")) {
+        const lower = current.edges.find(
+          (e) =>
+            e.kind === "wall" &&
+            e.key === upper.key &&
+            Math.abs(e.length - upper.length) < 1e-6,
+        );
+        const a = floorCoordinates(model.floors[i]),
+          b = floorCoordinates(model.floors[i + 1]);
+        if (!lower || JSON.stringify(a) !== JSON.stringify(b))
+          throw Error(
+            `${rows[i].name} : le voile supérieur ${upper.label} doit être aligné.`,
+          );
+        lower.g += upper.g;
+        lower.live.push(...upper.live);
+        lower.q += upper.q;
+      }
+      for (const upper of above.obliques.filter((o) => o.kind === "column")) {
+        const lower = current.obliques.find(
+          (o) =>
+            o.kind === "column" &&
+            Math.hypot(o.x1 - upper.x1, o.y1 - upper.y1) < 1e-6,
+        );
+        if (!lower)
+          throw Error(
+            `${rows[i].name} : poteau libre supérieur sans porteur aligné.`,
+          );
+        lower.g += upper.g;
+        lower.q += upper.q;
+      }
+    }
+    for (const n of current.columns) {
+      const reduction = reducedLive(n.live, model.reduction);
+      n.q = reduction.q;
+      n.nElu = elu(n.g, n.q);
+      n.nEls = els(n.g, n.q);
+    }
+    for (const e of current.edges.filter((e) => e.kind === "wall")) {
+      e.q = reducedLive(e.live, model.reduction).q / e.length;
+      e.elu = elu(e.g, e.q);
+      e.els = els(e.g, e.q);
+    }
+    current.obliques.forEach((o) => {
+      o.elu = elu(o.g, o.q);
+      o.els = els(o.g, o.q);
+    });
+  }
+  return rows.reverse().map((row) => {
+    const local = buildingResults(model.floors.find((f) => f.id === row.id)!);
+    return {
+      ...row,
+      local,
+      cumulativeG:
+        row.results.columns.reduce((s, n) => s + n.g, 0) +
+        row.results.edges
+          .filter((e) => e.kind === "wall")
+          .reduce((s, e) => s + e.g * e.length, 0) +
+        row.results.obliques
+          .filter((o) => o.kind === "column")
+          .reduce((s, o) => s + o.g, 0),
+      cumulativeQ:
+        row.results.columns.reduce((s, n) => s + n.q, 0) +
+        row.results.edges
+          .filter((e) => e.kind === "wall")
+          .reduce((s, e) => s + e.q * e.length, 0) +
+        row.results.obliques
+          .filter((o) => o.kind === "column")
+          .reduce((s, o) => s + o.q, 0),
+    };
+  });
+}
+
 export function mergeNeighbors(f: Floor, key: string) {
   const [c, r] = key.split(",").map(Number);
   return [

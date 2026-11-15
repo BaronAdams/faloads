@@ -1,3 +1,5 @@
+import { SectionTypes } from "@/components/desktop-tools";
+import { reductionOptions, type Reduction } from "@/domain/load-reduction";
 import { useEffect, useState } from "react";
 import {
   descentSchema,
@@ -135,14 +137,20 @@ export function DescentPage({
         name={name}
         setName={setName}
         extra={
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Imprimer la fiche"
-            onClick={() => window.print()}
-          >
-            <Printer />
-          </Button>
+          <>
+            <SectionTypes
+              value={model.sectionTypes}
+              onChange={(sectionTypes) => patch({ sectionTypes })}
+            />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Imprimer la fiche"
+              onClick={() => window.print()}
+            >
+              <Printer />
+            </Button>
+          </>
         }
       />
       <CalculationOverlay busy={calculation.busy} />
@@ -208,6 +216,19 @@ export function DescentPage({
                   options={concreteClasses}
                 />
                 <Choice
+                  label="Dégression des charges Q"
+                  value={model.reduction}
+                  options={reductionOptions}
+                  onChange={(reduction) =>
+                    patch({ reduction: reduction as Reduction })
+                  }
+                />
+                <p className="hint">
+                  Réduction du cumul Q par catégorie et nombre d’étages. La
+                  toiture H reste entière. En ELS quasi permanent, ψ₂ s’applique
+                  sans cumuler αₙ.
+                </p>
+                <Choice
                   label="Combinaison ELS"
                   value={model.quasi ? "quasi" : "characteristic"}
                   onChange={(v) => patch({ quasi: v === "quasi" })}
@@ -216,7 +237,7 @@ export function DescentPage({
                       value: "characteristic",
                       label: "Caractéristique · G + Q",
                     },
-                    { value: "quasi", label: "Quasi permanente · G + 0,3Q" },
+                    { value: "quasi", label: "Quasi permanente · G + Σψ₂Q" },
                   ]}
                 />
               </div>
@@ -312,6 +333,39 @@ export function DescentPage({
                 {!wall && model.system === "beams" && (
                   <>
                     <h3>Sections des poutres adjacentes</h3>
+                    <Choice
+                      label="Dimension type · poutres principales"
+                      value="custom"
+                      options={[
+                        { value: "custom", label: "Choisir une section" },
+                        ...model.sectionTypes
+                          .filter((t) => t.kind === "beam")
+                          .map((t) => ({ value: t.id, label: t.name })),
+                      ]}
+                      onChange={(id) => {
+                        const t = model.sectionTypes.find((t) => t.id === id);
+                        if (t) patch({ primaryB: t.b, primaryH: t.h });
+                      }}
+                    />
+                    <Choice
+                      label="Dimension type · poutres secondaires"
+                      value="custom"
+                      options={[
+                        { value: "custom", label: "Choisir une section" },
+                        ...model.sectionTypes
+                          .filter((t) => t.kind === "beam")
+                          .map((t) => ({ value: t.id, label: t.name })),
+                      ]}
+                      onChange={(id) => {
+                        const t = model.sectionTypes.find((t) => t.id === id);
+                        if (t) patch({ secondaryB: t.b, secondaryH: t.h });
+                      }}
+                    />
+                    <p className="hint">
+                      Poids des sections entières : 25 × b × h × longueurs
+                      d’influence. Les portées saisies ne sont pas divisées une
+                      seconde fois.
+                    </p>
                     <FormGrid>
                       <Numeric
                         label="Poutre principale b"
@@ -477,7 +531,7 @@ export function DescentPage({
               </table>
             </div>
             <Notice>
-              ELU = 1,35G + 1,5Q · ELS = {model.quasi ? "G + 0,3Q" : "G + Q"}.
+              ELU = 1,35G + 1,5Q · ELS = {model.quasi ? "G + Σψ₂Q" : "G + Q"}.
               L’accumulation suit l’ordre affiché.
             </Notice>
           </Panel>
@@ -536,9 +590,14 @@ export function DescentPage({
                       <th>Niveau</th>
                       <th>G dalle · kN</th>
                       <th>G revêt. · kN</th>
+                      <th>G poutres principales · kN</th>
+                      <th>G poutres secondaires · kN</th>
+                      <th>G porteur · kN</th>
                       <th>Q niveau · kN</th>
                       <th>G cumulé · kN</th>
-                      <th>Q cumulé · kN</th>
+                      <th>Q brut cumulé · kN</th>
+                      <th>α effectif</th>
+                      <th>Q réduit cumulé · kN</th>
                       <th>N_ELU · kN</th>
                       <th>N_ELS · kN</th>
                       <th>
@@ -551,11 +610,22 @@ export function DescentPage({
                     {rows.map((r) => (
                       <tr key={r.id}>
                         <th scope="row">{r.label}</th>
-                        {[r.gs, r.gr, r.ql, r.g, r.q, r.nElu, r.nEls].map(
-                          (v, i) => (
-                            <td key={i}>{fmt(v)}</td>
-                          ),
-                        )}
+                        {[
+                          r.gs,
+                          r.gr,
+                          r.gp,
+                          r.gsec,
+                          r.gv,
+                          r.ql,
+                          r.g,
+                          r.qRaw,
+                          r.alpha,
+                          r.q,
+                          r.nElu,
+                          r.nEls,
+                        ].map((v, i) => (
+                          <td key={i}>{fmt(v)}</td>
+                        ))}
                         <td>
                           {wall
                             ? wallPredim(
@@ -627,6 +697,7 @@ export function DescentPage({
             {levelEditor && (
               <LevelEditor
                 level={levelEditor}
+                sectionTypes={model.sectionTypes}
                 wall={wall}
                 onChange={setLevelEditor}
               />

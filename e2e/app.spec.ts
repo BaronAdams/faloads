@@ -168,16 +168,19 @@ test("building editing, deleted segments, floor duplication and results work", a
   await page.getByRole("dialog").getByRole("switch").click();
   await page.getByRole("button", { name: "Appliquer", exact: true }).click();
   await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
-  await expect(page.getByLabel("Nom du niveau")).toHaveValue("Copie de RDC");
-  await page.getByRole("tab", { name: "Résultats", exact: true }).click();
+  await parameters(page);
+  await expect(page.getByLabel("Nom du niveau")).toHaveValue("R+1");
+  await page
+    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Calculer le bâtiment", exact: true })
+    .click();
+  await expect(page.getByTestId("building-cumulative")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Résultats du niveau", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByRole("heading", { name: "Résultats du niveau" }),
-  ).toBeVisible();
-  await page.getByRole("tab", { name: "Poutres", exact: true }).click();
-  await expect(page.locator("table")).toContainText("q_ELU");
+    page.getByTestId("building-cumulative").locator("tbody tr"),
+  ).toHaveCount(2);
+  await expect(page.getByRole("dialog")).toContainText("Poutres et voiles");
 });
 test("all eight predimensioning projects expose editable inputs and computed results", async ({
   page,
@@ -391,6 +394,8 @@ test("dashboard family filters, search reset and project picker work together", 
     .getByRole("dialog")
     .getByRole("button", { name: /Semelle de fondation/ })
     .click();
+  await expect(page).not.toHaveURL(/new\/footing/);
+  await createStudy(page);
   await expect(page).toHaveURL(/new\/footing/);
 });
 

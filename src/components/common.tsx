@@ -7,7 +7,7 @@ import {
 } from "./ui/dialog";
 import { studyAction } from "@/lib/study-events";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAppTheme as useTheme } from "@/lib/theme";
 import {
   ArrowLeft,
@@ -150,17 +150,20 @@ export function Choice({
   value,
   options,
   onChange,
+  disabled = false,
 }: {
   label: string;
   value: string;
   options: (string | { value: string; label: string })[];
   onChange: (v: string) => void;
+  disabled?: boolean;
 }) {
   const id = useId();
   return (
     <div className="field">
       <Label htmlFor={id}>{label}</Label>
       <Select
+        disabled={disabled}
         value={value}
         onValueChange={(v) => {
           onChange(v);
@@ -321,13 +324,22 @@ export function ProjectHeader({
   setName: (v: string) => void;
   extra?: ReactNode;
 }) {
+  const location = useLocation();
+  const initialName = location.state?.newStudyName as string | undefined;
   const nav = useNavigate(),
     { saveProject, temporary } = useWorkspace(),
     [saving, setSaving] = useState(false),
     [saved, setSaved] = useState(false),
-    [naming, setNaming] = useState(!project),
-    [created, setCreated] = useState(!!project),
+    [naming, setNaming] = useState(!project && !initialName),
+    [created, setCreated] = useState(!!project || !!initialName),
     [nameDraft, setNameDraft] = useState(project?.name ?? "");
+  useEffect(() => {
+    if (!project && initialName) {
+      setName(initialName);
+      const frame = requestAnimationFrame(() => studyAction("name:created"));
+      return () => cancelAnimationFrame(frame);
+    }
+  }, []);
   useEffect(() => setSaved(false), [data, name]);
   const save = async () => {
     const invalid = document.querySelector<HTMLInputElement>("input:invalid");
@@ -429,7 +441,6 @@ export function ProjectHeader({
         <ArrowLeft />
       </IconButton>
       <div className="project-heading">
-        <span className="eyebrow">{typeInfo(type).label}</span>
         <button
           className="study-name-button"
           onClick={() => {
@@ -441,6 +452,7 @@ export function ProjectHeader({
           <h1>{name}</h1>
           <Pencil size={13} />
         </button>
+        <span className="study-type-description">{typeInfo(type).label}</span>
       </div>
       <div className="project-actions">
         {extra}

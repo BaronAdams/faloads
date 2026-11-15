@@ -27,9 +27,19 @@ export function Playground({
   onDeselect,
   controls,
   immersive = false,
+  selectedKeys,
+  onElementContext,
+  onElementDrag,
 }: {
   children: ReactNode;
-  onSelect?: (key: string) => void;
+  onSelect?: (key: string, additive?: boolean) => void;
+  selectedKeys?: string[];
+  onElementContext?: (key: string, point: { x: number; y: number }) => void;
+  onElementDrag?: (
+    key: string,
+    delta: { x: number; y: number },
+    phase: "start" | "move" | "end" | "cancel",
+  ) => void;
   height?: number;
   label?: string;
   selected?: string | null;
@@ -40,12 +50,14 @@ export function Playground({
   const svg = useRef<SVGSVGElement>(null),
     content = useRef<SVGGElement>(null),
     [geometry, setGeometry] = useState({ units: 1, height: 420 }),
-    [selectionBox, setSelectionBox] = useState<{
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    } | null>(null),
+    [selectionBoxes, setSelectionBoxes] = useState<
+      {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }[]
+    >([]),
     [view, setView] = useState<View>({ k: 1, x: 0, y: 0 }),
     v = useRef(view),
     [hand, setHand] = useState(false),
@@ -56,6 +68,8 @@ export function Playground({
       y: number;
       key: string | null;
       moved: boolean;
+      right: boolean;
+      shift: boolean;
     } | null>(null),
     pattern = useId().replace(/:/g, "");
   const apply = (next: View) => {
@@ -94,45 +108,49 @@ export function Playground({
     return () => observer.disconnect();
   }, []);
   useLayoutEffect(() => {
-    const target = [
+    const targets = [
       ...(content.current?.querySelectorAll<SVGGraphicsElement>(
         "[data-element]",
       ) ?? []),
-    ].find((element) => element.getAttribute("data-element") === selected);
-    if (!target) {
-      setSelectionBox(null);
-      return;
-    }
-    const shape =
-      target.querySelector<SVGGraphicsElement>("[data-selection-bounds]") ??
-      target;
-    const bounds = shape.getBBox();
-    const cameraMatrix = content.current?.getCTM();
-    const shapeMatrix = shape.getCTM();
-    const matrix =
-      cameraMatrix && shapeMatrix
-        ? cameraMatrix.inverse().multiply(shapeMatrix)
-        : null;
-    const corners = [
-      [bounds.x, bounds.y],
-      [bounds.x + bounds.width, bounds.y],
-      [bounds.x, bounds.y + bounds.height],
-      [bounds.x + bounds.width, bounds.y + bounds.height],
-    ].map(([x, y]) =>
-      matrix ? new DOMPoint(x, y).matrixTransform(matrix) : { x, y },
+    ].filter((element) =>
+      (selectedKeys ?? (selected ? [selected] : [])).includes(
+        element.getAttribute("data-element")!,
+      ),
     );
-    const left = Math.min(...corners.map((point) => point.x)),
-      top = Math.min(...corners.map((point) => point.y));
-    const right = Math.max(...corners.map((point) => point.x)),
-      bottom = Math.max(...corners.map((point) => point.y));
-    const gap = 5 * geometry.units;
-    setSelectionBox({
-      x: left - gap,
-      y: top - gap,
-      width: right - left + gap * 2,
-      height: bottom - top + gap * 2,
-    });
-  }, [selected, children, geometry]);
+    setSelectionBoxes(
+      targets.map((target) => {
+        const shape =
+          target.querySelector<SVGGraphicsElement>("[data-selection-bounds]") ??
+          target;
+        const bounds = shape.getBBox();
+        const cameraMatrix = content.current?.getCTM();
+        const shapeMatrix = shape.getCTM();
+        const matrix =
+          cameraMatrix && shapeMatrix
+            ? cameraMatrix.inverse().multiply(shapeMatrix)
+            : null;
+        const corners = [
+          [bounds.x, bounds.y],
+          [bounds.x + bounds.width, bounds.y],
+          [bounds.x, bounds.y + bounds.height],
+          [bounds.x + bounds.width, bounds.y + bounds.height],
+        ].map(([x, y]) =>
+          matrix ? new DOMPoint(x, y).matrixTransform(matrix) : { x, y },
+        );
+        const left = Math.min(...corners.map((point) => point.x)),
+          top = Math.min(...corners.map((point) => point.y));
+        const right = Math.max(...corners.map((point) => point.x)),
+          bottom = Math.max(...corners.map((point) => point.y));
+        const gap = 5 * geometry.units;
+        return {
+          x: left - gap,
+          y: top - gap,
+          width: right - left + gap * 2,
+          height: bottom - top + gap * 2,
+        };
+      }),
+    );
+  }, [selected, selectedKeys, children, geometry]);
   useEffect(() => {
     const el = svg.current!;
     const wheel = (event: WheelEvent) => {
@@ -146,6 +164,8 @@ export function Playground({
   const positions = () => [...points.current.values()];
   return (
     <section
+      data-canvas-units={geometry.units}
+      data-canvas-height={geometry.height}
       className={`playground ${immersive ? "immersive-playground" : ""}`}
       aria-label={label}
     >
@@ -221,7 +241,19 @@ export function Playground({
             (e.target as Element)
               .closest("[data-element]")
               ?.getAttribute("data-element") ?? null;
-          drag.current = { x: p.x, y: p.y, key, moved: false };
+          drag.current = {
+            x: p.x,
+            y: p.y,
+            key,
+            moved: false,
+            right: e.button === 2,
+            shift: e.shiftKey,
+          };
+          if (e.button === 2 && onElementContext) {
+            e.preventDefault();
+            svg.current!.setPointerCapture(e.pointerId);
+            if (key) onElementDrag?.(key, { x: 0, y: 0 }, "start");
+          }
           if (
             hand ||
             space.current ||
@@ -232,6 +264,19 @@ export function Playground({
         }}
         onPointerMove={(e) => {
           if (!points.current.has(e.pointerId)) return;
+          if (drag.current?.right && onElementContext) {
+            const d = drag.current,
+              p = local(e.clientX, e.clientY);
+            if (Math.hypot(p.x - d.x, p.y - d.y) > 4 * geometry.units)
+              d.moved = true;
+            if (d.moved && d.key)
+              onElementDrag?.(
+                d.key,
+                { x: (p.x - d.x) / v.current.k, y: (p.y - d.y) / v.current.k },
+                "move",
+              );
+            return;
+          }
           const before = positions(),
             p = local(e.clientX, e.clientY),
             old = points.current.get(e.pointerId)!;
@@ -276,6 +321,35 @@ export function Playground({
         }}
         onPointerUp={(e) => {
           points.current.delete(e.pointerId);
+          if (drag.current?.right) {
+            const d = drag.current;
+            if (d.key && onElementContext) {
+              if (d.moved) {
+                const p = local(e.clientX, e.clientY);
+                onElementDrag?.(
+                  d.key,
+                  {
+                    x: (p.x - d.x) / v.current.k,
+                    y: (p.y - d.y) / v.current.k,
+                  },
+                  "end",
+                );
+              } else {
+                onElementDrag?.(d.key, { x: 0, y: 0 }, "cancel");
+                const target = [
+                  ...(content.current?.querySelectorAll("[data-element]") ??
+                    []),
+                ].find((el) => el.getAttribute("data-element") === d.key);
+                const r = target?.getBoundingClientRect();
+                onElementContext(d.key, {
+                  x: r?.right ?? e.clientX,
+                  y: r?.bottom ?? e.clientY,
+                });
+              }
+            }
+            drag.current = null;
+            return;
+          }
           if (
             drag.current &&
             !drag.current.moved &&
@@ -283,7 +357,7 @@ export function Playground({
             !space.current &&
             drag.current.key
           )
-            onSelect?.(drag.current.key);
+            onSelect?.(drag.current.key, drag.current.shift);
           else if (
             drag.current &&
             !drag.current.moved &&
@@ -294,7 +368,12 @@ export function Playground({
             onDeselect?.();
           drag.current = null;
         }}
+        onContextMenu={(e) => {
+          if (onElementContext) e.preventDefault();
+        }}
         onPointerCancel={(e) => {
+          if (drag.current?.right && drag.current.key)
+            onElementDrag?.(drag.current.key, { x: 0, y: 0 }, "cancel");
           points.current.delete(e.pointerId);
           drag.current = null;
         }}
@@ -324,15 +403,16 @@ export function Playground({
           <CanvasGeometry.Provider value={geometry}>
             {children}
           </CanvasGeometry.Provider>
-          {selectionBox && (
+          {selectionBoxes.map((selectionBox, index) => (
             <rect
+              key={index}
               {...selectionBox}
               data-testid="selection-highlight"
               className="selection-highlight"
               pointerEvents="none"
               vectorEffect="non-scaling-stroke"
             />
-          )}
+          ))}
         </g>
       </svg>
       <footer className="playground-footer">

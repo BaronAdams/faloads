@@ -1,3 +1,4 @@
+import { runtime } from "@/lib/runtime";
 import {
   createContext,
   useContext,
@@ -47,7 +48,10 @@ const stepsFor = (type: ProjectType): Step[] => {
       {
         target: "add",
         title: "Ajoutez un élément",
-        text: "Ouvrez Ajouter, choisissez un élément, renseignez ses valeurs puis appliquez.",
+        text:
+          runtime === "desktop"
+            ? "Ouvrez Ajouter, choisissez un élément puis modifiez ses valeurs dans la barre de paramètres."
+            : "Ouvrez Ajouter, choisissez un élément, renseignez ses valeurs puis appliquez.",
         action: "element:applied",
       },
       {
@@ -106,20 +110,41 @@ const stepsFor = (type: ProjectType): Step[] => {
     ];
   if (type === "building")
     return [
+      ...(runtime !== "desktop"
+        ? [
+            {
+              target: "parameters",
+              title: "Définissez le bâtiment",
+              text: "Ouvrez les paramètres pour adapter la grille et les portées.",
+              action: "parameters:open",
+            },
+          ]
+        : []),
       {
         target: "building-inputs",
         title: "Adaptez votre trame",
-        text: "Modifiez une portée pour définir la géométrie du bâtiment. Les éléments du plan sont ensuite éditables au clic.",
+        text: "Modifiez une portée. Sur Desktop, sélectionnez ensuite les éléments du plan pour modifier leurs propriétés dans la barre supérieure.",
         action: "input:edited",
       },
+      ...(runtime !== "desktop"
+        ? [
+            {
+              target: "parameters-done",
+              title: "Revenez au plan",
+              text: "Fermez les paramètres pour travailler sur le schéma.",
+              action: "parameters:close",
+            },
+          ]
+        : []),
       {
         target: "calculate",
         title: "Calculez le bâtiment",
-        text: "Lancez le calcul des niveaux. Vous serez ensuite dirigé vers les résultats.",
+        text: "Le calcul descend du dernier niveau vers le RDC et ouvre le tableau des cumulés.",
         action: "calculation:complete",
       },
       save,
     ];
+
   return [
     {
       target: "predim-inputs",
@@ -180,9 +205,12 @@ export function ProjectGuide({
     }
     let first = true;
     const locate = () => {
-      let el = document.querySelector<HTMLElement>(
-        `[data-tour="${current.target}"]`,
-      );
+      const selector = `[data-tour="${current.target}"]`;
+      // A toolbar and its detail dialog may expose the same step target.
+      // Keep the guide in the active dialog rather than behind its backdrop.
+      let el =
+        document.querySelector<HTMLElement>(`[role="dialog"] ${selector}`) ??
+        document.querySelector<HTMLElement>(selector);
       if (
         ["parameters-inputs", "predim-inputs", "building-inputs"].includes(
           current.target,

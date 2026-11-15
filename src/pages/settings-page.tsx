@@ -1,8 +1,6 @@
 import { useState } from "react";
 import {
   Download,
-  Plus,
-  Trash2,
   Upload,
   Monitor,
   Sun,
@@ -23,29 +21,15 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Panel,
-  Choice,
-  Numeric,
-  FormGrid,
-  Notice,
-  IconButton,
-} from "@/components/common";
+import { Panel, Choice, FormGrid, Notice } from "@/components/common";
 import { useWorkspace } from "@/lib/workspace";
 import { useAppTheme } from "@/lib/theme";
 import { exportJson, importJson, workspaceSchema } from "@/lib/storage";
 import { concreteClasses } from "@/domain/engineering";
-import { uid, fmt } from "@/lib/utils";
+import { fmt } from "@/lib/utils";
 export function SettingsPage({ profile = false }: { profile?: boolean }) {
   const { workspace, update, temporary } = useWorkspace(),
     { resolvedTheme } = useAppTheme(),
-    [preset, setPreset] = useState<{
-      id: string;
-      name: string;
-      category: string;
-      a: number;
-      b?: number;
-    } | null>(null),
     [pending, setPending] = useState<unknown | null>(null);
   const change = (next: Parameters<typeof update>[0]) =>
     void update(next).catch(() =>
@@ -197,57 +181,24 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
           </div>
         </Panel>
         <Panel
-          title="Préréglages de sections"
-          description="Réutilisez les sections dans la modélisation du bâtiment."
-          action={
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() =>
-                setPreset({
-                  id: uid(),
-                  name: "Nouvelle section",
-                  category: "poteau",
-                  a: 30,
-                  b: 30,
-                })
-              }
-            >
-              <Plus />
-              Ajouter
-            </Button>
-          }
+          title="Dimensions types par projet"
+          description="Ouvrez une étude, puis Dimensions types du projet pour définir ses sections."
         >
-          <div className="preset-list">
-            {workspace.presets.length ? (
-              workspace.presets.map((p) => (
-                <div key={p.id} className="preset-row">
-                  <button onClick={() => setPreset({ ...p })}>
-                    <strong>{p.name}</strong>
-                    <small className="mono">
-                      {p.category} · {fmt(p.a, 0)}
-                      {p.b ? ` × ${fmt(p.b, 0)}` : ""} cm
-                    </small>
-                  </button>
-                  <IconButton
-                    label={`Supprimer ${p.name}`}
-                    onClick={() =>
-                      change({
-                        presets: workspace.presets.filter((x) => x.id !== p.id),
-                      })
-                    }
-                  >
-                    <Trash2 size={15} />
-                  </IconButton>
-                </div>
-              ))
-            ) : (
-              <p className="hint">
-                Aucun préréglage. Ajoutez une section ou conservez un résultat
-                de dimensionnement béton armé.
-              </p>
-            )}
-          </div>
+          <p className="hint">
+            Chaque étude conserve sa propre bibliothèque. Modifier une section
+            type ne change aucun autre projet.
+          </p>
+          {workspace.presets.length > 0 && (
+            <details>
+              <summary>Anciens préréglages conservés en archive</summary>
+              {workspace.presets.map((p) => (
+                <p key={p.id}>
+                  {p.name} · {fmt(p.a)}
+                  {p.b ? ` × ${fmt(p.b)}` : ""} cm
+                </p>
+              ))}
+            </details>
+          )}
         </Panel>
         <Panel
           title="Sauvegarde et transfert"
@@ -311,92 +262,6 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
           </p>
         </div>
       </div>
-      <Dialog open={!!preset} onOpenChange={(v) => !v && setPreset(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Préréglage de section</DialogTitle>
-            <DialogDescription>Dimensions en centimètres.</DialogDescription>
-          </DialogHeader>
-          {preset && (
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void update({
-                  presets: [
-                    ...workspace.presets.filter((p) => p.id !== preset.id),
-                    preset,
-                  ],
-                })
-                  .then(() => {
-                    setPreset(null);
-                    toast.success("Préréglage enregistré.");
-                  })
-                  .catch(() => toast.error("Sauvegarde impossible."));
-              }}
-            >
-              <div className="editor-fields">
-                <Label htmlFor="preset-name">Nom</Label>
-                <Input
-                  id="preset-name"
-                  required
-                  value={preset.name}
-                  onChange={(e) =>
-                    setPreset({ ...preset, name: e.target.value })
-                  }
-                />
-                <Choice
-                  label="Catégorie"
-                  value={preset.category}
-                  options={[
-                    { value: "poteau", label: "Poteau" },
-                    { value: "poutre", label: "Poutre" },
-                    { value: "voile", label: "Voile" },
-                  ]}
-                  onChange={(category) =>
-                    setPreset({
-                      ...preset,
-                      category,
-                      ...(category === "voile"
-                        ? { b: undefined }
-                        : { b: preset.b ?? 30 }),
-                    })
-                  }
-                />
-                <FormGrid>
-                  <Numeric
-                    label={
-                      preset.category === "voile" ? "Épaisseur" : "Largeur b"
-                    }
-                    value={preset.a}
-                    min={1}
-                    unit="cm"
-                    onChange={(a) => setPreset({ ...preset, a })}
-                  />
-                  {preset.category !== "voile" && (
-                    <Numeric
-                      label="Hauteur h"
-                      value={preset.b ?? 30}
-                      min={1}
-                      unit="cm"
-                      onChange={(b) => setPreset({ ...preset, b })}
-                    />
-                  )}
-                </FormGrid>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setPreset(null)}
-                >
-                  Annuler
-                </Button>
-                <Button type="submit">Enregistrer</Button>
-              </DialogFooter>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
       <Dialog open={!!pending} onOpenChange={(v) => !v && setPending(null)}>
         <DialogContent>
           <DialogHeader>

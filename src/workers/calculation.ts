@@ -1,10 +1,7 @@
+import { descentBeamWeights, type DescentModel } from "@/domain/descent";
 import { solveBeam, solveFrame, type AnalysisModel } from "@/domain/analysis";
-import {
-  buildingResults,
-  floorWind,
-  type BuildingModel,
-} from "@/domain/building";
-import { descent, type Level } from "@/domain/engineering";
+import { buildingDescent, type BuildingModel } from "@/domain/building";
+import { descent } from "@/domain/engineering";
 export function calculate(kind: string, model: unknown): unknown {
   if (kind === "analysis") {
     const m = model as AnalysisModel;
@@ -14,17 +11,14 @@ export function calculate(kind: string, model: unknown): unknown {
   }
   if (kind === "building") {
     const m = model as BuildingModel;
-    return m.floors.map((floor, i) => ({
-      id: floor.id,
-      results: buildingResults(floor),
-      wind: floorWind(m, i),
-    }));
+    return buildingDescent(m);
   }
-  const m = model as {
-    levels: Level[];
-    area: number;
-    wallLength: number;
-    quasi: boolean;
-  };
-  return descent(m.levels, m.area, m.wallLength, m.quasi);
+  const m = model as DescentModel & { area: number };
+  return descent(
+    m.levels,
+    m.area,
+    m.kind === "wall-load" ? m.wallLength : 0,
+    m.quasi,
+    { ...descentBeamWeights(m), reduction: m.reduction, selfWeight: true },
+  );
 }

@@ -1,3 +1,21 @@
+import { runtime } from "@/lib/runtime";
+import {
+  ParameterGroup,
+  SceneMenu,
+  DetailDialog,
+  SectionTypes,
+  ShortcutHelp,
+  useEditorKeys,
+  type MenuPoint,
+  type EditorActions,
+} from "@/components/desktop-tools";
+import {
+  analysisElements,
+  analysisProperties,
+  patchAnalysis,
+  deleteAnalysis,
+  type AnalysisSelection,
+} from "@/domain/analysis-editing";
 import {
   StructuralDiagram,
   type DiagramCurve,
@@ -9,7 +27,7 @@ import {
   CalculationStatus,
 } from "@/components/calculation-state";
 import { studyAction } from "@/lib/study-events";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   Plus,
   Trash2,
@@ -83,10 +101,7 @@ import { useWorkspace } from "@/lib/workspace";
 import { fmt, uid } from "@/lib/utils";
 import { type Project } from "@/lib/storage";
 type View = "M" | "V" | "N" | "v" | "theta" | "structure";
-type Selection = {
-  type: "support" | "load" | "section" | "hinge" | "node" | "member" | "nodal";
-  id: string;
-};
+type Selection = AnalysisSelection;
 const fieldNames = {
   M: "Moment M",
   V: "Effort tranchant V",
@@ -119,6 +134,15 @@ export function AnalysisPage({
   kind: "beam" | "frame";
   project?: Project;
 }) {
+  const desktop = runtime === "desktop";
+  const [selectedKeys, setSelectedKeys] = useState<string[]>([]),
+    [menu, setMenu] = useState<MenuPoint>(null),
+    [clipboard, setClipboard] = useState<{
+      family: string;
+      props: Record<string, unknown>;
+    } | null>(null);
+  const dragModel = useRef<AnalysisModel | null>(null);
+  const ParametersContainer = desktop ? DetailDialog : EditorSheet;
   const { drafts } = useWorkspace(),
     draftKey = project?.id ?? kind;
   const [model, setModel] = useState<AnalysisModel>(() => {
@@ -232,15 +256,38 @@ export function AnalysisPage({
       setHistory((h) => h.slice(0, -1));
     }
     setModel(last);
+    setSelection(null);
+    setSelectedKeys([]);
+    setEditor(null);
   };
   const open = (s: Selection, candidate = model) => {
     setParameters(false);
     setSelection(s);
-    setEditor(structuredClone(candidate));
+    if (desktop) {
+      if (candidate !== model) commit(candidate);
+      setSelectedKeys([`${s.type}:${s.id}`]);
+      setEditor(null);
+      studyAction("element:applied");
+    } else setEditor(structuredClone(candidate));
   };
-  const select = (key: string) => {
+  const select = (key: string, additive = false) => {
     const [type, id] = key.split(":");
-    open({ type: type as Selection["type"], id });
+    if (!desktop) return open({ type: type as Selection["type"], id });
+    const elements = analysisElements(model),
+      family = elements.find((v) => v.key === key)?.family;
+    const compatible = selectedKeys.filter(
+      (k) => elements.find((v) => v.key === k)?.family === family,
+    );
+    const keys = additive
+      ? compatible.includes(key)
+        ? compatible.filter((k) => k !== key)
+        : [...compatible, key]
+      : [key];
+    setSelectedKeys(keys);
+    const last = keys.at(-1)?.split(":");
+    setSelection(
+      last ? { type: last[0] as Selection["type"], id: last[1] } : null,
+    );
   };
   const add = (type: Selection["type"], variant = "point") => {
     const next = structuredClone(model);
@@ -265,8 +312,154 @@ export function AnalysisPage({
       if (type === "member")
         next.mem.push({ id, a: 1, b: 2, bw: 30, h: 50, w: 10, q: 0 });
       if (type === "nodal") next.nl.push({ id, n: 2, fx: 10, fy: 0, m: 0 });
+      if (type === "member-load")
+        next.pl.push({ id, member: next.mem[0].id, t: 0.5, fx: 0, fy: -20 });
     }
     open({ type, id }, next);
+  };
+  const elements = analysisElements(model);
+  const selectedElement = selection
+    ? elements.find((v) => v.key === `${selection.type}:${selection.id}`)
+    : undefined;
+  const clear = () => {
+    setSelection(null);
+    setSelectedKeys([]);
+    setMenu(null);
+  };
+  const applyDesktop = (next: AnalysisModel) => {
+    if (!selectedElement || selectedKeys.length <= 1) return commit(next);
+    const changed = analysisElements(next).find(
+      (v) => v.key === selectedElement.key,
+    );
+    if (!changed) return;
+    const delta = Object.fromEntries(
+      Object.entries(analysisProperties(selection!.type, changed.value)).filter(
+        ([k, v]) =>
+          JSON.stringify(v) !== JSON.stringify(selectedElement.value[k]),
+      ),
+    );
+    commit(patchAnalysis(model, selectedKeys, delta));
+  };
+  const actions: EditorActions = {
+    copy: () => {
+      if (selectedElement) {
+        setClipboard({
+          family: selectedElement.family,
+          props: analysisProperties(selection!.type, selectedElement.value),
+        });
+        toast.success("Propriétés copiées.");
+      }
+    },
+    paste: () => {
+      if (clipboard && selectedElement?.family === clipboard.family)
+        commit(patchAnalysis(model, selectedKeys, clipboard.props));
+      else toast.info("Sélectionnez un élément de même nature.");
+    },
+    remove: () => {
+      if (!selectedKeys.length) return;
+      try {
+        const next = deleteAnalysis(model, selectedKeys);
+        (next.kind === "beam" ? beamSchema : frameSchema).parse(next);
+        commit(next);
+        clear();
+      } catch (e) {
+        toast.error(
+          e instanceof z.ZodError ? e.issues[0].message : (e as Error).message,
+        );
+      }
+    },
+    all: () => {
+      if (selectedElement)
+        setSelectedKeys(
+          elements
+            .filter((v) => v.family === selectedElement.family)
+            .map((v) => v.key),
+        );
+    },
+    clear,
+    undo,
+    add: () =>
+      document.querySelector<HTMLButtonElement>('[data-tour="add"]')?.click(),
+  };
+  useEditorKeys(actions);
+  const dragElement = (
+    key: string,
+    delta: { x: number; y: number },
+    phase: "start" | "move" | "end" | "cancel",
+  ) => {
+    if (phase === "start") {
+      dragModel.current = structuredClone(model);
+      setMenu(null);
+      return;
+    }
+    if (phase === "cancel") {
+      if (dragModel.current) setModel(dragModel.current);
+      dragModel.current = null;
+      return;
+    }
+    const initial = dragModel.current;
+    if (!initial) return;
+    const next = structuredClone(initial),
+      [type, id] = key.split(":");
+    const canvas = document.querySelector<HTMLElement>(
+      ".analysis-canvas-workspace .playground",
+    );
+    const units = Number(canvas?.dataset.canvasUnits ?? 1),
+      height = Number(canvas?.dataset.canvasHeight ?? 600);
+    if (next.kind === "beam" && ["support", "load", "hinge"].includes(type)) {
+      const element = analysisElements(next).find((v) => v.key === key)?.value;
+      if (!element) return;
+      const dx = (delta.x * next.L) / 840;
+      if (type === "load" && element.type === "dist") {
+        const length = Number(element.x2) - Number(element.x1);
+        const x = Math.max(
+          0,
+          Math.min(next.L - length, Number(element.x1) + dx),
+        );
+        element.x1 = x;
+        element.x2 = x + length;
+      } else
+        element.x =
+          Math.round(
+            Math.max(
+              type === "hinge" ? 0.001 : 0,
+              Math.min(
+                next.L - (type === "hinge" ? 0.001 : 0),
+                Number(element.x) + dx,
+              ),
+            ) * 1000,
+          ) / 1000;
+    } else if (next.kind === "frame" && type === "member-load") {
+      const l = next.pl.find((v) => v.id === id)!;
+      const m = next.mem.find((v) => v.id === l.member)!;
+      const a = next.nodes[m.a - 1],
+        b = next.nodes[m.b - 1];
+      const minX = Math.min(...next.nodes.map((v) => v.x)),
+        maxX = Math.max(...next.nodes.map((v) => v.x)),
+        minY = Math.min(...next.nodes.map((v) => v.y)),
+        maxY = Math.max(...next.nodes.map((v) => v.y));
+      const scale = Math.min(
+        Math.max(100, Math.min(760, 1000 - 170 * units)) /
+          Math.max(1, maxX - minX),
+        Math.max(60, height - 350 * units) / Math.max(1, maxY - minY),
+      );
+      const dx = b.x - a.x,
+        dy = b.y - a.y;
+      l.t = Math.max(
+        0,
+        Math.min(
+          1,
+          l.t + (delta.x * dx - delta.y * dy) / (scale * (dx * dx + dy * dy)),
+        ),
+      );
+    } else return;
+    if (phase === "end") {
+      setHistory((h) => [...h.slice(-29), initial]);
+      setFuture([]);
+      setModel(next);
+      dragModel.current = null;
+      select(key);
+    } else setModel(next);
   };
   const remove = () => {
     if (!editor || !selection) return;
@@ -298,6 +491,9 @@ export function AnalysisPage({
           next.mem = next.mem.filter((m) => m.id !== id);
         if (selection.type === "nodal")
           next.nl = next.nl.filter((m) => m.id !== id);
+        next.pl = next.pl.filter(
+          (l) => l.id !== id && next.mem.some((m) => m.id === l.member),
+        );
         commit(next);
       }
     }
@@ -358,6 +554,10 @@ export function AnalysisPage({
             <DropdownMenuItem onSelect={() => add("member")}>
               <Minus size={16} /> Barre
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => add("member-load")}>
+              <ArrowDown size={16} />
+              Force sur une barre
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("nodal")}>
               <ArrowDown size={16} /> Charge nodale
             </DropdownMenuItem>
@@ -383,6 +583,119 @@ export function AnalysisPage({
           </IconButton>
         }
       />
+      {desktop && (
+        <div className="desktop-parameter-bar" data-tour="parameters-inputs">
+          <div className="desktop-selection-caption">
+            <strong>
+              {selectedElement
+                ? `${selectedKeys.length} élément${selectedKeys.length > 1 ? "s" : ""}`
+                : "Modèle"}
+            </strong>
+            {selectedElement && (
+              <IconButton label="Désélectionner" onClick={clear}>
+                <X />
+              </IconButton>
+            )}
+          </div>
+          {selectedElement && selection ? (
+            <ElementEditor
+              key={selectedElement.key}
+              model={model}
+              selection={selection}
+              onChange={applyDesktop}
+              multiple={selectedKeys.length > 1}
+            />
+          ) : (
+            <>
+              {model.kind === "beam" && (
+                <Numeric
+                  label="Longueur L"
+                  value={model.L}
+                  min={0.1}
+                  max={1000}
+                  unit="m"
+                  onChange={(L) => commit(resizeBeam(model, L))}
+                />
+              )}
+              <Numeric
+                label="Module E"
+                value={
+                  model.kind === "beam" ? model.material.E / 1000 : model.E
+                }
+                min={0.001}
+                max={10000}
+                unit="GPa"
+                onChange={(E) =>
+                  commit(
+                    model.kind === "beam"
+                      ? {
+                          ...model,
+                          material: { ...model.material, E: E * 1000 },
+                        }
+                      : { ...model, E },
+                  )
+                }
+              />
+              <Toggle
+                label="Afficher les réactions"
+                checked={reactions && calculation.fresh}
+                onChange={requestReactions}
+              />
+            </>
+          )}
+          {selectedElement &&
+            ["section", "member"].includes(selection!.type) && (
+              <Choice
+                label="Dimension type"
+                value="custom"
+                options={[
+                  { value: "custom", label: "Choisir une section" },
+                  ...model.sectionTypes
+                    .filter((t) => t.kind === "beam" || t.kind === "column")
+                    .map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                onChange={(id) => {
+                  const t = model.sectionTypes.find((t) => t.id === id);
+                  if (t)
+                    commit(
+                      patchAnalysis(
+                        model,
+                        selectedKeys,
+                        model.kind === "beam"
+                          ? {
+                              shape: "rect",
+                              b: t.b / 100,
+                              h: t.h / 100,
+                              A: (t.b * t.h) / 1e4,
+                              I: (t.b * t.h ** 3) / 12 / 1e8,
+                              As: (model.kappa * t.b * t.h) / 1e4,
+                            }
+                          : { bw: t.b, h: t.h },
+                      ),
+                    );
+                }}
+              />
+            )}
+          <IconButton
+            label="Ouvrir les paramètres"
+            data-tour="parameters"
+            onClick={() => closeParameters(true)}
+          >
+            <SlidersHorizontal />
+          </IconButton>
+          <SectionTypes
+            value={model.sectionTypes}
+            onChange={(sectionTypes) => commit({ ...model, sectionTypes })}
+          />
+          <ShortcutHelp />
+        </div>
+      )}
+      <SceneMenu
+        point={menu}
+        onClose={() => setMenu(null)}
+        actions={actions}
+        canPaste={!!clipboard && clipboard.family === selectedElement?.family}
+      />
       <QuickAnalysis kind={kind} open={quick} onOpenChange={setQuick} />
       <div className="analysis-canvas-workspace" aria-busy={calculation.busy}>
         <Playground
@@ -394,18 +707,34 @@ export function AnalysisPage({
               ? `${selection.type}:${selection.id}`
               : null
           }
-          onDeselect={() => setSelection(null)}
+          selectedKeys={
+            desktop && displayView === "structure" ? selectedKeys : undefined
+          }
+          onElementContext={
+            desktop && displayView === "structure"
+              ? (key, point) => {
+                  if (!selectedKeys.includes(key)) select(key);
+                  setMenu(point);
+                }
+              : undefined
+          }
+          onElementDrag={
+            desktop && displayView === "structure" ? dragElement : undefined
+          }
+          onDeselect={clear}
           controls={
             <>
               <div className="canvas-tools-left">
-                <IconButton
-                  className="elevated-tool"
-                  label="Ouvrir les paramètres"
-                  data-tour="parameters"
-                  onClick={() => closeParameters(true)}
-                >
-                  <SlidersHorizontal />
-                </IconButton>
+                {!desktop && (
+                  <IconButton
+                    className="elevated-tool"
+                    label="Ouvrir les paramètres"
+                    data-tour="parameters"
+                    onClick={() => closeParameters(true)}
+                  >
+                    <SlidersHorizontal />
+                  </IconButton>
+                )}
                 {addMenu}
                 <IconButton
                   label="Annuler"
@@ -542,7 +871,7 @@ export function AnalysisPage({
         </Playground>
         <CalculationOverlay busy={calculation.busy} />
       </div>
-      <EditorSheet
+      <ParametersContainer
         open={parameters}
         onOpenChange={closeParameters}
         title="Paramètres du modèle"
@@ -553,8 +882,13 @@ export function AnalysisPage({
             label="Modèle prédéfini"
             value="current"
             onChange={(v) => {
-              if (v !== "current")
-                commit(kind === "beam" ? beamPreset(v) : framePreset(v));
+              if (v !== "current") {
+                clear();
+                commit({
+                  ...(kind === "beam" ? beamPreset(v) : framePreset(v)),
+                  sectionTypes: model.sectionTypes,
+                });
+              }
             }}
             options={
               kind === "beam"
@@ -826,7 +1160,7 @@ export function AnalysisPage({
             <X />
           </Button>
         </EditorFooter>
-      </EditorSheet>
+      </ParametersContainer>
       <EditorSheet
         open={resultsOpen}
         onOpenChange={closeResults}
@@ -1106,7 +1440,7 @@ export function AnalysisPage({
         </EditorFooter>
       </EditorSheet>
       <EditorSheet
-        open={!!editor}
+        open={!!editor && !desktop}
         title="Paramètres de l’élément"
         description="Les modifications s’appliquent après validation du formulaire."
         onOpenChange={(open) => {
@@ -1229,10 +1563,12 @@ function ElementEditor({
   model,
   selection,
   onChange,
+  multiple = false,
 }: {
   model: AnalysisModel;
   selection: Selection;
   onChange: (m: AnalysisModel) => void;
+  multiple?: boolean;
 }) {
   if (model.kind === "beam") {
     if (selection.type === "support") {
@@ -1247,6 +1583,7 @@ function ElementEditor({
       return (
         <div className="editor-fields">
           <Numeric
+            disabled={multiple}
             label="Position x"
             value={s.x}
             max={model.L}
@@ -1281,7 +1618,7 @@ function ElementEditor({
               onChange={(uy) => patch({ uy })}
             />
           )}
-          <Disclosure title="Liaisons et déplacements imposés">
+          <ParameterGroup title="Liaisons et déplacements imposés">
             {(["ux", "uy", "rz"] as const).map((axis) => (
               <div key={axis}>
                 <Choice
@@ -1345,7 +1682,7 @@ function ElementEditor({
               unit="mrad"
               onChange={(drz) => patch({ drz: drz / 1000 })}
             />
-          </Disclosure>
+          </ParameterGroup>
         </div>
       );
     }
@@ -1374,7 +1711,7 @@ function ElementEditor({
           <FormGrid>
             <Numeric
               label="Début x₁"
-              disabled={model.sections[0].id === s.id}
+              disabled={multiple || model.sections[0].id === s.id}
               value={s.x1}
               max={model.L}
               unit="m"
@@ -1382,7 +1719,10 @@ function ElementEditor({
             />
             <Numeric
               label="Fin x₂"
-              disabled={model.sections[model.sections.length - 1].id === s.id}
+              disabled={
+                multiple ||
+                model.sections[model.sections.length - 1].id === s.id
+              }
               value={s.x2}
               max={model.L}
               unit="m"
@@ -1452,6 +1792,7 @@ function ElementEditor({
       const h = model.hinges.find((h) => h.id === selection.id)!;
       return (
         <Numeric
+          disabled={multiple}
           label="Position de la rotule"
           value={h.x}
           min={0.001}
@@ -1491,6 +1832,7 @@ function ElementEditor({
           <>
             <FormGrid>
               <Numeric
+                disabled={multiple}
                 label="Début x₁"
                 value={l.x1}
                 max={model.L}
@@ -1498,6 +1840,7 @@ function ElementEditor({
                 onChange={(x1) => patch({ x1 })}
               />
               <Numeric
+                disabled={multiple}
                 label="Fin x₂"
                 value={l.x2}
                 max={model.L}
@@ -1525,6 +1868,7 @@ function ElementEditor({
         ) : (
           <>
             <Numeric
+              disabled={multiple}
               label="Position x"
               value={l.x}
               max={model.L}
@@ -1561,6 +1905,52 @@ function ElementEditor({
       </div>
     );
   }
+  if (model.kind === "frame" && selection.type === "member-load") {
+    const l = model.pl.find((v) => v.id === selection.id);
+    if (!l) return null;
+    const patch = (p: Partial<typeof l>) =>
+      onChange({
+        ...model,
+        pl: model.pl.map((v) => (v.id === l.id ? { ...v, ...p } : v)),
+      });
+    return (
+      <div className="editor-fields">
+        <Choice
+          disabled={multiple}
+          label="Barre porteuse"
+          value={l.member}
+          options={model.mem.map((m, i) => ({
+            value: m.id,
+            label: `B${i + 1}`,
+          }))}
+          onChange={(member) => patch({ member })}
+        />
+        <Numeric
+          disabled={multiple}
+          label="Position sur la barre"
+          value={l.t * 100}
+          min={0}
+          max={100}
+          unit="%"
+          onChange={(t) => patch({ t: t / 100 })}
+        />
+        <Numeric
+          label="Force horizontale Fx"
+          value={l.fx}
+          min={-1e6}
+          unit="kN"
+          onChange={(fx) => patch({ fx })}
+        />
+        <Numeric
+          label="Force verticale Fy"
+          value={l.fy}
+          min={-1e6}
+          unit="kN"
+          onChange={(fy) => patch({ fy })}
+        />
+      </div>
+    );
+  }
   if (selection.type === "node") {
     const n = model.nodes.find((n) => n.id === selection.id)!;
     const patch = (p: Partial<typeof n>) =>
@@ -1572,6 +1962,7 @@ function ElementEditor({
       <div className="editor-fields">
         <FormGrid>
           <Numeric
+            disabled={multiple}
             label="Abscisse x"
             value={n.x}
             min={-1000}
@@ -1580,6 +1971,7 @@ function ElementEditor({
             onChange={(x) => patch({ x })}
           />
           <Numeric
+            disabled={multiple}
             label="Ordonnée y"
             value={n.y}
             min={-1000}
@@ -1626,6 +2018,7 @@ function ElementEditor({
           {(["a", "b"] as const).map((axis) => (
             <Choice
               key={axis}
+              disabled={multiple}
               label={axis === "a" ? "Nœud de départ" : "Nœud d’arrivée"}
               value={String(b[axis])}
               options={model.nodes.map((_, i) => ({
@@ -1658,7 +2051,7 @@ function ElementEditor({
           unit="kN/m"
           onChange={(w) => patch({ w })}
         />
-        <Disclosure title="Charge dans le repère local">
+        <ParameterGroup title="Charge dans le repère local">
           <Numeric
             label="Charge locale qy"
             value={b.q}
@@ -1670,7 +2063,7 @@ function ElementEditor({
             Le repère local x va du nœud de départ au nœud d’arrivée ; y est sa
             normale antihoraire.
           </p>
-        </Disclosure>
+        </ParameterGroup>
       </div>
     );
   }
@@ -1684,6 +2077,7 @@ function ElementEditor({
   return (
     <div className="editor-fields">
       <Choice
+        disabled={multiple}
         label="Nœud chargé"
         value={String(l.n)}
         options={model.nodes.map((_, i) => ({
@@ -2228,6 +2622,47 @@ function FrameScene({
           </text>
         </g>
       ))}
+      {model.pl.map((l) => {
+        const m = model.mem.find((m) => m.id === l.member);
+        if (!m) return null;
+        const a = model.nodes[m.a - 1],
+          b = model.nodes[m.b - 1],
+          x = X(a.x + l.t * (b.x - a.x)),
+          y = Y(a.y + l.t * (b.y - a.y));
+        return (
+          <g
+            key={l.id}
+            data-element={`member-load:${l.id}`}
+            tabIndex={0}
+            role="button"
+            className="svg-element"
+          >
+            {l.fy !== 0 && (
+              <Arrow
+                x={x}
+                y={y - 55 * units * Math.sign(-l.fy)}
+                dy={55 * units * Math.sign(-l.fy)}
+                label={`${fmt(l.fy)} kN`}
+              />
+            )}
+            {l.fx !== 0 && (
+              <Arrow
+                x={x - 55 * units * Math.sign(l.fx)}
+                y={y}
+                dx={55 * units * Math.sign(l.fx)}
+                dy={0}
+                label={`${fmt(l.fx)} kN`}
+              />
+            )}
+            <circle
+              cx={x}
+              cy={y - 35 * units * Math.sign(-l.fy || 1)}
+              r={16 * units}
+              fill="transparent"
+            />
+          </g>
+        );
+      })}
       {model.nl.map((l) => {
         const n = model.nodes[l.n - 1];
         if (!n) return null;

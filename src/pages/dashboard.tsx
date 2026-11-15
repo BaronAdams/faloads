@@ -1,3 +1,4 @@
+import { requestNewStudy } from "@/components/new-study-dialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -302,7 +303,7 @@ export function Dashboard() {
                 key={type.id}
                 onClick={() => {
                   setPicker(false);
-                  navigate(`/new/${type.id}`);
+                  requestNewStudy(type.id);
                 }}
               >
                 <ProjectIcon type={type.id} size={44} />

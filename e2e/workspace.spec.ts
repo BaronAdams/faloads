@@ -73,12 +73,10 @@ test("native desktop has its own workbench while the browser keeps its sidebar",
     .click();
   await parameters(page);
   await page.getByRole("button", { name: /Force F2/ }).click();
-  const sheet = page.getByRole("dialog");
-  await expect(sheet).toHaveAttribute("data-editor-side", "left");
-  await expect
-    .poll(async () => Math.round((await sheet.boundingBox())!.x))
-    .toBe(0);
-  await sheet.getByRole("button", { name: "Annuler", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator(".desktop-parameter-bar")).toContainText(
+    "Force verticale Fy",
+  );
   await expect(page.getByTestId("selection-highlight")).toBeVisible();
   expect(
     await page
@@ -276,16 +274,21 @@ test("building influence selection highlights only real contributors without ope
   await ready(page);
   await page.goto("/#/new/building");
   await createStudy(page);
-  await page.getByRole("tab", { name: "Résultats", exact: true }).click();
-  await expect(
-    page.getByRole("heading", { name: "Résultats du niveau", exact: true }),
-  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Calculer le bâtiment", exact: true })
+    .click();
+  await expect(page.getByTestId("building-cumulative")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   const canvas = page.getByTestId("playground");
-  await canvas
+  const edge = (await canvas
     .locator('[data-element="edge|h:0:0"]')
     .locator("line")
     .last()
-    .click({ force: true });
+    .boundingBox())!;
+  await page.mouse.click(edge.x + edge.width / 2, edge.y + edge.height / 2);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.locator('[data-influence-active="true"]')).toHaveCount(1);
   await expect(page.getByTestId("selection-highlight")).toBeVisible();
@@ -306,12 +309,13 @@ test("building influence selection highlights only real contributors without ope
     .click();
   await page.getByRole("dialog").getByRole("switch").click();
   await page.getByRole("button", { name: "Appliquer", exact: true }).click();
-  await expect(page.locator(".building-calculation-bar")).toContainText(
+  await expect(page.locator(".canvas-result-status")).toContainText(
     "Calcul non actualisé",
   );
   await page
     .getByRole("button", { name: "Calculer le bâtiment", exact: true })
     .click();
   await expect(page.locator(".calculation-veil")).toHaveCount(0);
+  await expect(page.getByRole("alert")).toContainText("Appui");
   await expect(page.getByTestId("node-influence")).toHaveCount(0);
 });

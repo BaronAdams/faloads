@@ -251,9 +251,9 @@ describe("Load paths and plan", () => {
   it("accumulates storeys from top to ground without reversing the sequence", () => {
     const levels = [newLevel("Roof"), newLevel("Ground")];
     const rows = descent(levels, 9);
-    expect(rows[0].nElu).toBeCloseTo((1.35 * 3.54 + 1.5 * 1.5) * 9, 9);
+    expect(rows[0].nElu).toBeCloseTo((1.35 * 2.85 + 1.5 * 1.5) * 9, 9);
     expect(rows[1].nElu).toBeCloseTo(rows[0].nElu * 2, 9);
-    expect(rows[1].nEls).toBeCloseTo((3.54 + 1.5) * 18, 9);
+    expect(rows[1].nEls).toBeCloseTo((2.85 + 1.5) * 18, 9);
   });
   it("accumulates the original simplified wind force", () => {
     const rows = descent([newLevel("R+1"), newLevel("RDC")], 12, 4);

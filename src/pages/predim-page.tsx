@@ -1,3 +1,5 @@
+import { sectionTypesSchema } from "@/domain/section-types";
+import { SectionTypes } from "@/components/desktop-tools";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { Printer, BookmarkPlus } from "lucide-react";
@@ -33,6 +35,7 @@ import { useWorkspace } from "@/lib/workspace";
 import { fmt, uid } from "@/lib/utils";
 import { type Project } from "@/lib/storage";
 export const predimSchema = z.object({
+  sectionTypes: sectionTypesSchema,
   n: z.number().nonnegative().max(1e8),
   length: z.number().positive().max(1000),
   height: z.number().positive().max(1000),
@@ -56,6 +59,7 @@ export function predimDefaults(
   concrete = "C25/30",
 ): PredimModel {
   return {
+    sectionTypes: [],
     n: type === "column" ? 800 : 500,
     length:
       type === "wall"
@@ -448,6 +452,10 @@ export function PredimPage({
             </div>
             <p>{result.note}</p>
             <div className="formula mono">{result.formula}</div>
+            <SectionTypes
+              value={model.sectionTypes}
+              onChange={(sectionTypes) => patch({ sectionTypes })}
+            />
             {result.section && (
               <Button
                 variant="outline"
@@ -455,26 +463,24 @@ export function PredimPage({
                   const invalid =
                     document.querySelector<HTMLInputElement>("input:invalid");
                   if (invalid) return invalid.reportValidity();
-                  void update({
-                    presets: [
-                      ...workspace.presets,
+                  patch({
+                    sectionTypes: [
+                      ...model.sectionTypes,
                       {
                         id: uid(),
                         name: name || typeInfo(type).label,
-                        category:
+                        kind:
                           type === "beam-size"
-                            ? "poutre"
+                            ? "beam"
                             : type === "wall"
-                              ? "voile"
-                              : "poteau",
-                        ...result.section!,
+                              ? "wall"
+                              : "column",
+                        b: result.section!.a,
+                        h: result.section!.b ?? result.section!.a,
                       },
                     ],
-                  })
-                    .then(() =>
-                      toast.success("Section ajoutée aux préréglages."),
-                    )
-                    .catch(() => toast.error("Sauvegarde impossible."));
+                  });
+                  toast.success("Section conservée dans ce projet.");
                 }}
               >
                 <BookmarkPlus />
