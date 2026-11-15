@@ -1,3 +1,4 @@
+import { useDesktopCommands } from "@/lib/desktop-commands";
 import { runtime } from "@/lib/runtime";
 import {
   ParameterGroup,
@@ -566,6 +567,127 @@ export function AnalysisPage({
       </DropdownMenuContent>
     </DropdownMenu>
   );
+  useDesktopCommands({
+    "view:parameters": () => closeParameters(true),
+    "view:results": () => closeResults(true),
+    "study:calculate": () => void calculation.run(),
+    "help:shortcuts": () =>
+      document
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Raccourcis clavier et souris"]',
+        )
+        ?.click(),
+  });
+  const parameterToolbar = desktop ? (
+    <div className="desktop-parameter-bar" data-tour="parameters-inputs">
+      <div className="desktop-selection-caption">
+        <strong>
+          {selectedElement
+            ? `${selectedKeys.length} élément${selectedKeys.length > 1 ? "s" : ""}`
+            : "Modèle"}
+        </strong>
+        {selectedElement && (
+          <IconButton label="Désélectionner" onClick={clear}>
+            <X />
+          </IconButton>
+        )}
+      </div>
+      {selectedElement && selection ? (
+        <ElementEditor
+          key={selectedElement.key}
+          model={model}
+          selection={selection}
+          onChange={applyDesktop}
+          multiple={selectedKeys.length > 1}
+        />
+      ) : (
+        <>
+          {model.kind === "beam" && (
+            <Numeric
+              label="Longueur L"
+              value={model.L}
+              min={0.1}
+              max={1000}
+              unit="m"
+              onChange={(L) => commit(resizeBeam(model, L))}
+            />
+          )}
+          <Numeric
+            label="Module E"
+            value={model.kind === "beam" ? model.material.E / 1000 : model.E}
+            min={0.001}
+            max={10000}
+            unit="GPa"
+            onChange={(E) =>
+              commit(
+                model.kind === "beam"
+                  ? {
+                      ...model,
+                      material: { ...model.material, E: E * 1000 },
+                    }
+                  : { ...model, E },
+              )
+            }
+          />
+          <Toggle
+            label="Afficher les réactions"
+            checked={reactions && calculation.fresh}
+            onChange={requestReactions}
+          />
+        </>
+      )}
+      {selectedElement && ["section", "member"].includes(selection!.type) && (
+        <Choice
+          label="Dimension type"
+          value="custom"
+          options={[
+            { value: "custom", label: "Choisir une section" },
+            ...model.sectionTypes
+              .filter((t) => t.kind === "beam" || t.kind === "column")
+              .map((t) => ({ value: t.id, label: t.name })),
+          ]}
+          onChange={(id) => {
+            const t = model.sectionTypes.find((t) => t.id === id);
+            if (t)
+              commit(
+                patchAnalysis(
+                  model,
+                  selectedKeys,
+                  model.kind === "beam"
+                    ? {
+                        shape: "rect",
+                        b: t.b / 100,
+                        h: t.h / 100,
+                        A: (t.b * t.h) / 1e4,
+                        I: (t.b * t.h ** 3) / 12 / 1e8,
+                        As: (model.kappa * t.b * t.h) / 1e4,
+                      }
+                    : { bw: t.b, h: t.h },
+                ),
+              );
+          }}
+        />
+      )}
+    </div>
+  ) : undefined;
+  const headerTools = (
+    <>
+      <IconButton
+        label="Ouvrir les paramètres"
+        data-tour="parameters"
+        onClick={() => closeParameters(true)}
+      >
+        <SlidersHorizontal />
+      </IconButton>
+      <div className="project-auxiliary-tools">
+        <SectionTypes
+          value={model.sectionTypes}
+          onChange={(sectionTypes) => commit({ ...model, sectionTypes })}
+        />
+        <ShortcutHelp />
+      </div>
+    </>
+  );
   return (
     <div className="project-page analysis-page">
       <ProjectHeader
@@ -574,6 +696,9 @@ export function AnalysisPage({
         data={model}
         name={name}
         setName={setName}
+        workbench
+        toolbar={parameterToolbar}
+        tools={headerTools}
         extra={
           <IconButton
             label="Calcul simplifié G/Q"
@@ -583,113 +708,6 @@ export function AnalysisPage({
           </IconButton>
         }
       />
-      {desktop && (
-        <div className="desktop-parameter-bar" data-tour="parameters-inputs">
-          <div className="desktop-selection-caption">
-            <strong>
-              {selectedElement
-                ? `${selectedKeys.length} élément${selectedKeys.length > 1 ? "s" : ""}`
-                : "Modèle"}
-            </strong>
-            {selectedElement && (
-              <IconButton label="Désélectionner" onClick={clear}>
-                <X />
-              </IconButton>
-            )}
-          </div>
-          {selectedElement && selection ? (
-            <ElementEditor
-              key={selectedElement.key}
-              model={model}
-              selection={selection}
-              onChange={applyDesktop}
-              multiple={selectedKeys.length > 1}
-            />
-          ) : (
-            <>
-              {model.kind === "beam" && (
-                <Numeric
-                  label="Longueur L"
-                  value={model.L}
-                  min={0.1}
-                  max={1000}
-                  unit="m"
-                  onChange={(L) => commit(resizeBeam(model, L))}
-                />
-              )}
-              <Numeric
-                label="Module E"
-                value={
-                  model.kind === "beam" ? model.material.E / 1000 : model.E
-                }
-                min={0.001}
-                max={10000}
-                unit="GPa"
-                onChange={(E) =>
-                  commit(
-                    model.kind === "beam"
-                      ? {
-                          ...model,
-                          material: { ...model.material, E: E * 1000 },
-                        }
-                      : { ...model, E },
-                  )
-                }
-              />
-              <Toggle
-                label="Afficher les réactions"
-                checked={reactions && calculation.fresh}
-                onChange={requestReactions}
-              />
-            </>
-          )}
-          {selectedElement &&
-            ["section", "member"].includes(selection!.type) && (
-              <Choice
-                label="Dimension type"
-                value="custom"
-                options={[
-                  { value: "custom", label: "Choisir une section" },
-                  ...model.sectionTypes
-                    .filter((t) => t.kind === "beam" || t.kind === "column")
-                    .map((t) => ({ value: t.id, label: t.name })),
-                ]}
-                onChange={(id) => {
-                  const t = model.sectionTypes.find((t) => t.id === id);
-                  if (t)
-                    commit(
-                      patchAnalysis(
-                        model,
-                        selectedKeys,
-                        model.kind === "beam"
-                          ? {
-                              shape: "rect",
-                              b: t.b / 100,
-                              h: t.h / 100,
-                              A: (t.b * t.h) / 1e4,
-                              I: (t.b * t.h ** 3) / 12 / 1e8,
-                              As: (model.kappa * t.b * t.h) / 1e4,
-                            }
-                          : { bw: t.b, h: t.h },
-                      ),
-                    );
-                }}
-              />
-            )}
-          <IconButton
-            label="Ouvrir les paramètres"
-            data-tour="parameters"
-            onClick={() => closeParameters(true)}
-          >
-            <SlidersHorizontal />
-          </IconButton>
-          <SectionTypes
-            value={model.sectionTypes}
-            onChange={(sectionTypes) => commit({ ...model, sectionTypes })}
-          />
-          <ShortcutHelp />
-        </div>
-      )}
       <SceneMenu
         point={menu}
         onClose={() => setMenu(null)}
@@ -725,16 +743,6 @@ export function AnalysisPage({
           controls={
             <>
               <div className="canvas-tools-left">
-                {!desktop && (
-                  <IconButton
-                    className="elevated-tool"
-                    label="Ouvrir les paramètres"
-                    data-tour="parameters"
-                    onClick={() => closeParameters(true)}
-                  >
-                    <SlidersHorizontal />
-                  </IconButton>
-                )}
                 {addMenu}
                 <IconButton
                   label="Annuler"

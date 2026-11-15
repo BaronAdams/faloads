@@ -1,3 +1,4 @@
+import { DesktopMenu } from "@/components/desktop-menu";
 import { NewStudyDialog } from "@/components/new-study-dialog";
 import { ProjectGuide } from "@/components/project-guide";
 import { useEffect } from "react";
@@ -54,23 +55,27 @@ function Shell() {
     diagnostic("ui.ready");
     document.documentElement.dataset.appReady = "true";
   }, []);
+  const projectType = location.pathname.startsWith("/new/")
+    ? location.pathname.split("/")[2]
+    : workspace.projects.find((p) => location.pathname === `/project/${p.id}`)
+        ?.type;
+  const workbench = ["beam", "frame", "building"].includes(projectType ?? "");
   if (!workspace.onboarding) return <Onboarding />;
   return (
     <div
-      className={`app-shell${location.pathname === "/" ? " dashboard-shell" : ""}`}
+      className={`app-shell${location.pathname === "/" ? " dashboard-shell" : ""}${workbench ? " project-workbench-shell" : ""}`}
       data-testid="app-shell"
     >
       <NewStudyDialog />
       {runtime === "desktop" && (
-        <header className="desktop-commandbar">
-          <Link to="/" className="desktop-wordmark">
-            <span>σ</span> StructCalc
-          </Link>
-          <span className="desktop-context">Atelier de structure</span>
-          <Link to="/projects">
-            <FolderOpen size={16} /> Ouvrir un projet
-          </Link>
-        </header>
+        <DesktopMenu
+          editorActive={workbench}
+          projectActive={
+            !!projectType &&
+            (!!location.state?.newStudyName ||
+              location.pathname.startsWith("/project/"))
+          }
+        />
       )}
       <aside className="app-sidebar">
         <Link to="/" className="brand">

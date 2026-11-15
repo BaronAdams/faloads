@@ -102,7 +102,9 @@ test("mobile header respects the safe area while scrolling and uses a bottom edi
   await page.getByTestId("playground").scrollIntoViewIfNeeded();
   await expect
     .poll(async () =>
-      Math.round((await page.locator(".mobile-app-header").boundingBox())!.y),
+      Math.round(
+        (await page.getByTestId("project-workbench-header").boundingBox())!.y,
+      ),
     )
     .toBe(24);
   await page

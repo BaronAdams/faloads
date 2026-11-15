@@ -35,7 +35,9 @@ async function clickLine(page: Page, line: import("@playwright/test").Locator) {
   await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2);
 }
 async function canvasFocus(page: Page) {
+  await expect(page.getByRole("listbox")).toHaveCount(0);
   await page.getByTestId("playground").focus();
+  await expect(page.getByTestId("playground")).toBeFocused();
 }
 test.beforeEach(async ({ page }, info) => {
   test.skip(

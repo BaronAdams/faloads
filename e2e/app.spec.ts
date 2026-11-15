@@ -222,13 +222,21 @@ test("small viewport and enlarged text retain navigation without horizontal over
 
 test("simplified G/Q calculation responds to load edits in the mobile sheet", async ({
   page,
-}) => {
+}, info) => {
   await ready(page);
   await page.goto("/#/new/beam");
   await createStudy(page);
-  await page
-    .getByRole("button", { name: "Calcul simplifié G/Q", exact: true })
-    .click();
+  if (info.project.name === "mobile") {
+    await page
+      .getByRole("button", { name: "Autres actions du projet", exact: true })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Calcul simplifié G/Q", exact: true })
+      .click();
+  } else
+    await page
+      .getByRole("button", { name: "Calcul simplifié G/Q", exact: true })
+      .click();
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByRole("heading", { name: "Calcul simplifié G/Q" }),

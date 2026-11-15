@@ -72,6 +72,12 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
     expect(await page.evaluate(() => Boolean(window.__TAURI_INTERNALS__))).toBe(
       true,
     );
+    expect(
+      await page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke("desktop_menu_ready"),
+      ),
+    ).toBe(true);
+    await expect(page.locator(".desktop-menubar")).toHaveCount(0);
     if (mode === "default") {
       await page
         .getByRole("button", { name: "Passer la présentation" })
@@ -86,7 +92,14 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await page
         .getByRole("button", { name: "Explorer librement", exact: true })
         .click();
-      await page.getByRole("button", { name: "Calculer", exact: true }).click();
+      await expect(page.locator(".desktop-menubar")).toHaveCount(0);
+      // Exercise the same Tauri event channel used by the system menu.
+      await page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
+          event: "desktop-menu",
+          payload: "study:calculate",
+        }),
+      );
       await expect(page.locator(".canvas-result-status")).toContainText(
         "Calcul actualisé",
       );

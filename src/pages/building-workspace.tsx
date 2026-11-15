@@ -1,3 +1,4 @@
+import { useDesktopCommands } from "@/lib/desktop-commands";
 import { useEffect, useState } from "react";
 import {
   Plus,
@@ -697,6 +698,195 @@ export function BuildingPage({ project }: { project?: Project }) {
       <WindFields value={model} onChange={(v) => commit({ ...model, ...v })} />
     </>
   );
+  useDesktopCommands({
+    "view:parameters": () => openParameters(true),
+    "view:results": () => setResultsOpen(true),
+    "study:calculate": () => void run(),
+    "help:shortcuts": () =>
+      document
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Raccourcis clavier et souris"]',
+        )
+        ?.click(),
+  });
+  const floorControls = (
+    <div className="floor-toolbar">
+      <Choice
+        label="Niveau actif"
+        value={floor.id}
+        options={model.floors.map((f) => ({ value: f.id, label: f.name }))}
+        onChange={(id) =>
+          changeFloor(model.floors.findIndex((f) => f.id === id))
+        }
+      />
+      <div className="row-actions">
+        <IconButton
+          label="Annuler"
+          disabled={!history.length}
+          onClick={() => undo()}
+        >
+          <Undo2 />
+        </IconButton>
+        <IconButton
+          label="Rétablir"
+          disabled={!future.length}
+          onClick={() => undo(true)}
+        >
+          <Redo2 />
+        </IconButton>
+        <IconButton
+          label="Dupliquer"
+          onClick={() => {
+            const copy = {
+              ...structuredClone(floor),
+              id: uid(),
+              name: `R+${model.floors.length}`,
+            };
+            commit({ ...model, floors: [...model.floors, copy] });
+            changeFloor(model.floors.length);
+          }}
+        >
+          <Copy />
+        </IconButton>
+        <IconButton
+          label="Niveau"
+          onClick={() => {
+            commit({
+              ...model,
+              floors: [...model.floors, newFloor(`R+${model.floors.length}`)],
+            });
+            changeFloor(model.floors.length);
+          }}
+        >
+          <Plus />
+        </IconButton>
+        <IconButton
+          label="Monter le niveau"
+          disabled={active >= model.floors.length - 1}
+          onClick={() => {
+            const floors = [...model.floors];
+            [floors[active], floors[active + 1]] = [
+              floors[active + 1],
+              floors[active],
+            ];
+            commit({ ...model, floors });
+            changeFloor(active + 1);
+          }}
+        >
+          <ArrowUp />
+        </IconButton>
+        <IconButton
+          label="Descendre le niveau"
+          disabled={active <= 0}
+          onClick={() => {
+            const floors = [...model.floors];
+            [floors[active], floors[active - 1]] = [
+              floors[active - 1],
+              floors[active],
+            ];
+            commit({ ...model, floors });
+            changeFloor(active - 1);
+          }}
+        >
+          <ArrowDown />
+        </IconButton>
+        <IconButton
+          label="Supprimer le niveau actif"
+          disabled={model.floors.length === 1}
+          onClick={() => {
+            commit({
+              ...model,
+              floors: model.floors.filter((f) => f.id !== floor.id),
+            });
+            changeFloor(0);
+          }}
+        >
+          <Trash2 />
+        </IconButton>
+      </div>
+    </div>
+  );
+  const contextualParameters = desktop ? (
+    <div className="desktop-parameter-bar">
+      <div className="desktop-selection-caption">
+        <strong>
+          {selection
+            ? `${selectedKeys.length} élément${selectedKeys.length > 1 ? "s" : ""}`
+            : "Grille de l’étage"}
+        </strong>
+        {selection && (
+          <IconButton label="Désélectionner" onClick={clear}>
+            <X />
+          </IconButton>
+        )}
+      </div>
+      {selection ? (
+        selectionFields()
+      ) : (
+        <>
+          <Numeric
+            label="Hauteur d’étage"
+            value={floor.height}
+            unit="m"
+            min={0.1}
+            max={100}
+            onChange={(height) => patchFloor({ ...floor, height })}
+          />
+          <div data-tour="building-inputs">
+            <Numeric
+              label="X · travée 1"
+              value={floor.spanX[0]}
+              min={0.1}
+              max={100}
+              unit="m"
+              onChange={(x) =>
+                patchFloor({
+                  ...floor,
+                  spanX: floor.spanX.map((v, i) => (i === 0 ? x : v)),
+                })
+              }
+            />
+          </div>
+          <Numeric
+            label="Y · travée 1"
+            value={floor.spanY[0]}
+            min={0.1}
+            max={100}
+            unit="m"
+            onChange={(y) =>
+              patchFloor({
+                ...floor,
+                spanY: floor.spanY.map((v, i) => (i === 0 ? y : v)),
+              })
+            }
+          />
+        </>
+      )}
+    </div>
+  ) : null;
+  const headerTools = (
+    <>
+      {desktop && selection && (
+        <IconButton
+          label="Détails de la sélection"
+          className="project-details-tool"
+          onClick={() => setDetails(true)}
+        >
+          <Settings2 />
+        </IconButton>
+      )}
+      <IconButton
+        label="Ouvrir les paramètres"
+        data-tour="parameters"
+        onClick={() => openParameters(true)}
+      >
+        <SlidersHorizontal />
+      </IconButton>
+      <div className="project-auxiliary-tools">
+        <ShortcutHelp />
+      </div>
+    </>
+  );
   const ParametersContainer = desktop ? DetailDialog : EditorSheet;
   return (
     <div
@@ -708,6 +898,14 @@ export function BuildingPage({ project }: { project?: Project }) {
         data={model}
         name={name}
         setName={setName}
+        workbench
+        toolbar={
+          <>
+            {floorControls}
+            {contextualParameters}
+          </>
+        }
+        tools={headerTools}
         extra={
           <SectionTypes
             value={model.sectionTypes}
@@ -715,179 +913,6 @@ export function BuildingPage({ project }: { project?: Project }) {
           />
         }
       />
-      <div className="floor-toolbar">
-        <Choice
-          label="Niveau actif"
-          value={floor.id}
-          options={model.floors.map((f) => ({ value: f.id, label: f.name }))}
-          onChange={(id) =>
-            changeFloor(model.floors.findIndex((f) => f.id === id))
-          }
-        />
-        <div className="row-actions">
-          <IconButton
-            label="Annuler"
-            disabled={!history.length}
-            onClick={() => undo()}
-          >
-            <Undo2 />
-          </IconButton>
-          <IconButton
-            label="Rétablir"
-            disabled={!future.length}
-            onClick={() => undo(true)}
-          >
-            <Redo2 />
-          </IconButton>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const copy = {
-                ...structuredClone(floor),
-                id: uid(),
-                name: `R+${model.floors.length}`,
-              };
-              commit({ ...model, floors: [...model.floors, copy] });
-              changeFloor(model.floors.length);
-            }}
-          >
-            <Copy />
-            Dupliquer
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              commit({
-                ...model,
-                floors: [...model.floors, newFloor(`R+${model.floors.length}`)],
-              });
-              changeFloor(model.floors.length);
-            }}
-          >
-            <Plus />
-            Niveau
-          </Button>
-          <IconButton
-            label="Monter le niveau"
-            disabled={active >= model.floors.length - 1}
-            onClick={() => {
-              const floors = [...model.floors];
-              [floors[active], floors[active + 1]] = [
-                floors[active + 1],
-                floors[active],
-              ];
-              commit({ ...model, floors });
-              changeFloor(active + 1);
-            }}
-          >
-            <ArrowUp />
-          </IconButton>
-          <IconButton
-            label="Descendre le niveau"
-            disabled={active <= 0}
-            onClick={() => {
-              const floors = [...model.floors];
-              [floors[active], floors[active - 1]] = [
-                floors[active - 1],
-                floors[active],
-              ];
-              commit({ ...model, floors });
-              changeFloor(active - 1);
-            }}
-          >
-            <ArrowDown />
-          </IconButton>
-          <IconButton
-            label="Supprimer le niveau actif"
-            disabled={model.floors.length === 1}
-            onClick={() => {
-              commit({
-                ...model,
-                floors: model.floors.filter((f) => f.id !== floor.id),
-              });
-              changeFloor(0);
-            }}
-          >
-            <Trash2 />
-          </IconButton>
-        </div>
-      </div>
-      {desktop && (
-        <div className="desktop-parameter-bar">
-          <div className="desktop-selection-caption">
-            <strong>
-              {selection
-                ? `${selectedKeys.length} élément${selectedKeys.length > 1 ? "s" : ""}`
-                : "Grille de l’étage"}
-            </strong>
-            {selection && (
-              <IconButton label="Désélectionner" onClick={clear}>
-                <X />
-              </IconButton>
-            )}
-          </div>
-          {selection ? (
-            selectionFields()
-          ) : (
-            <>
-              <Numeric
-                label="Hauteur d’étage"
-                value={floor.height}
-                unit="m"
-                min={0.1}
-                max={100}
-                onChange={(height) => patchFloor({ ...floor, height })}
-              />
-              <div data-tour="building-inputs">
-                <Numeric
-                  label="X · travée 1"
-                  value={floor.spanX[0]}
-                  min={0.1}
-                  max={100}
-                  unit="m"
-                  onChange={(x) =>
-                    patchFloor({
-                      ...floor,
-                      spanX: floor.spanX.map((v, i) => (i === 0 ? x : v)),
-                    })
-                  }
-                />
-              </div>
-              <Numeric
-                label="Y · travée 1"
-                value={floor.spanY[0]}
-                min={0.1}
-                max={100}
-                unit="m"
-                onChange={(y) =>
-                  patchFloor({
-                    ...floor,
-                    spanY: floor.spanY.map((v, i) => (i === 0 ? y : v)),
-                  })
-                }
-              />
-            </>
-          )}
-          {selection && (
-            <IconButton
-              label="Détails de la sélection"
-              onClick={() => setDetails(true)}
-            >
-              <Settings2 />
-            </IconButton>
-          )}
-          <IconButton
-            label="Ouvrir les paramètres"
-            data-tour="parameters"
-            onClick={() => openParameters(true)}
-          >
-            <SlidersHorizontal />
-          </IconButton>
-          <ShortcutHelp />
-        </div>
-      )}
       <SceneMenu
         point={menu}
         onClose={() => setMenu(null)}
@@ -899,9 +924,57 @@ export function BuildingPage({ project }: { project?: Project }) {
           immersive
           height={650}
           label={view === "plan" ? "Plan du niveau" : "Vue 3D du bâtiment"}
-          selected={selection}
-          selectedKeys={desktop ? selectedKeys : undefined}
-          onSelect={view === "plan" ? select : undefined}
+          selected={
+            view === "plan"
+              ? selection
+              : selection
+                ? `${floor.id}|${selection}`
+                : null
+          }
+          selectedKeys={desktop && view === "plan" ? selectedKeys : undefined}
+          onSelect={
+            view === "plan"
+              ? select
+              : (key) => {
+                  const [id, ...parts] = key.split("|");
+                  const i = model.floors.findIndex((f) => f.id === id);
+                  if (i < 0) return;
+                  setActive(i);
+                  setSelection(parts.join("|"));
+                  setSelectedKeys([parts.join("|")]);
+                  if (!desktop) setEditor(structuredClone(model.floors[i]));
+                }
+          }
+          onOrbit={
+            view === "3d"
+              ? (delta) => {
+                  setYaw((value) =>
+                    Number(
+                      (
+                        ((((value + delta.x * 0.35) % 360) + 540) % 360) -
+                        180
+                      ).toFixed(1),
+                    ),
+                  );
+                  setPitch((value) =>
+                    Number(
+                      Math.max(
+                        -80,
+                        Math.min(80, value + delta.y * 0.3),
+                      ).toFixed(1),
+                    ),
+                  );
+                }
+              : undefined
+          }
+          onReset={
+            view === "3d"
+              ? () => {
+                  setYaw(35);
+                  setPitch(28);
+                }
+              : undefined
+          }
           onDeselect={() => {
             if (view === "plan") clear();
           }}
@@ -916,20 +989,16 @@ export function BuildingPage({ project }: { project?: Project }) {
           controls={
             <>
               <div className="canvas-tools-left">
-                {!desktop && (
-                  <IconButton
-                    label="Ouvrir les paramètres"
-                    data-tour="parameters"
-                    onClick={() => openParameters(true)}
-                  >
-                    <SlidersHorizontal />
-                  </IconButton>
-                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button size="sm" variant="outline" data-tour="add">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-tour="add"
+                      aria-label="Ajouter"
+                    >
                       <Plus />
-                      Ajouter
+                      <span className="canvas-add-label">Ajouter</span>
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
@@ -1059,7 +1128,7 @@ export function BuildingPage({ project }: { project?: Project }) {
                     <Numeric
                       label="Inclinaison 3D"
                       value={pitch}
-                      min={5}
+                      min={-80}
                       max={80}
                       unit="°"
                       onChange={setPitch}
@@ -1082,6 +1151,11 @@ export function BuildingPage({ project }: { project?: Project }) {
                   <Minus />
                   Poutre la plus chargée
                 </Button>
+                {view === "3d" && (
+                  <span className="orbit-hint">
+                    Glisser : pivoter · Espace + glisser : déplacer
+                  </span>
+                )}
               </div>
               <div className="canvas-result-status">
                 <CalculationStatus
@@ -1193,12 +1267,6 @@ export function BuildingPage({ project }: { project?: Project }) {
                     ? `${floor.id}|${selection}`
                     : undefined
               }
-              onSelect={(i, k) => {
-                setActive(i);
-                setSelection(k);
-                setSelectedKeys([k]);
-                if (!desktop) setEditor(structuredClone(model.floors[i]));
-              }}
             />
           )}
         </Playground>

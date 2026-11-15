@@ -12,6 +12,7 @@ import "./styles/entry-pages.css";
 import "./styles/workspace.css";
 import "./styles/study-experience.css";
 import "./styles/desktop-editor.css";
+import "./styles/workbench-header.css";
 import { runtime } from "./lib/runtime";
 document.documentElement.dataset.runtime = runtime;
 if (runtime === "desktop") {

@@ -1,3 +1,5 @@
+#[cfg(all(feature = "app", desktop))]
+mod desktop_menu;
 pub mod windows_launch;
 pub mod workspace;
 
@@ -44,6 +46,36 @@ mod application {
         }
     }
 
+    #[tauri::command]
+    pub fn desktop_menu_ready(app: tauri::AppHandle) -> bool {
+        #[cfg(desktop)]
+        {
+            return crate::desktop_menu::desktop_menu_ready(app);
+        }
+        #[cfg(mobile)]
+        {
+            let _ = app;
+            false
+        }
+    }
+    #[tauri::command]
+    pub fn set_menu_context(
+        app: tauri::AppHandle,
+        project: bool,
+        editor: bool,
+    ) -> Result<(), String> {
+        #[cfg(desktop)]
+        {
+            return crate::desktop_menu::set_menu_context(app, project, editor)
+                .map_err(|e| e.to_string());
+        }
+        #[cfg(mobile)]
+        {
+            let _ = (app, project, editor);
+            Ok(())
+        }
+    }
+
     pub fn start() {
         tauri::Builder::default()
             .plugin(tauri_plugin_dialog::init())
@@ -58,6 +90,8 @@ mod application {
                 let directory = app.path().app_data_dir()?;
                 app.manage(Storage(Mutex::new(Repository::new(directory))));
                 log::info!("native.start");
+                #[cfg(desktop)]
+                crate::desktop_menu::install(app.handle())?;
                 #[cfg(target_os = "windows")]
                 {
                     use crate::windows_launch::WindowsLaunch;
@@ -92,7 +126,9 @@ mod application {
             .invoke_handler(tauri::generate_handler![
                 read_workspace,
                 write_workspace,
-                diagnostic
+                diagnostic,
+                desktop_menu_ready,
+                set_menu_context
             ])
             .run(tauri::generate_context!())
             .expect("StructCalc could not initialize the native runtime");

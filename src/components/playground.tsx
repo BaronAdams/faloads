@@ -8,7 +8,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { Hand, LocateFixed, Minus, MousePointer2, Plus } from "lucide-react";
+import {
+  Rotate3D,
+  Hand,
+  LocateFixed,
+  Minus,
+  MousePointer2,
+  Plus,
+} from "lucide-react";
+import { useDesktopCommands } from "@/lib/desktop-commands";
 import { Button } from "./ui/button";
 import { IconButton } from "./common";
 interface View {
@@ -30,8 +38,12 @@ export function Playground({
   selectedKeys,
   onElementContext,
   onElementDrag,
+  onOrbit,
+  onReset,
 }: {
   children: ReactNode;
+  onOrbit?: (delta: { x: number; y: number }) => void;
+  onReset?: () => void;
   onSelect?: (key: string, additive?: boolean) => void;
   selectedKeys?: string[];
   onElementContext?: (key: string, point: { x: number; y: number }) => void;
@@ -71,6 +83,7 @@ export function Playground({
       right: boolean;
       shift: boolean;
     } | null>(null),
+    pinch = useRef(false),
     pattern = useId().replace(/:/g, "");
   const apply = (next: View) => {
     v.current = next;
@@ -161,6 +174,15 @@ export function Playground({
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
   }, []);
+  const reset = () => {
+    apply({ k: 1, x: 0, y: 0 });
+    onReset?.();
+  };
+  useDesktopCommands({
+    "view:zoom-in": () => zoom(1.2),
+    "view:zoom-out": () => zoom(1 / 1.2),
+    "view:reset": reset,
+  });
   const positions = () => [...points.current.values()];
   return (
     <section
@@ -175,12 +197,12 @@ export function Playground({
           <Button
             size="sm"
             variant={!hand ? "secondary" : "ghost"}
-            aria-label="Sélection"
+            aria-label={onOrbit ? "Pivoter" : "Sélection"}
             onClick={() => setHand(false)}
             aria-pressed={!hand}
           >
-            <MousePointer2 size={15} />
-            <span>Sélection</span>
+            {onOrbit ? <Rotate3D size={15} /> : <MousePointer2 size={15} />}
+            <span>{onOrbit ? "Pivoter" : "Sélection"}</span>
           </Button>
           <Button
             size="sm"
@@ -202,7 +224,7 @@ export function Playground({
         style={
           {
             height,
-            cursor: hand ? "grab" : "default",
+            cursor: hand || onOrbit ? "grab" : "default",
             touchAction: "none",
             "--drawing-text-size": `${12 * geometry.units}px`,
             "--drawing-number-size": `${11 * geometry.units}px`,
@@ -226,7 +248,17 @@ export function Playground({
           }
           if (e.key === "+") zoom(1.2);
           if (e.key === "-") zoom(1 / 1.2);
-          if (e.key === "0") apply({ k: 1, x: 0, y: 0 });
+          if (e.key === "0") reset();
+          if (
+            onOrbit &&
+            ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(e.key)
+          ) {
+            e.preventDefault();
+            onOrbit({
+              x: e.key === "ArrowLeft" ? -15 : e.key === "ArrowRight" ? 15 : 0,
+              y: e.key === "ArrowUp" ? -15 : e.key === "ArrowDown" ? 15 : 0,
+            });
+          }
         }}
         onKeyUp={(e) => {
           if (e.code === "Space") space.current = false;
@@ -237,6 +269,7 @@ export function Playground({
         onPointerDown={(e) => {
           const p = local(e.clientX, e.clientY);
           points.current.set(e.pointerId, p);
+          if (points.current.size > 1) pinch.current = true;
           const key =
             (e.target as Element)
               .closest("[data-element]")
@@ -258,6 +291,7 @@ export function Playground({
             hand ||
             space.current ||
             e.button === 1 ||
+            onOrbit ||
             e.pointerType === "touch"
           )
             svg.current!.setPointerCapture(e.pointerId);
@@ -304,10 +338,30 @@ export function Playground({
             });
             if (drag.current) drag.current.moved = true;
           } else if (
+            onOrbit &&
+            drag.current &&
+            !hand &&
+            !space.current &&
+            (e.buttons === 1 || e.pointerType === "touch")
+          ) {
+            if (
+              !pinch.current &&
+              (drag.current.moved ||
+                Math.hypot(p.x - drag.current.x, p.y - drag.current.y) >
+                  4 * geometry.units)
+            ) {
+              drag.current.moved = true;
+              onOrbit({
+                x: (p.x - old.x) / geometry.units,
+                y: (p.y - old.y) / geometry.units,
+              });
+            }
+          } else if (
             drag.current &&
             (hand ||
               space.current ||
               e.buttons === 4 ||
+              (onOrbit && e.buttons === 2) ||
               e.pointerType === "touch")
           ) {
             apply({
@@ -321,6 +375,8 @@ export function Playground({
         }}
         onPointerUp={(e) => {
           points.current.delete(e.pointerId);
+          if (pinch.current && drag.current) drag.current.moved = true;
+          if (!points.current.size) pinch.current = false;
           if (drag.current?.right) {
             const d = drag.current;
             if (d.key && onElementContext) {
@@ -369,12 +425,13 @@ export function Playground({
           drag.current = null;
         }}
         onContextMenu={(e) => {
-          if (onElementContext) e.preventDefault();
+          if (onElementContext || onOrbit) e.preventDefault();
         }}
         onPointerCancel={(e) => {
           if (drag.current?.right && drag.current.key)
             onElementDrag?.(drag.current.key, { x: 0, y: 0 }, "cancel");
           points.current.delete(e.pointerId);
+          if (!points.current.size) pinch.current = false;
           drag.current = null;
         }}
       >
@@ -427,11 +484,7 @@ export function Playground({
           <IconButton label="Augmenter le zoom" onClick={() => zoom(1.2)}>
             <Plus />
           </IconButton>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => apply({ k: 1, x: 0, y: 0 })}
-          >
+          <Button size="sm" variant="ghost" onClick={reset}>
             <LocateFixed />
             Recentrer
           </Button>

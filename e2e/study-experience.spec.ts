@@ -66,7 +66,10 @@ test("explicit naming and action-driven guide complete, persist and replay", asy
   expect(guides.beam.completed).toBe(true);
   expect(guides.frame).toBeUndefined();
   await page
-    .getByRole("button", { name: "Rejouer le guide", exact: true })
+    .getByRole("button", { name: "Autres actions du projet", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Rejouer le guide", exact: true })
     .click();
   await expect(coach).toContainText("Commencez par le modèle");
   await page

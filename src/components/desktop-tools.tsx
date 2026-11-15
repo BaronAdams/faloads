@@ -26,6 +26,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Choice, Numeric, IconButton, Disclosure } from "./common";
+import { useDesktopCommands } from "@/lib/desktop-commands";
 import { runtime } from "@/lib/runtime";
 import { uid } from "@/lib/utils";
 import { type SectionType } from "@/domain/section-types";
@@ -44,6 +45,19 @@ export function useEditorKeys(
   actions: EditorActions,
   enabled = runtime === "desktop",
 ) {
+  useDesktopCommands(
+    enabled
+      ? {
+          "edit:copy": actions.copy,
+          "edit:paste": actions.paste,
+          "edit:delete": actions.remove,
+          "edit:select-all": actions.all,
+          "edit:undo": () => actions.undo(),
+          "edit:redo": () => actions.undo(true),
+          "edit:add": actions.add,
+        }
+      : {},
+  );
   const latest = useRef(actions);
   latest.current = actions;
   useEffect(() => {
@@ -329,6 +343,10 @@ export function ShortcutHelp() {
         <dl className="shortcut-list">
           {[
             ["Clic gauche", "Sélectionner"],
+            ["Glisser dans la vue 3D", "Pivoter le bâtiment"],
+            ["Un doigt dans la vue 3D", "Pivoter"],
+            ["Deux doigts", "Zoomer et déplacer la vue 3D"],
+            ["0 · Recentrer", "Restaurer le cadrage et les angles 3D"],
             ["Shift + clic", "Ajouter / retirer de la sélection"],
             ["Clic droit", "Actions de l’élément"],
             [

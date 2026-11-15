@@ -23,7 +23,6 @@ export function Building3D({
   yaw,
   pitch,
   selected,
-  onSelect,
   activeFloor,
   annotations,
   allLevels,
@@ -34,7 +33,6 @@ export function Building3D({
   yaw: number;
   pitch: number;
   selected?: string;
-  onSelect: (floor: number, key: string) => void;
   activeFloor: string;
   annotations: "slabs" | "beams" | "columns" | "all";
   allLevels: boolean;
@@ -130,11 +128,13 @@ export function Building3D({
           depth: center.depth,
           render: (
             <g
-              data-building-element={`${f.id}|panel|${key}`}
-              onClick={() => onSelect(i, `panel|${key}`)}
+              data-element={`${f.id}|panel|${key}`}
+              role="button"
+              tabIndex={0}
               className="svg-element"
             >
               <polygon
+                data-selection-bounds="true"
                 points={polygon.map((p) => `${p.x},${p.y}`).join(" ")}
                 fill={chosen ? "var(--orange)" : "var(--teal)"}
                 fillOpacity={chosen ? 0.5 : 0.12}
@@ -177,11 +177,13 @@ export function Building3D({
           depth: (from.depth + to.depth) / 2 + 0.01,
           render: (
             <g
-              data-building-element={`${f.id}|edge|${key}`}
-              onClick={() => onSelect(i, `edge|${key}`)}
+              data-element={`${f.id}|edge|${key}`}
+              role="button"
+              tabIndex={0}
               className="svg-element"
             >
               <line
+                data-selection-bounds="true"
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}
@@ -221,11 +223,13 @@ export function Building3D({
           depth: (from.depth + to.depth) / 2 + 0.02,
           render: (
             <g
-              data-building-element={`${f.id}|node|${key}`}
-              onClick={() => onSelect(i, `node|${key}`)}
+              data-element={`${f.id}|node|${key}`}
+              role="button"
+              tabIndex={0}
               className="svg-element"
             >
               <line
+                data-selection-bounds="true"
                 x1={from.x}
                 y1={from.y}
                 x2={to.x}
@@ -263,8 +267,13 @@ export function Building3D({
         key: `${f.id}o${o.id}`,
         depth: (from.depth + to.depth) / 2,
         render: (
-          <g onClick={() => onSelect(i, `oblique|${o.id}`)}>
+          <g
+            data-element={`${f.id}|oblique|${o.id}`}
+            role="button"
+            tabIndex={0}
+          >
             <line
+              data-selection-bounds="true"
               x1={from.x}
               y1={from.y}
               x2={to.x}
@@ -290,7 +299,12 @@ export function Building3D({
     }
   }
   return (
-    <g className="building-3d" data-testid="building-3d">
+    <g
+      className="building-3d"
+      data-testid="building-3d"
+      data-yaw={yaw}
+      data-pitch={pitch}
+    >
       {shapes
         .sort((a, b) => a.depth - b.depth)
         .map((s) => (

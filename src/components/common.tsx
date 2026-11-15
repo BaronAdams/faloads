@@ -5,6 +5,14 @@ import {
   DialogTitle,
   DialogDescription,
 } from "./ui/dialog";
+import { useCompactViewport } from "@/lib/runtime";
+import { desktopCommand, useDesktopCommands } from "@/lib/desktop-commands";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "./ui/dropdown-menu";
 import { studyAction } from "@/lib/study-events";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -19,6 +27,7 @@ import {
   LoaderCircle,
   Save,
   TriangleAlert,
+  Ellipsis,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "./ui/button";
@@ -161,7 +170,9 @@ export function Choice({
   const id = useId();
   return (
     <div className="field">
-      <Label htmlFor={id}>{label}</Label>
+      <Label htmlFor={id} title={typeof label === "string" ? label : undefined}>
+        {label}
+      </Label>
       <Select
         disabled={disabled}
         value={value}
@@ -222,7 +233,7 @@ export function Numeric({
   }, [value]);
   return (
     <div className="field">
-      <Label htmlFor={id}>
+      <Label htmlFor={id} title={typeof label === "string" ? label : undefined}>
         {labelColor && (
           <i
             className="field-swatch"
@@ -316,6 +327,9 @@ export function ProjectHeader({
   name,
   setName,
   extra,
+  toolbar,
+  tools,
+  workbench = false,
 }: {
   type: ProjectType;
   project?: Project;
@@ -323,8 +337,13 @@ export function ProjectHeader({
   name: string;
   setName: (v: string) => void;
   extra?: ReactNode;
+  toolbar?: ReactNode;
+  tools?: ReactNode;
+  workbench?: boolean;
 }) {
   const location = useLocation();
+  const compact = useCompactViewport();
+  const extraRef = useRef<HTMLDivElement>(null);
   const initialName = location.state?.newStudyName as string | undefined;
   const nav = useNavigate(),
     { saveProject, temporary } = useWorkspace(),
@@ -370,8 +389,33 @@ export function ProjectHeader({
       setSaving(false);
     }
   };
+  const exportStudy = () =>
+    void exportJson(`${name || type}.structcalc.json`, {
+      format: "structcalc-project",
+      version: 1,
+      project: {
+        id: project?.id ?? uid(),
+        name: name.trim() || typeInfo(type).label,
+        type,
+        updatedAt: new Date().toISOString(),
+        data,
+      },
+    }).catch(() => toast.error("Export impossible."));
+  const rename = () => {
+    setNameDraft(name);
+    setNaming(true);
+  };
+  useDesktopCommands({
+    "file:save": () => void save(),
+    "file:export": exportStudy,
+    "file:rename": rename,
+    "help:guide": () => studyAction("guide:replay"),
+  });
   return (
-    <header className="project-header compact-project-header">
+    <header
+      className={`project-header compact-project-header${workbench ? " workbench-project-header" : ""}`}
+      data-testid={workbench ? "project-workbench-header" : undefined}
+    >
       <Dialog
         open={naming}
         onOpenChange={(open) => {
@@ -447,6 +491,7 @@ export function ProjectHeader({
             setNameDraft(name);
             setNaming(true);
           }}
+          title={name}
           aria-label={`Renommer le projet ${name}`}
         >
           <h1>{name}</h1>
@@ -454,32 +499,100 @@ export function ProjectHeader({
         </button>
         <span className="study-type-description">{typeInfo(type).label}</span>
       </div>
+      {toolbar && <div className="project-header-toolbar">{toolbar}</div>}
       <div className="project-actions">
-        {extra}
-        <IconButton
-          label="Rejouer le guide"
-          onClick={() => studyAction("guide:replay")}
-        >
-          <CircleHelp />
-        </IconButton>
-        <IconButton
-          label="Exporter le projet"
-          onClick={() =>
-            void exportJson(`${name || type}.structcalc.json`, {
-              format: "structcalc-project",
-              version: 1,
-              project: {
-                id: project?.id ?? uid(),
-                name: name.trim() || typeInfo(type).label,
-                type,
-                updatedAt: new Date().toISOString(),
-                data,
-              },
-            }).catch(() => toast.error("Export impossible."))
-          }
-        >
-          <Download />
-        </IconButton>
+        {tools}
+        {extra && (
+          <div
+            ref={extraRef}
+            className={`project-extra${workbench && compact ? " project-extra-in-menu" : ""}`}
+          >
+            {extra}
+          </div>
+        )}
+        {workbench ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <IconButton label="Autres actions du projet">
+                <Ellipsis />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {compact && extra && (
+                <DropdownMenuItem
+                  onSelect={() =>
+                    extraRef.current
+                      ?.querySelector<HTMLButtonElement>("button")
+                      ?.click()
+                  }
+                >
+                  {type === "building"
+                    ? "Dimensions types du projet"
+                    : "Calcul simplifié G/Q"}
+                </DropdownMenuItem>
+              )}
+              {compact && ["beam", "frame"].includes(type) && (
+                <DropdownMenuItem
+                  onSelect={() =>
+                    document
+                      .querySelector<HTMLButtonElement>(
+                        '.workbench-project-header [aria-label="Dimensions types du projet"]',
+                      )
+                      ?.click()
+                  }
+                >
+                  Dimensions types du projet
+                </DropdownMenuItem>
+              )}
+              {compact && (
+                <DropdownMenuItem
+                  onSelect={() => desktopCommand("help:shortcuts")}
+                >
+                  Raccourcis clavier et souris
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={rename}>
+                <Pencil />
+                Renommer le projet
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportStudy}>
+                <Download />
+                Exporter le projet
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => studyAction("guide:replay")}>
+                <CircleHelp />
+                Rejouer le guide
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <>
+            <IconButton
+              label="Rejouer le guide"
+              onClick={() => studyAction("guide:replay")}
+            >
+              <CircleHelp />
+            </IconButton>
+            <IconButton
+              label="Exporter le projet"
+              onClick={() =>
+                void exportJson(`${name || type}.structcalc.json`, {
+                  format: "structcalc-project",
+                  version: 1,
+                  project: {
+                    id: project?.id ?? uid(),
+                    name: name.trim() || typeInfo(type).label,
+                    type,
+                    updatedAt: new Date().toISOString(),
+                    data,
+                  },
+                }).catch(() => toast.error("Export impossible."))
+              }
+            >
+              <Download />
+            </IconButton>
+          </>
+        )}
         <Button
           aria-label={
             saving
@@ -499,9 +612,11 @@ export function ProjectHeader({
           ) : (
             <Save />
           )}
-          <span className="button-text">
-            {saved ? "Enregistré" : "Enregistrer"}
-          </span>
+          {!workbench && (
+            <span className="button-text">
+              {saved ? "Enregistré" : "Enregistrer"}
+            </span>
+          )}
         </Button>
       </div>
     </header>
