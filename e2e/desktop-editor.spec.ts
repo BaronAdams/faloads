@@ -22,8 +22,16 @@ async function native(page: Page) {
   );
 }
 async function saved(page: Page) {
+  const previous = page.url().includes("/new/")
+    ? await page.getByTestId("playground").elementHandle()
+    : null;
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await expect(page).toHaveURL(/project\//);
+  if (previous)
+    await expect
+      .poll(() => previous.evaluate((el) => el.isConnected))
+      .toBe(false);
+  await expect(page.getByTestId("playground")).toBeVisible();
   return page.evaluate(
     () =>
       JSON.parse(localStorage.getItem("structcalc.workspace.v1")!).projects[0]
@@ -36,8 +44,13 @@ async function clickLine(page: Page, line: import("@playwright/test").Locator) {
 }
 async function canvasFocus(page: Page) {
   await expect(page.getByRole("listbox")).toHaveCount(0);
-  await page.getByTestId("playground").focus();
-  await expect(page.getByTestId("playground")).toBeFocused();
+  const canvas = page.getByTestId("playground");
+  await expect
+    .poll(async () => {
+      await canvas.focus();
+      return canvas.evaluate((el) => document.activeElement === el);
+    })
+    .toBe(true);
 }
 test.beforeEach(async ({ page }, info) => {
   test.skip(
@@ -89,7 +102,7 @@ test("asks for a name before navigation and preserves editable text controls", a
       ),
   ).toBe(true);
 });
-test("edits a beam in the header, opens a professional context menu, and drags its force with the right button", async ({
+test("edits a beam in the header, opens a professional context menu, and drags its force with the left button", async ({
   page,
 }) => {
   await page.goto("/#/new/beam");
@@ -105,7 +118,7 @@ test("edits a beam in the header, opens a professional context menu, and drags i
     "Force verticale Fy",
   );
   expect(
-    (await page.locator(".desktop-parameter-bar").boundingBox())!.height,
+    (await page.getByTestId("project-workbench-header").boundingBox())!.height,
   ).toBeLessThan(150);
   await page.getByLabel("Force verticale Fy", { exact: true }).fill("60");
   await force.click({ button: "right" });
@@ -121,13 +134,13 @@ test("edits a beam in the header, opens a professional context menu, and drags i
   );
   const rect = (await force.boundingBox())!;
   await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
-  await page.mouse.down({ button: "right" });
+  await page.mouse.down({ button: "left" });
   await page.mouse.move(
     rect.x + rect.width / 2 + 100,
     rect.y + rect.height / 2,
     { steps: 8 },
   );
-  await page.mouse.up({ button: "right" });
+  await page.mouse.up({ button: "left" });
   await expect(page.getByRole("menu")).toHaveCount(0);
   const after = Number(
     (await page.getByLabel("Position x", { exact: true }).inputValue()).replace(
@@ -146,11 +159,11 @@ test("edits a beam in the header, opens a professional context menu, and drags i
     .locator("rect");
   const sb = (await support.boundingBox())!;
   await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
-  await page.mouse.down({ button: "right" });
+  await page.mouse.down({ button: "left" });
   await page.mouse.move(sb.x + sb.width / 2 + 100, sb.y + sb.height / 2, {
     steps: 8,
   });
-  await page.mouse.up({ button: "right" });
+  await page.mouse.up({ button: "left" });
   expect(
     Number(
       (
@@ -273,11 +286,11 @@ test("keeps section libraries inside each study and supports point forces on fra
   await loadHandle.hover();
   const hit = (await loadHandle.boundingBox())!;
   await page.mouse.move(hit.x + hit.width / 2, hit.y + hit.height / 2);
-  await page.mouse.down({ button: "right" });
+  await page.mouse.down({ button: "left" });
   await page.mouse.move(hit.x + hit.width / 2, hit.y + hit.height / 2 - 65, {
     steps: 8,
   });
-  await page.mouse.up({ button: "right" });
+  await page.mouse.up({ button: "left" });
   await expect
     .poll(async () =>
       Number(

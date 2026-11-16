@@ -22,7 +22,7 @@ async function checkWorkbenchLayout(page) {
       save: rect('[data-tour="save"]'),
     };
   });
-  expect(layout.header.height).toBe(layout.width > 1000 ? 64 : 108);
+  expect(layout.header.height).toBe(layout.width > 1000 ? 104 : 128);
   expect(layout.save.x + layout.save.width).toBeLessThanOrEqual(
     layout.width + 1,
   );
@@ -60,7 +60,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       appendFileSync(`native-test-results/${mode}-${name}.txt`, data),
     );
   }
-  let browser, layout;
+  let browser, layout, buildingLayout;
   try {
     let ready = false;
     for (let retry = 0; retry < 120; retry++) {
@@ -139,6 +139,64 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         path: "native-test-results/windows-beam.png",
         fullPage: true,
       });
+      await page.evaluate(() => (location.hash = "/new/building"));
+      await page
+        .getByLabel("Nom du projet", { exact: true })
+        .fill("Verification du ruban bâtiment");
+      await page
+        .getByRole("button", { name: "Créer l’étude", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Explorer librement", exact: true })
+        .click();
+      const header = page.getByTestId("project-workbench-header");
+      await expect(page.locator(".project-page > header")).toHaveCount(1);
+      await expect(
+        page.locator(
+          ".canvas-field-controls, .canvas-tools-left, .canvas-tools-right",
+        ),
+      ).toHaveCount(0);
+      await expect(header.locator(".study-name-button")).toHaveCount(0);
+      await expect(
+        header.getByRole("button", {
+          name: "Poteau le plus chargé",
+          exact: true,
+        }),
+      ).toHaveText("");
+      buildingLayout = await checkWorkbenchLayout(page);
+      await header.getByRole("button", { name: "3D", exact: true }).click();
+      await expect(
+        header.getByRole("combobox", { name: "Annotations", exact: true }),
+      ).toHaveCount(1);
+      await expect(page.getByLabel("Rotation 3D", { exact: true })).toHaveCount(
+        0,
+      );
+      await expect(
+        page.getByLabel("Inclinaison 3D", { exact: true }),
+      ).toHaveCount(0);
+      const scene = page.getByTestId("building-3d");
+      await expect(scene).toBeVisible();
+      const yaw = await scene.getAttribute("data-yaw");
+      const canvas = await page.getByTestId("playground").boundingBox();
+      await page.mouse.move(
+        canvas.x + canvas.width * 0.5,
+        canvas.y + canvas.height * 0.6,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        canvas.x + canvas.width * 0.6,
+        canvas.y + canvas.height * 0.65,
+        { steps: 8 },
+      );
+      await page.mouse.up();
+      await expect(scene).not.toHaveAttribute("data-yaw", yaw);
+      expect((await header.boundingBox()).height).toBe(
+        buildingLayout.header.height,
+      );
+      await page.screenshot({
+        path: "native-test-results/windows-building.png",
+        fullPage: true,
+      });
     } else {
       await page.evaluate((id) => (location.hash = `/project/${id}`), savedId);
       await expect(
@@ -146,7 +204,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           name: "Verification native Windows",
           exact: true,
         }),
-      ).toBeVisible();
+      ).toHaveCount(1);
       layout = await checkWorkbenchLayout(page);
       await page.getByRole("button", { name: "Calculer", exact: true }).click();
       await expect(page.locator(".canvas-result-status")).toContainText(
@@ -178,6 +236,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           url: page.url(),
           nativeStorageRestored: mode === "compatibility",
           layout,
+          buildingLayout,
         },
         null,
         2,

@@ -9,6 +9,25 @@ import {
 } from "@/domain/building";
 import { levelG, coatingG, elu } from "@/domain/engineering";
 import { fmt } from "@/lib/utils";
+export function buildingPlanGeometry(
+  floor: Floor,
+  units: number,
+  height: number,
+) {
+  const xs = [0],
+    ys = [0];
+  for (const n of floor.spanX) xs.push(xs[xs.length - 1] + n);
+  for (const n of floor.spanY) ys.push(ys[ys.length - 1] + n);
+  const scale = Math.min(
+      (1000 - 80 * units) / xs[xs.length - 1],
+      Math.max(100, height - 190 * units) / ys[ys.length - 1],
+    ),
+    ox = (1000 - xs[xs.length - 1] * scale) / 2,
+    oy = 90 * units,
+    X = (x: number) => ox + x * scale,
+    Y = (y: number) => oy + y * scale;
+  return { xs, ys, scale, ox, oy, X, Y };
+}
 export function BuildingScene({
   floor,
   showInfluence,
@@ -25,18 +44,11 @@ export function BuildingScene({
   field?: LoadCase;
 }) {
   const { units, height } = useCanvasGeometry();
-  const xs = [0],
-    ys = [0];
-  for (const n of floor.spanX) xs.push(xs[xs.length - 1] + n);
-  for (const n of floor.spanY) ys.push(ys[ys.length - 1] + n);
-  const scale = Math.min(
-      (1000 - 80 * units) / xs[xs.length - 1],
-      Math.max(100, height - 290 * units) / ys[ys.length - 1],
-    ),
-    ox = (1000 - xs[xs.length - 1] * scale) / 2,
-    oy = 175 * units,
-    X = (x: number) => ox + x * scale,
-    Y = (y: number) => oy + y * scale;
+  const { xs, ys, scale, ox, oy, X, Y } = buildingPlanGeometry(
+    floor,
+    units,
+    height,
+  );
   return (
     <>
       {xs.map((x, c) => (

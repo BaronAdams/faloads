@@ -1,143 +1,152 @@
-/* A stable editing ribbon: the drawing never moves when the selection changes. */
+/* One fixed ribbon; section controls read top to bottom, then left to right. */
 .project-workbench-shell .project-page.analysis-page {
   padding: 0;
   max-width: none;
   gap: 0;
 }
 .project-workbench-shell .project-header.workbench-project-header {
+  --ribbon-row: 30px;
   display: flex;
   align-items: center;
   flex: none;
-  height: 64px;
-  min-height: 64px;
-  max-height: 64px;
-  gap: 6px;
-  padding: 4px 8px;
+  height: 104px;
+  min-height: 104px;
+  max-height: 104px;
+  gap: 4px;
+  padding: 4px 6px;
   margin: 0;
   border-bottom: 1px solid var(--border);
   background: var(--card);
   position: sticky;
   top: var(--safe-top, 0px);
   z-index: 10;
+  min-width: 0;
 }
 .workbench-project-header > button {
   flex: none;
 }
-.workbench-project-header .project-heading {
-  flex: 0 1 180px;
-  min-width: 70px;
-  max-width: 180px;
-}
-.workbench-project-header:not(:has(.project-header-toolbar)) .project-heading {
-  flex: 1;
-  max-width: none;
-}
-.project-workbench-shell .project-header.workbench-project-header h1 {
-  font-size: 13px;
-  line-height: 20px;
-  margin: 0;
-}
-.workbench-project-header .study-type-description {
-  display: block;
-  font-size: 10px;
-  line-height: 16px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .project-header-toolbar {
   flex: 1;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: stretch;
   min-width: 0;
   height: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) var(--muted);
   overscroll-behavior-x: contain;
+  scroll-padding-inline: 8px;
+}
+.project-header-toolbar::-webkit-scrollbar {
+  height: 6px;
+}
+.project-header-toolbar::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: 8px;
+}
+.project-header-toolbar::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+}
+.project-header-toolbar::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+.workbench-project-header .ribbon-group {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px 4px;
+  min-width: 0;
+}
+.workbench-project-header .ribbon-group::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--border);
+}
+.workbench-project-header .ribbon-legend {
+  display: block;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+.workbench-project-header .ribbon-fields,
+.workbench-project-header .project-actions {
+  display: grid;
+  grid-template-rows: repeat(2, var(--ribbon-row));
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: center;
+  justify-content: center;
+  gap: 3px 8px;
+  margin: 0;
+  min-width: 0;
 }
 .workbench-project-header .desktop-parameter-bar,
-.workbench-project-header .floor-toolbar {
-  display: flex;
-  align-items: center;
-  flex: none;
-  flex-wrap: nowrap;
-  gap: 8px;
-  height: 100%;
-  padding: 0;
-  margin: 0;
-  border: 0;
-  background: transparent;
-}
-.workbench-project-header .floor-toolbar {
-  gap: 4px;
-}
-.workbench-project-header .floor-toolbar .row-actions {
-  flex-wrap: nowrap;
-  gap: 2px;
-}
-.workbench-project-header .desktop-parameter-bar .editor-fields {
-  flex: none;
-  flex-flow: row nowrap;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  max-height: none;
-  overflow: visible;
-}
-.workbench-project-header .desktop-parameter-bar .form-grid {
+.workbench-project-header .floor-toolbar,
+.workbench-project-header .row-actions,
+.workbench-project-header .editor-fields,
+.workbench-project-header .form-grid,
+.workbench-project-header .project-auxiliary-tools,
+.workbench-project-header .project-extra {
   display: contents;
 }
-.workbench-project-header .field,
-.workbench-project-header .floor-toolbar .field {
-  width: 104px;
-  min-width: 104px;
-  flex: none;
+.ribbon-field-pair {
+  display: contents;
+}
+.workbench-project-header .ribbon-fields .ribbon-field-pair {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: repeat(2, var(--ribbon-row));
+  gap: 3px;
+}
+.project-workbench-shell .workbench-project-header .ribbon-fields .field {
+  display: grid;
+  grid-template-columns: minmax(60px, max-content) 96px;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  min-width: 0;
   margin: 0;
 }
-.workbench-project-header .field:has([role="combobox"]) {
-  width: 136px;
-  min-width: 136px;
+.project-workbench-shell
+  .workbench-project-header
+  .ribbon-fields
+  .field:has([role="combobox"]) {
+  grid-template-columns: minmax(60px, max-content) 148px;
 }
 .workbench-project-header .field > label {
   display: block;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-size: 11px;
-  line-height: 14px;
-  margin-bottom: 3px;
+  line-height: 15px;
+  margin: 0;
 }
 .workbench-project-header .number-input input,
 .workbench-project-header [data-slot="select-trigger"] {
-  height: 30px;
-  min-height: 30px;
+  height: var(--ribbon-row);
+  min-height: var(--ribbon-row);
+  width: 100%;
   font-size: 12px;
+}
+.workbench-project-header .number-input {
+  min-width: 0;
 }
 .workbench-project-header .toggle {
   margin: 0;
-  flex: none;
   white-space: nowrap;
-}
-.workbench-project-header .desktop-selection-caption {
-  min-width: 0;
-  width: 88px;
-  white-space: nowrap;
-  flex: none;
-  gap: 2px;
-  font-size: 10px;
-}
-.workbench-project-header .desktop-selection-caption > button {
-  width: 24px;
-  height: 28px;
-  padding: 2px;
-}
-.workbench-project-header .project-actions {
-  flex: none;
-  gap: 2px;
-  margin: 0;
+  font-size: 11px;
+  gap: 6px;
 }
 .workbench-project-header
   button:is(
@@ -146,20 +155,20 @@
     [data-slot="dropdown-menu-trigger"],
     [data-slot="dialog-trigger"]
   ) {
-  height: 32px;
-  width: 32px;
-  min-width: 32px;
+  height: var(--ribbon-row);
+  width: var(--ribbon-row);
+  min-width: var(--ribbon-row);
   padding: 6px;
 }
-.workbench-project-header .study-name-button {
-  width: 100%;
+.workbench-project-header .project-action-group {
+  padding-inline: 6px 0;
+  align-self: stretch;
+  justify-content: flex-start;
 }
-.project-auxiliary-tools {
-  display: flex;
-  align-items: center;
-  gap: 2px;
+.workbench-project-header .project-action-group::after {
+  display: none;
 }
-.project-extra-in-menu {
+.workbench-project-header .project-extra-in-menu {
   display: none;
 }
 .project-workbench-shell .analysis-canvas-workspace {
@@ -173,23 +182,9 @@
 .app-shell.project-workbench-shell .main-column > .mobile-app-header {
   display: none;
 }
-.project-workbench-shell .building-page .canvas-field-controls {
-  flex-wrap: nowrap;
-  align-items: center;
-  scrollbar-width: thin;
-}
-.building-view-tools > .field,
-.building-view-tools > .toggle {
-  flex: none;
-}
-.building-view-tools > .toggle {
-  white-space: nowrap;
-}
-.orbit-hint {
-  font-size: 10px;
-  color: var(--muted-foreground);
-  white-space: nowrap;
-  padding: 4px;
+.project-auxiliary-tools {
+  display: flex;
+  gap: 2px;
 }
 
 /* On a real desktop the system draws its own menu outside the WebView. */
@@ -274,87 +269,55 @@ html[data-runtime="desktop"] .desktop-menubar {
 }
 @media (max-width: 1000px) {
   .project-workbench-shell .project-header.workbench-project-header {
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) auto;
-    grid-template-rows: 48px;
-    gap: 0;
-    height: 56px;
-    min-height: 56px;
-    max-height: 56px;
+    --ribbon-row: 44px;
+    height: 128px;
+    min-height: 128px;
+    max-height: 128px;
     padding: 4px;
+    gap: 0;
   }
-  .project-workbench-shell
-    .workbench-project-header:has(.project-header-toolbar) {
-    height: 108px;
-    min-height: 108px;
-    max-height: 108px;
-    grid-template-rows: 48px 52px;
+  .workbench-project-header .ribbon-group {
+    padding-inline: 8px;
+    gap: 3px;
   }
-  .workbench-project-header .project-heading {
-    max-width: none;
-    min-width: 0;
-    width: auto;
+  .workbench-project-header .ribbon-fields,
+  .workbench-project-header .project-actions {
+    gap: 2px 4px;
   }
-  .workbench-project-header .project-header-toolbar {
-    grid-column: 1/-1;
-    grid-row: 2;
-    width: 100%;
+  .workbench-project-header .ribbon-legend {
+    font-size: 10px;
   }
   .workbench-project-header .project-auxiliary-tools {
     display: none;
   }
-  .workbench-project-header .project-actions {
-    display: flex;
-    gap: 0;
+  .workbench-project-header .project-action-group {
+    padding-inline: 4px 0;
   }
-  .project-workbench-shell
-    .workbench-project-header
-    button:is(
-      [data-slot="button"],
-      [data-slot="tooltip-trigger"],
-      [data-slot="dropdown-menu-trigger"],
-      [data-slot="dialog-trigger"]
-    ) {
-    width: 48px;
-    height: 48px;
-    min-width: 48px;
-    padding: 12px;
+  .workbench-project-header .ribbon-parameters .field {
+    grid-template-columns: max-content 96px;
   }
-  .workbench-project-header .floor-toolbar .row-actions {
-    gap: 0;
+  .workbench-project-header .ribbon-parameters .field:has([role="combobox"]) {
+    grid-template-columns: max-content 148px;
   }
-  .workbench-project-header .floor-toolbar .field {
-    width: 110px;
-    min-width: 110px;
+  .workbench-project-header .toggle {
+    min-height: 44px;
   }
-  .project-workbench-shell .building-page .canvas-tools-left {
-    max-width: calc(100% - 104px);
-  }
-  .project-workbench-shell .building-page .canvas-tools-left > button {
-    padding-inline: 6px;
-  }
-  .project-workbench-shell .building-page .canvas-field-controls {
-    top: 64px;
-    width: calc(100% - 18px);
-    max-width: calc(100% - 18px);
-    left: 9px;
-    right: auto;
-    transform: none;
-  }
-  .building-page .canvas-add-label {
-    display: none;
-  }
-  .building-page .canvas-tools-left [data-tour="add"] {
-    min-width: 32px;
-    width: 32px;
-    padding-inline: 6px;
-  }
-  .project-workbench-shell .orbit-hint {
-    display: none;
+  .workbench-project-header .project-header-toolbar {
+    scrollbar-width: thin;
   }
 }
-@media print {
-  .desktop-menubar {
-    display: none !important;
-  }
+
+/* Keep tour geometry and semantic parameter pairs measurable inside the ribbon. */
+.workbench-project-header .ribbon-parameters .desktop-parameter-bar {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: repeat(2, var(--ribbon-row));
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: center;
+  gap: 3px 8px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
 }

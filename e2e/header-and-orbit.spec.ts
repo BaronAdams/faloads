@@ -52,9 +52,7 @@ for (const type of ["beam", "frame", "building"] as const) {
     await expect(page.locator(".mobile-app-header")).not.toBeVisible();
     const before = (await header.boundingBox())!,
       drawing = (await canvas.boundingBox())!;
-    expect(before.height).toBe(
-      info.project.name === "desktop" ? 64 : type === "building" ? 108 : 56,
-    );
+    expect(before.height).toBe(info.project.name === "desktop" ? 104 : 128);
     const target =
       type === "beam"
         ? canvas
@@ -125,7 +123,7 @@ test("the system menu leaves no empty web row and keeps the status bar below the
     .getByRole("button", { name: "Enregistrer", exact: true })
     .boundingBox())!;
   expect(header.y).toBe(0);
-  expect(header.height).toBe(64);
+  expect(header.height).toBe(104);
   expect(footer.height).toBe(28);
   expect(footer.y + footer.height).toBe(730);
   expect(canvas.y + canvas.height).toBeLessThanOrEqual(footer.y + 1);
@@ -195,7 +193,7 @@ test("a narrow desktop scrolls long parameter groups without resizing the header
     .first();
   await load.click();
   await header.getByLabel("Intensité q₂", { exact: true }).fill("18");
-  expect((await header.boundingBox())!.height).toBe(64);
+  expect((await header.boundingBox())!.height).toBe(104);
   expect((await canvas.boundingBox())!.y).toBe(y);
   expect(
     await header
@@ -226,7 +224,7 @@ test("a narrow desktop scrolls long parameter groups without resizing the header
   const field = (await stiffness.boundingBox())!,
     bounds = (await header.boundingBox())!;
   expect(field.y + field.height).toBeLessThanOrEqual(bounds.y + bounds.height);
-  expect(bounds.height).toBe(64);
+  expect(bounds.height).toBe(104);
 });
 test("the compact project menu opens project dimensions on a phone", async ({
   page,
@@ -248,7 +246,7 @@ test("the compact project menu opens project dimensions on a phone", async ({
   ).toBeVisible();
   expect(
     (await page.getByTestId("project-workbench-header").boundingBox())!.height,
-  ).toBe(56);
+  ).toBe(128);
 });
 test("3D mouse rotation stays independent from pan, zoom, selection and saved model data", async ({
   page,
@@ -257,7 +255,7 @@ test("3D mouse rotation stays independent from pan, zoom, selection and saved mo
   await createStudy(page);
   await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
   await page
-    .locator(".canvas-tools-left")
+    .getByTestId("project-workbench-header")
     .getByRole("button", { name: "3D", exact: true })
     .click();
   const scene = page.getByTestId("building-3d"),
@@ -316,7 +314,7 @@ test("a phone rotates with one finger and zooms with two without editing an elem
   await page.goto("/#/new/building");
   await createStudy(page);
   await page
-    .locator(".canvas-tools-left")
+    .getByTestId("project-workbench-header")
     .getByRole("button", { name: "3D", exact: true })
     .click();
   const box = (await page.getByTestId("playground").boundingBox())!,
@@ -360,9 +358,13 @@ test("a phone rotates with one finger and zooms with two without editing an elem
   await expect(page.getByTestId("zoom-level")).not.toHaveText("100 %");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 760 });
-  await page.getByLabel("Rotation 3D", { exact: true }).fill("60");
-  await expect(scene).toHaveAttribute("data-yaw", "60");
-  const toolbar = (await page.locator(".building-view-tools").boundingBox())!;
+  await expect(page.getByLabel("Rotation 3D", { exact: true })).toHaveCount(0);
+  await expect(page.getByLabel("Inclinaison 3D", { exact: true })).toHaveCount(
+    0,
+  );
+  const toolbar = (await page
+    .locator(".project-header-toolbar")
+    .boundingBox())!;
   expect(toolbar.x + toolbar.width).toBeLessThanOrEqual(320);
   expect(
     await page.evaluate(

@@ -225,9 +225,21 @@ export function ProjectGuide({
             : null) ??
           el;
       let r = el?.getBoundingClientRect();
-      if (first && el && r && (r.top < 0 || r.bottom > innerHeight)) {
+      const ribbon = el
+        ?.closest(".project-header-toolbar")
+        ?.getBoundingClientRect();
+      if (
+        first &&
+        el &&
+        r &&
+        (r.top < 0 ||
+          r.bottom > innerHeight ||
+          r.left < (ribbon?.left ?? 0) ||
+          r.right > (ribbon?.right ?? innerWidth))
+      ) {
         el.scrollIntoView({
-          block: "center",
+          block: ribbon ? "nearest" : "center",
+          inline: "center",
           behavior: window.matchMedia("(prefers-reduced-motion: reduce)")
             .matches
             ? "instant"

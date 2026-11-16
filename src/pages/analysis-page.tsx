@@ -1,3 +1,4 @@
+import { RibbonGroup } from "@/components/project-ribbon";
 import { useDesktopCommands } from "@/lib/desktop-commands";
 import { runtime } from "@/lib/runtime";
 import {
@@ -389,9 +390,16 @@ export function AnalysisPage({
     phase: "start" | "move" | "end" | "cancel",
   ) => {
     if (phase === "start") {
+      const type = key.split(":")[0];
+      if (
+        !(model.kind === "beam"
+          ? ["support", "load", "hinge"].includes(type)
+          : type === "member-load")
+      )
+        return false;
       dragModel.current = structuredClone(model);
       setMenu(null);
-      return;
+      return true;
     }
     if (phase === "cancel") {
       if (dragModel.current) setModel(dragModel.current);
@@ -459,7 +467,9 @@ export function AnalysisPage({
       setFuture([]);
       setModel(next);
       dragModel.current = null;
-      select(key);
+      setSelection({ type: type as Selection["type"], id });
+      setSelectedKeys([key]);
+      setEditor(null);
     } else setModel(next);
   };
   const remove = () => {
@@ -520,10 +530,9 @@ export function AnalysisPage({
   const addMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" data-tour="add">
+        <IconButton label="Ajouter" data-tour="add">
           <Plus />
-          Ajouter
-        </Button>
+        </IconButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         {kind === "beam" ? (
@@ -580,18 +589,6 @@ export function AnalysisPage({
   });
   const parameterToolbar = desktop ? (
     <div className="desktop-parameter-bar" data-tour="parameters-inputs">
-      <div className="desktop-selection-caption">
-        <strong>
-          {selectedElement
-            ? `${selectedKeys.length} élément${selectedKeys.length > 1 ? "s" : ""}`
-            : "Modèle"}
-        </strong>
-        {selectedElement && (
-          <IconButton label="Désélectionner" onClick={clear}>
-            <X />
-          </IconButton>
-        )}
-      </div>
       {selectedElement && selection ? (
         <ElementEditor
           key={selectedElement.key}
@@ -629,11 +626,6 @@ export function AnalysisPage({
               )
             }
           />
-          <Toggle
-            label="Afficher les réactions"
-            checked={reactions && calculation.fresh}
-            onChange={requestReactions}
-          />
         </>
       )}
       {selectedElement && ["section", "member"].includes(selection!.type) && (
@@ -668,8 +660,33 @@ export function AnalysisPage({
           }}
         />
       )}
+      {selectedElement && (
+        <IconButton label="Désélectionner" onClick={clear}>
+          <X />
+        </IconButton>
+      )}
     </div>
   ) : undefined;
+  const calculationTools = (
+    <RibbonGroup label="Calcul">
+      <IconButton
+        variant="default"
+        label="Calculer"
+        data-tour="calculate"
+        disabled={calculation.busy}
+        onClick={() => void runCalculation()}
+      >
+        <Calculator />
+      </IconButton>
+      <IconButton
+        label="Ouvrir les résultats"
+        data-tour="results"
+        onClick={() => closeResults(true)}
+      >
+        <ChartNoAxesCombined />
+      </IconButton>
+    </RibbonGroup>
+  );
   const headerTools = (
     <>
       <IconButton
@@ -697,7 +714,96 @@ export function AnalysisPage({
         name={name}
         setName={setName}
         workbench
-        toolbar={parameterToolbar}
+        toolbar={
+          <>
+            {!desktop && calculationTools}
+            <RibbonGroup label="Édition">
+              {addMenu}
+              <IconButton
+                label="Annuler"
+                disabled={!history.length}
+                onClick={() => undo()}
+              >
+                <Undo2 />
+              </IconButton>
+              <IconButton
+                label="Rétablir"
+                disabled={!future.length}
+                onClick={() => undo(true)}
+              >
+                <Redo2 />
+              </IconButton>
+            </RibbonGroup>
+            {parameterToolbar && (
+              <RibbonGroup
+                label={
+                  selectedElement
+                    ? `Sélection · ${selectedKeys.length}`
+                    : "Modèle"
+                }
+                className="ribbon-parameters"
+              >
+                {parameterToolbar}
+              </RibbonGroup>
+            )}
+            <RibbonGroup label="Diagrammes" className="ribbon-diagrams">
+              {(["structure", "M", "V", "N", "v", "theta"] as View[]).map(
+                (v) => (
+                  <IconButton
+                    key={v}
+                    label={fieldNames[v]}
+                    data-requires-calculation={
+                      v !== "structure" && !calculation.fresh ? true : undefined
+                    }
+                    variant={displayView === v ? "secondary" : "ghost"}
+                    onClick={() => requestView(v)}
+                    aria-pressed={displayView === v}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      aria-hidden="true"
+                      className="diagram-icon"
+                      style={{
+                        color: v === "structure" ? undefined : seriesColors[v],
+                      }}
+                    >
+                      <path
+                        d="M3 19H21"
+                        stroke="currentColor"
+                        fill="none"
+                        strokeWidth="1.5"
+                      />
+                      <path
+                        d={
+                          v === "structure"
+                            ? "M3 10H21M5 10V16M19 10V16"
+                            : v === "M"
+                              ? "M3 17Q12 0 21 17"
+                              : v === "V"
+                                ? "M3 6H12V16H21"
+                                : v === "N"
+                                  ? "M3 8H21V17H3Z"
+                                  : v === "v"
+                                    ? "M3 9Q12 24 21 9"
+                                    : "M3 16C8 2 16 22 21 6"
+                        }
+                        stroke="currentColor"
+                        fill="none"
+                        strokeWidth="2"
+                      />
+                    </svg>
+                  </IconButton>
+                ),
+              )}
+              <Toggle
+                label="Afficher les réactions"
+                checked={reactions && calculation.fresh}
+                onChange={requestReactions}
+              />
+            </RibbonGroup>
+            {desktop && calculationTools}
+          </>
+        }
         tools={headerTools}
         extra={
           <IconButton
@@ -736,80 +842,10 @@ export function AnalysisPage({
                 }
               : undefined
           }
-          onElementDrag={
-            desktop && displayView === "structure" ? dragElement : undefined
-          }
+          onElementDrag={displayView === "structure" ? dragElement : undefined}
           onDeselect={clear}
           controls={
             <>
-              <div className="canvas-tools-left">
-                {addMenu}
-                <IconButton
-                  label="Annuler"
-                  disabled={!history.length}
-                  onClick={() => undo()}
-                >
-                  <Undo2 />
-                </IconButton>
-                <IconButton
-                  label="Rétablir"
-                  disabled={!future.length}
-                  onClick={() => undo(true)}
-                >
-                  <Redo2 />
-                </IconButton>
-              </div>
-              <div className="canvas-tools-right">
-                <Button
-                  data-tour="calculate"
-                  disabled={calculation.busy}
-                  onClick={() => void runCalculation()}
-                >
-                  <Calculator />
-                  Calculer
-                </Button>
-                <IconButton
-                  className="elevated-tool"
-                  label="Ouvrir les résultats"
-                  data-tour="results"
-                  onClick={() => closeResults(true)}
-                >
-                  <ChartNoAxesCombined />
-                </IconButton>
-              </div>
-              <div
-                className="canvas-field-controls"
-                aria-label="Diagrammes sur la structure"
-              >
-                {(["structure", "M", "V", "N", "v", "theta"] as View[]).map(
-                  (v) => (
-                    <Button
-                      key={v}
-                      size="sm"
-                      data-requires-calculation={
-                        v !== "structure" && !calculation.fresh
-                          ? true
-                          : undefined
-                      }
-                      variant={displayView === v ? "secondary" : "ghost"}
-                      onClick={() => requestView(v)}
-                      aria-pressed={displayView === v}
-                    >
-                      {v !== "structure" && (
-                        <i
-                          className="series-key"
-                          style={
-                            {
-                              "--series-color": seriesColors[v],
-                            } as React.CSSProperties
-                          }
-                        />
-                      )}
-                      {fieldNames[v]}
-                    </Button>
-                  ),
-                )}
-              </div>
               <div className="canvas-result-status">
                 <CalculationStatus
                   fresh={calculation.fresh}

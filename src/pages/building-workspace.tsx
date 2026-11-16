@@ -1,5 +1,6 @@
+import { RibbonGroup } from "@/components/project-ribbon";
 import { useDesktopCommands } from "@/lib/desktop-commands";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plus,
   Copy,
@@ -21,7 +22,10 @@ import {
   Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { BuildingScene } from "@/components/building-scene";
+import {
+  buildingPlanGeometry,
+  BuildingScene,
+} from "@/components/building-scene";
 import { Building3D, caseValue, type LoadCase } from "@/components/building-3d";
 import {
   SceneMenu,
@@ -126,6 +130,7 @@ export function BuildingPage({ project }: { project?: Project }) {
       value: number;
       unit: string;
     } | null>(null);
+  const dragModel = useRef<BuildingModel | null>(null);
   const floor = model.floors[Math.min(active, model.floors.length - 1)],
     working = editor ?? floor;
   const calculation = useCalculation<ReturnType<typeof buildingDescent>>(
@@ -173,6 +178,68 @@ export function BuildingPage({ project }: { project?: Project }) {
       ...model,
       floors: model.floors.map((v) => (v.id === f.id ? f : v)),
     });
+  const dragElement = (
+    key: string,
+    delta: { x: number; y: number },
+    phase: "start" | "move" | "end" | "cancel",
+  ) => {
+    if (phase === "start") {
+      if (
+        !key.startsWith("oblique|") ||
+        !floor.obliques.some((o) => `oblique|${o.id}` === key)
+      )
+        return false;
+      dragModel.current = structuredClone(model);
+      setMenu(null);
+      return true;
+    }
+    const initial = dragModel.current;
+    if (!initial) return;
+    if (phase === "cancel") {
+      setModel(initial);
+      dragModel.current = null;
+      return;
+    }
+    const next = structuredClone(initial);
+    const f = next.floors.find((f) => f.id === floor.id)!;
+    const o = f.obliques.find((o) => `oblique|${o.id}` === key)!;
+    const canvas = document.querySelector<HTMLElement>(
+      ".building-page .playground",
+    );
+    const { scale } = buildingPlanGeometry(
+      f,
+      Number(canvas?.dataset.canvasUnits ?? 1),
+      Number(canvas?.dataset.canvasHeight ?? 600),
+    );
+    const totalX = f.spanX.reduce((a, b) => a + b, 0),
+      totalY = f.spanY.reduce((a, b) => a + b, 0);
+    const xs = o.kind === "beam" ? [o.x1, o.x2] : [o.x1],
+      ys = o.kind === "beam" ? [o.y1, o.y2] : [o.y1];
+    const dx = Math.max(
+      -Math.min(...xs),
+      Math.min(totalX - Math.max(...xs), delta.x / scale),
+    );
+    const dy = Math.max(
+      -Math.min(...ys),
+      Math.min(totalY - Math.max(...ys), delta.y / scale),
+    );
+    const round = (n: number) => Math.round(n * 1000) / 1000;
+    o.x1 = round(o.x1 + dx);
+    o.y1 = round(o.y1 + dy);
+    if (o.kind === "beam") {
+      o.x2 = round(o.x2 + dx);
+      o.y2 = round(o.y2 + dy);
+    }
+    setModel(next);
+    if (phase === "end") {
+      setHistory((h) => [...h.slice(-49), initial]);
+      setFuture([]);
+      dragModel.current = null;
+      setSelection(key);
+      setSelectedKeys([key]);
+      setEditor(null);
+    }
+  };
   const undo = (redo = false) => {
     const list = redo ? future : history;
     if (!list.length) return;
@@ -386,22 +453,24 @@ export function BuildingPage({ project }: { project?: Project }) {
             }
             onChange={(kind) => patchSelected({ kind })}
           />
-          <Numeric
-            label={slot.kind === "wall" ? "Épaisseur" : "Largeur b"}
-            value={slot.b}
-            min={1}
-            max={1000}
-            unit="cm"
-            onChange={(b) => patchSelected({ b })}
-          />
-          <Numeric
-            label="Hauteur h"
-            value={slot.h}
-            min={1}
-            max={1000}
-            unit="cm"
-            onChange={(h) => patchSelected({ h })}
-          />
+          <div className="ribbon-field-pair">
+            <Numeric
+              label={slot.kind === "wall" ? "Épaisseur" : "Largeur b"}
+              value={slot.b}
+              min={1}
+              max={1000}
+              unit="cm"
+              onChange={(b) => patchSelected({ b })}
+            />
+            <Numeric
+              label="Hauteur h"
+              value={slot.h}
+              min={1}
+              max={1000}
+              unit="cm"
+              onChange={(h) => patchSelected({ h })}
+            />
+          </div>
           <Label className="toggle">
             <Switch
               checked={slot.exists}
@@ -808,18 +877,6 @@ export function BuildingPage({ project }: { project?: Project }) {
   );
   const contextualParameters = desktop ? (
     <div className="desktop-parameter-bar">
-      <div className="desktop-selection-caption">
-        <strong>
-          {selection
-            ? `${selectedKeys.length} élément${selectedKeys.length > 1 ? "s" : ""}`
-            : "Grille de l’étage"}
-        </strong>
-        {selection && (
-          <IconButton label="Désélectionner" onClick={clear}>
-            <X />
-          </IconButton>
-        )}
-      </div>
       {selection ? (
         selectionFields()
       ) : (
@@ -862,8 +919,36 @@ export function BuildingPage({ project }: { project?: Project }) {
           />
         </>
       )}
+      {selection && (
+        <IconButton label="Désélectionner" onClick={clear}>
+          <X />
+        </IconButton>
+      )}
     </div>
   ) : null;
+  const calculationTools = (
+    <RibbonGroup label="Calcul">
+      <IconButton
+        variant="default"
+        label="Calculer le bâtiment"
+        data-tour="calculate"
+        disabled={calculation.busy}
+        onClick={() => void run()}
+      >
+        <Calculator />
+      </IconButton>
+      <IconButton
+        label="Ouvrir les résultats"
+        data-tour="results"
+        onClick={() => {
+          setResultsOpen(true);
+          studyAction("results:open");
+        }}
+      >
+        <ChartNoAxesCombined />
+      </IconButton>
+    </RibbonGroup>
+  );
   const headerTools = (
     <>
       {desktop && selection && (
@@ -901,8 +986,136 @@ export function BuildingPage({ project }: { project?: Project }) {
         workbench
         toolbar={
           <>
-            {floorControls}
-            {contextualParameters}
+            {!desktop && calculationTools}
+            <RibbonGroup label="Édition">
+              {" "}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <IconButton label="Ajouter" data-tour="add">
+                    <Plus />
+                  </IconButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                  <DropdownMenuItem onSelect={() => addFree("beam")}>
+                    <Minus />
+                    Poutre oblique
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => addFree("column")}>
+                    <Columns3 />
+                    Poteau libre
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      patchFloor(
+                        resizeFloor(
+                          floor,
+                          Math.min(12, floor.spanX.length + 1),
+                          floor.spanY.length,
+                        ),
+                      );
+                      clear();
+                    }}
+                  >
+                    <Grid2X2 />
+                    Travée X
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => {
+                      patchFloor(
+                        resizeFloor(
+                          floor,
+                          floor.spanX.length,
+                          Math.min(12, floor.spanY.length + 1),
+                        ),
+                      );
+                      clear();
+                    }}
+                  >
+                    <Square />
+                    Travée Y
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </RibbonGroup>
+            <RibbonGroup label="Niveaux">{floorControls}</RibbonGroup>
+            {contextualParameters && (
+              <RibbonGroup
+                label={
+                  selection
+                    ? `Sélection · ${selectedKeys.length}`
+                    : "Grille de l’étage"
+                }
+                className="ribbon-parameters"
+              >
+                {contextualParameters}
+              </RibbonGroup>
+            )}
+            <RibbonGroup label="Vue">
+              <IconButton
+                label="Plan"
+                variant={view === "plan" ? "secondary" : "ghost"}
+                aria-pressed={view === "plan"}
+                onClick={() => setView("plan")}
+              >
+                <Grid2X2 />
+              </IconButton>
+              <IconButton
+                label="3D"
+                variant={view === "3d" ? "secondary" : "ghost"}
+                aria-pressed={view === "3d"}
+                onClick={() => setView("3d")}
+              >
+                <Box />
+              </IconButton>
+              <Choice
+                label="Cas de charges"
+                value={field}
+                options={["G", "Q", "ELS", "ELU"]}
+                onChange={(v) => setField(v as LoadCase)}
+              />
+              {view === "plan" ? (
+                <Label className="toggle">
+                  <Switch checked={influence} onCheckedChange={setInfluence} />
+                  Surfaces d’influence
+                </Label>
+              ) : (
+                <>
+                  <Choice
+                    label="Annotations"
+                    value={annotations}
+                    options={[
+                      { value: "slabs", label: "Planchers · kN/m²" },
+                      { value: "beams", label: "Poutres · kN/m" },
+                      { value: "columns", label: "Poteaux · kN" },
+                      { value: "all", label: "Tous les éléments" },
+                    ]}
+                    onChange={(v) => setAnnotations(v as typeof annotations)}
+                  />
+                  <Label className="toggle">
+                    <Switch
+                      checked={allLevels}
+                      onCheckedChange={setAllLevels}
+                    />
+                    Tous les niveaux
+                  </Label>
+                </>
+              )}
+            </RibbonGroup>
+            <RibbonGroup label="Charges critiques">
+              <IconButton
+                label="Poteau le plus chargé"
+                onClick={() => highest("column")}
+              >
+                <Columns3 />
+              </IconButton>
+              <IconButton
+                label="Poutre la plus chargée"
+                onClick={() => highest("beam")}
+              >
+                <Minus />
+              </IconButton>
+            </RibbonGroup>
+            {desktop && calculationTools}
           </>
         }
         tools={headerTools}
@@ -978,6 +1191,7 @@ export function BuildingPage({ project }: { project?: Project }) {
           onDeselect={() => {
             if (view === "plan") clear();
           }}
+          onElementDrag={view === "plan" ? dragElement : undefined}
           onElementContext={
             desktop && view === "plan"
               ? (key, p) => {
@@ -988,175 +1202,6 @@ export function BuildingPage({ project }: { project?: Project }) {
           }
           controls={
             <>
-              <div className="canvas-tools-left">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      data-tour="add"
-                      aria-label="Ajouter"
-                    >
-                      <Plus />
-                      <span className="canvas-add-label">Ajouter</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    <DropdownMenuItem onSelect={() => addFree("beam")}>
-                      <Minus />
-                      Poutre oblique
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => addFree("column")}>
-                      <Columns3 />
-                      Poteau libre
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        patchFloor(
-                          resizeFloor(
-                            floor,
-                            Math.min(12, floor.spanX.length + 1),
-                            floor.spanY.length,
-                          ),
-                        );
-                        clear();
-                      }}
-                    >
-                      <Grid2X2 />
-                      Travée X
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        patchFloor(
-                          resizeFloor(
-                            floor,
-                            floor.spanX.length,
-                            Math.min(12, floor.spanY.length + 1),
-                          ),
-                        );
-                        clear();
-                      }}
-                    >
-                      <Square />
-                      Travée Y
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  size="sm"
-                  variant={view === "plan" ? "secondary" : "ghost"}
-                  onClick={() => setView("plan")}
-                >
-                  <Grid2X2 />
-                  Plan
-                </Button>
-                <Button
-                  size="sm"
-                  variant={view === "3d" ? "secondary" : "ghost"}
-                  onClick={() => setView("3d")}
-                >
-                  <Box />
-                  3D
-                </Button>
-              </div>
-              <div className="canvas-tools-right">
-                <Button
-                  data-tour="calculate"
-                  aria-label="Calculer le bâtiment"
-                  disabled={calculation.busy}
-                  onClick={() => void run()}
-                >
-                  <Calculator />
-                  <span className="building-calculate-label">
-                    Calculer le bâtiment
-                  </span>
-                </Button>
-                <IconButton
-                  label="Ouvrir les résultats"
-                  data-tour="results"
-                  onClick={() => {
-                    setResultsOpen(true);
-                    studyAction("results:open");
-                  }}
-                >
-                  <ChartNoAxesCombined />
-                </IconButton>
-              </div>
-              <div className="canvas-field-controls building-view-tools">
-                <Choice
-                  label="Cas de charges"
-                  value={field}
-                  options={["G", "Q", "ELS", "ELU"]}
-                  onChange={(v) => setField(v as LoadCase)}
-                />
-                {view === "plan" ? (
-                  <Label className="toggle">
-                    <Switch
-                      checked={influence}
-                      onCheckedChange={setInfluence}
-                    />
-                    Surfaces d’influence
-                  </Label>
-                ) : (
-                  <>
-                    <Choice
-                      label="Annotations"
-                      value={annotations}
-                      options={[
-                        { value: "slabs", label: "Planchers · kN/m²" },
-                        { value: "beams", label: "Poutres · kN/m" },
-                        { value: "columns", label: "Poteaux · kN" },
-                        { value: "all", label: "Tous les éléments" },
-                      ]}
-                      onChange={(v) => setAnnotations(v as typeof annotations)}
-                    />
-                    <Label className="toggle">
-                      <Switch
-                        checked={allLevels}
-                        onCheckedChange={setAllLevels}
-                      />
-                      Tous les niveaux
-                    </Label>
-                    <Numeric
-                      label="Rotation 3D"
-                      value={yaw}
-                      min={-180}
-                      max={180}
-                      unit="°"
-                      onChange={setYaw}
-                    />
-                    <Numeric
-                      label="Inclinaison 3D"
-                      value={pitch}
-                      min={-80}
-                      max={80}
-                      unit="°"
-                      onChange={setPitch}
-                    />
-                  </>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => highest("column")}
-                >
-                  <Columns3 />
-                  Poteau le plus chargé
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => highest("beam")}
-                >
-                  <Minus />
-                  Poutre la plus chargée
-                </Button>
-                {view === "3d" && (
-                  <span className="orbit-hint">
-                    Glisser : pivoter · Espace + glisser : déplacer
-                  </span>
-                )}
-              </div>
               <div className="canvas-result-status">
                 <CalculationStatus
                   fresh={calculation.fresh}

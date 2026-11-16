@@ -41,7 +41,12 @@ test("beam parameters apply, actual results change, undo works, and saving survi
   await ready(page);
   await page.goto("/#/new/beam");
   await createStudy(page);
-  await page.getByRole("button", { name: /Renommer le projet/ }).click();
+  await page
+    .getByRole("button", { name: "Autres actions du projet", exact: true })
+    .click();
+  await page
+    .getByRole("menuitem", { name: "Renommer le projet", exact: true })
+    .click();
   await page.getByLabel("Nom du projet").fill("Poutre test");
   await page
     .getByRole("button", { name: "Enregistrer le nom", exact: true })
@@ -70,7 +75,7 @@ test("beam parameters apply, actual results change, undo works, and saving survi
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Poutre test", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(1);
   await page.goto("/#/projects");
   await expect(
     page.getByRole("heading", { name: "Poutre test" }),

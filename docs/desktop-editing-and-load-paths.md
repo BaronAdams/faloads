@@ -14,7 +14,7 @@ Sur Desktop, les textes de l’interface ne sont pas sélectionnables. Les champ
 - Ctrl / Cmd C et V : copier puis appliquer les propriétés aux éléments compatibles. Les identifiants, positions et connexions sont conservés.
 - Suppr : supprimer ; Ctrl / Cmd Z et Shift Z (ou Ctrl Y) : annuler et rétablir.
 - Inser ou Ctrl N : ouvrir Ajouter. Échap : désélectionner.
-- Clic droit : menu de sélection. Clic droit maintenu + glisser : déplacer un appui, une force ou une charge répartie sur la poutre, ou une force ponctuelle attachée à une barre de portique.
+- Clic droit : menu de sélection. Clic gauche maintenu + glisser : déplacer un appui, une force ou une charge répartie sur la poutre, ou une force ponctuelle attachée à une barre de portique.
 - Molette : zoom ; Espace + glisser : pan ; 0 : recentrer.
 
 Les raccourcis de sélection du modèle n’interceptent pas la saisie dans les champs, dialogues ou menus. Les opérations sont limitées au projet ouvert. Les paramètres détaillés se consultent dans des dialogues et les résultats dans un panneau droit.

@@ -463,7 +463,7 @@ export function ProjectHeader({
               onChange={(e) => setNameDraft(e.target.value)}
             />
             <p className="name-hint">
-              Vous pourrez le renommer à tout moment en cliquant sur son nom.
+              Vous pourrez le renommer à tout moment dans le menu du projet.
             </p>
             <div className="name-actions">
               <Button
@@ -484,140 +484,155 @@ export function ProjectHeader({
       <IconButton label="Retour aux calculs" onClick={() => nav("/")}>
         <ArrowLeft />
       </IconButton>
-      <div className="project-heading">
-        <button
-          className="study-name-button"
-          onClick={() => {
-            setNameDraft(name);
-            setNaming(true);
-          }}
-          title={name}
-          aria-label={`Renommer le projet ${name}`}
-        >
-          <h1>{name}</h1>
-          <Pencil size={13} />
-        </button>
-        <span className="study-type-description">{typeInfo(type).label}</span>
-      </div>
-      {toolbar && <div className="project-header-toolbar">{toolbar}</div>}
-      <div className="project-actions">
-        {tools}
-        {extra && (
-          <div
-            ref={extraRef}
-            className={`project-extra${workbench && compact ? " project-extra-in-menu" : ""}`}
+      {workbench ? (
+        <h1 className="sr-only">{name}</h1>
+      ) : (
+        <div className="project-heading">
+          <button
+            className="study-name-button"
+            onClick={() => {
+              setNameDraft(name);
+              setNaming(true);
+            }}
+            title={name}
+            aria-label={`Renommer le projet ${name}`}
           >
-            {extra}
-          </div>
+            <h1>{name}</h1>
+            <Pencil size={13} />
+          </button>
+          <span className="study-type-description">{typeInfo(type).label}</span>
+        </div>
+      )}
+      {toolbar && <div className="project-header-toolbar">{toolbar}</div>}
+      <div
+        className={workbench ? "ribbon-group project-action-group" : undefined}
+        role={workbench ? "group" : undefined}
+        aria-label={workbench ? "Projet" : undefined}
+      >
+        {workbench && (
+          <span className="ribbon-legend" aria-hidden="true">
+            Projet
+          </span>
         )}
-        {workbench ? (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <IconButton label="Autres actions du projet">
-                <Ellipsis />
-              </IconButton>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              {compact && extra && (
-                <DropdownMenuItem
-                  onSelect={() =>
-                    extraRef.current
-                      ?.querySelector<HTMLButtonElement>("button")
-                      ?.click()
-                  }
-                >
-                  {type === "building"
-                    ? "Dimensions types du projet"
-                    : "Calcul simplifié G/Q"}
-                </DropdownMenuItem>
-              )}
-              {compact && ["beam", "frame"].includes(type) && (
-                <DropdownMenuItem
-                  onSelect={() =>
-                    document
-                      .querySelector<HTMLButtonElement>(
-                        '.workbench-project-header [aria-label="Dimensions types du projet"]',
-                      )
-                      ?.click()
-                  }
-                >
-                  Dimensions types du projet
-                </DropdownMenuItem>
-              )}
-              {compact && (
-                <DropdownMenuItem
-                  onSelect={() => desktopCommand("help:shortcuts")}
-                >
-                  Raccourcis clavier et souris
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem onSelect={rename}>
-                <Pencil />
-                Renommer le projet
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={exportStudy}>
-                <Download />
-                Exporter le projet
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => studyAction("guide:replay")}>
-                <CircleHelp />
-                Rejouer le guide
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        ) : (
-          <>
-            <IconButton
-              label="Rejouer le guide"
-              onClick={() => studyAction("guide:replay")}
+        <div className="project-actions">
+          {tools}
+          {extra && (
+            <div
+              ref={extraRef}
+              className={`project-extra${workbench && compact ? " project-extra-in-menu" : ""}`}
             >
-              <CircleHelp />
-            </IconButton>
-            <IconButton
-              label="Exporter le projet"
-              onClick={() =>
-                void exportJson(`${name || type}.structcalc.json`, {
-                  format: "structcalc-project",
-                  version: 1,
-                  project: {
-                    id: project?.id ?? uid(),
-                    name: name.trim() || typeInfo(type).label,
-                    type,
-                    updatedAt: new Date().toISOString(),
-                    data,
-                  },
-                }).catch(() => toast.error("Export impossible."))
-              }
-            >
-              <Download />
-            </IconButton>
-          </>
-        )}
-        <Button
-          aria-label={
-            saving
-              ? "Enregistrement en cours"
-              : saved
-                ? "Enregistré"
-                : "Enregistrer"
-          }
-          onClick={() => void save()}
-          data-tour="save"
-          disabled={saving || temporary || !created}
-        >
-          {saving ? (
-            <LoaderCircle className="animate-spin" />
-          ) : saved ? (
-            <Check />
+              {extra}
+            </div>
+          )}
+          {workbench ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <IconButton label="Autres actions du projet">
+                  <Ellipsis />
+                </IconButton>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {compact && extra && (
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      extraRef.current
+                        ?.querySelector<HTMLButtonElement>("button")
+                        ?.click()
+                    }
+                  >
+                    {type === "building"
+                      ? "Dimensions types du projet"
+                      : "Calcul simplifié G/Q"}
+                  </DropdownMenuItem>
+                )}
+                {compact && ["beam", "frame"].includes(type) && (
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      document
+                        .querySelector<HTMLButtonElement>(
+                          '.workbench-project-header [aria-label="Dimensions types du projet"]',
+                        )
+                        ?.click()
+                    }
+                  >
+                    Dimensions types du projet
+                  </DropdownMenuItem>
+                )}
+                {compact && (
+                  <DropdownMenuItem
+                    onSelect={() => desktopCommand("help:shortcuts")}
+                  >
+                    Raccourcis clavier et souris
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onSelect={rename}>
+                  <Pencil />
+                  Renommer le projet
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={exportStudy}>
+                  <Download />
+                  Exporter le projet
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => studyAction("guide:replay")}>
+                  <CircleHelp />
+                  Rejouer le guide
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
-            <Save />
+            <>
+              <IconButton
+                label="Rejouer le guide"
+                onClick={() => studyAction("guide:replay")}
+              >
+                <CircleHelp />
+              </IconButton>
+              <IconButton
+                label="Exporter le projet"
+                onClick={() =>
+                  void exportJson(`${name || type}.structcalc.json`, {
+                    format: "structcalc-project",
+                    version: 1,
+                    project: {
+                      id: project?.id ?? uid(),
+                      name: name.trim() || typeInfo(type).label,
+                      type,
+                      updatedAt: new Date().toISOString(),
+                      data,
+                    },
+                  }).catch(() => toast.error("Export impossible."))
+                }
+              >
+                <Download />
+              </IconButton>
+            </>
           )}
-          {!workbench && (
-            <span className="button-text">
-              {saved ? "Enregistré" : "Enregistrer"}
-            </span>
-          )}
-        </Button>
+          <Button
+            aria-label={
+              saving
+                ? "Enregistrement en cours"
+                : saved
+                  ? "Enregistré"
+                  : "Enregistrer"
+            }
+            onClick={() => void save()}
+            data-tour="save"
+            disabled={saving || temporary || !created}
+          >
+            {saving ? (
+              <LoaderCircle className="animate-spin" />
+            ) : saved ? (
+              <Check />
+            ) : (
+              <Save />
+            )}
+            {!workbench && (
+              <span className="button-text">
+                {saved ? "Enregistré" : "Enregistrer"}
+              </span>
+            )}
+          </Button>
+        </div>
       </div>
     </header>
   );

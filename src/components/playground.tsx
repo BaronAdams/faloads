@@ -51,7 +51,7 @@ export function Playground({
     key: string,
     delta: { x: number; y: number },
     phase: "start" | "move" | "end" | "cancel",
-  ) => void;
+  ) => boolean | void;
   height?: number;
   label?: string;
   selected?: string | null;
@@ -82,7 +82,9 @@ export function Playground({
       moved: boolean;
       right: boolean;
       shift: boolean;
+      element: boolean;
     } | null>(null),
+    holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     pinch = useRef(false),
     pattern = useId().replace(/:/g, "");
   const apply = (next: View) => {
@@ -183,6 +185,11 @@ export function Playground({
     "view:zoom-out": () => zoom(1 / 1.2),
     "view:reset": reset,
   });
+  const stopHold = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+  useEffect(() => () => stopHold(), []);
   const positions = () => [...points.current.values()];
   return (
     <section
@@ -269,46 +276,77 @@ export function Playground({
         onPointerDown={(e) => {
           const p = local(e.clientX, e.clientY);
           points.current.set(e.pointerId, p);
-          if (points.current.size > 1) pinch.current = true;
+          svg.current!.setPointerCapture(e.pointerId);
+          if (points.current.size > 1) {
+            stopHold();
+            if (drag.current?.element && drag.current.key) {
+              onElementDrag?.(drag.current.key, { x: 0, y: 0 }, "cancel");
+              drag.current.element = false;
+            }
+            pinch.current = true;
+            return;
+          }
           const key =
             (e.target as Element)
               .closest("[data-element]")
               ?.getAttribute("data-element") ?? null;
-          drag.current = {
+          const d = {
             x: p.x,
             y: p.y,
             key,
             moved: false,
             right: e.button === 2,
             shift: e.shiftKey,
+            element: false,
           };
-          if (e.button === 2 && onElementContext) {
+          drag.current = d;
+          if (d.right) {
             e.preventDefault();
-            svg.current!.setPointerCapture(e.pointerId);
-            if (key) onElementDrag?.(key, { x: 0, y: 0 }, "start");
+            return;
           }
           if (
-            hand ||
-            space.current ||
-            e.button === 1 ||
-            onOrbit ||
-            e.pointerType === "touch"
-          )
-            svg.current!.setPointerCapture(e.pointerId);
+            key &&
+            onElementDrag &&
+            e.button === 0 &&
+            !hand &&
+            !space.current &&
+            !onOrbit &&
+            !e.shiftKey
+          ) {
+            const begin = () => {
+              holdTimer.current = null;
+              if (drag.current === d && !d.moved && !pinch.current)
+                d.element =
+                  onElementDrag(key, { x: 0, y: 0 }, "start") === true;
+            };
+            // A touch swipe pans. Holding an element briefly enables precise editing.
+            if (e.pointerType === "touch")
+              holdTimer.current = setTimeout(begin, 350);
+            else begin();
+          }
         }}
         onPointerMove={(e) => {
           if (!points.current.has(e.pointerId)) return;
-          if (drag.current?.right && onElementContext) {
-            const d = drag.current,
-              p = local(e.clientX, e.clientY);
-            if (Math.hypot(p.x - d.x, p.y - d.y) > 4 * geometry.units)
-              d.moved = true;
-            if (d.moved && d.key)
+          const d = drag.current;
+          const current = local(e.clientX, e.clientY);
+          const distance = d ? Math.hypot(current.x - d.x, current.y - d.y) : 0;
+          if (distance > 4 * geometry.units) stopHold();
+          if (d?.right && !onOrbit) {
+            if (distance > 4 * geometry.units) d.moved = true;
+            return;
+          }
+          if (d?.element && d.key && !pinch.current) {
+            if (distance > 4 * geometry.units) d.moved = true;
+            if (d.moved)
               onElementDrag?.(
                 d.key,
-                { x: (p.x - d.x) / v.current.k, y: (p.y - d.y) / v.current.k },
+                {
+                  x: (current.x - d.x) / v.current.k,
+                  y: (current.y - d.y) / v.current.k,
+                },
                 "move",
               );
+            points.current.set(e.pointerId, current);
             return;
           }
           const before = positions(),
@@ -374,61 +412,54 @@ export function Playground({
           }
         }}
         onPointerUp={(e) => {
+          stopHold();
           points.current.delete(e.pointerId);
-          if (pinch.current && drag.current) drag.current.moved = true;
+          const d = drag.current;
+          if (pinch.current && d) d.moved = true;
           if (!points.current.size) pinch.current = false;
-          if (drag.current?.right) {
-            const d = drag.current;
-            if (d.key && onElementContext) {
-              if (d.moved) {
-                const p = local(e.clientX, e.clientY);
-                onElementDrag?.(
-                  d.key,
-                  {
-                    x: (p.x - d.x) / v.current.k,
-                    y: (p.y - d.y) / v.current.k,
-                  },
-                  "end",
-                );
-              } else {
-                onElementDrag?.(d.key, { x: 0, y: 0 }, "cancel");
-                const target = [
-                  ...(content.current?.querySelectorAll("[data-element]") ??
-                    []),
-                ].find((el) => el.getAttribute("data-element") === d.key);
-                const r = target?.getBoundingClientRect();
-                onElementContext(d.key, {
-                  x: r?.right ?? e.clientX,
-                  y: r?.bottom ?? e.clientY,
-                });
-              }
+          drag.current = null;
+          if (!d) return;
+          if (d.right) {
+            if (d.key && !d.moved && onElementContext) {
+              const target = [
+                ...(content.current?.querySelectorAll("[data-element]") ?? []),
+              ].find((el) => el.getAttribute("data-element") === d.key);
+              const r = target?.getBoundingClientRect();
+              onElementContext(d.key, {
+                x: r?.right ?? e.clientX,
+                y: r?.bottom ?? e.clientY,
+              });
             }
-            drag.current = null;
             return;
           }
-          if (
-            drag.current &&
-            !drag.current.moved &&
-            !hand &&
-            !space.current &&
-            drag.current.key
-          )
-            onSelect?.(drag.current.key, drag.current.shift);
-          else if (
-            drag.current &&
-            !drag.current.moved &&
-            !drag.current.key &&
-            !hand &&
-            !space.current
-          )
-            onDeselect?.();
-          drag.current = null;
+          if (d.element && d.key) {
+            const p = local(e.clientX, e.clientY);
+            onElementDrag?.(
+              d.key,
+              { x: (p.x - d.x) / v.current.k, y: (p.y - d.y) / v.current.k },
+              d.moved ? "end" : "cancel",
+            );
+            if (d.moved) return;
+          }
+          if (!d.moved && !hand && !space.current) {
+            if (d.key) onSelect?.(d.key, d.shift);
+            else onDeselect?.();
+          }
         }}
         onContextMenu={(e) => {
-          if (onElementContext || onOrbit) e.preventDefault();
+          if (onElementDrag || onElementContext || onOrbit) e.preventDefault();
         }}
         onPointerCancel={(e) => {
-          if (drag.current?.right && drag.current.key)
+          stopHold();
+          if (drag.current?.element && drag.current.key)
+            onElementDrag?.(drag.current.key, { x: 0, y: 0 }, "cancel");
+          points.current.delete(e.pointerId);
+          if (!points.current.size) pinch.current = false;
+          drag.current = null;
+        }}
+        onLostPointerCapture={(e) => {
+          stopHold();
+          if (drag.current?.element && drag.current.key)
             onElementDrag?.(drag.current.key, { x: 0, y: 0 }, "cancel");
           points.current.delete(e.pointerId);
           if (!points.current.size) pinch.current = false;

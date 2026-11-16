@@ -58,7 +58,7 @@ test("explicit naming and action-driven guide complete, persist and replay", asy
   await page.reload();
   await expect(
     page.getByRole("heading", { name: "Résidence Horizon — R+1", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(1);
   await expect(coach).toHaveCount(0);
   const guides = await page.evaluate(
     () => JSON.parse(localStorage.getItem("structcalc.workspace.v1")!).guides,
