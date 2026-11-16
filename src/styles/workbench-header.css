@@ -1,0 +1,323 @@
+/* One fixed ribbon; section controls read top to bottom, then left to right. */
+.project-workbench-shell .project-page.analysis-page {
+  padding: 0;
+  max-width: none;
+  gap: 0;
+}
+.project-workbench-shell .project-header.workbench-project-header {
+  --ribbon-row: 30px;
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 104px;
+  min-height: 104px;
+  max-height: 104px;
+  gap: 4px;
+  padding: 4px 6px;
+  margin: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+  position: sticky;
+  top: var(--safe-top, 0px);
+  z-index: 10;
+  min-width: 0;
+}
+.workbench-project-header > button {
+  flex: none;
+}
+.project-header-toolbar {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--muted-foreground) var(--muted);
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: 8px;
+}
+.project-header-toolbar::-webkit-scrollbar {
+  height: 6px;
+}
+.project-header-toolbar::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: 8px;
+}
+.project-header-toolbar::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+}
+.project-header-toolbar::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+.workbench-project-header .ribbon-group {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 10px 4px;
+  min-width: 0;
+}
+.workbench-project-header .ribbon-group::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 1px;
+  background: var(--border);
+}
+.workbench-project-header .ribbon-legend {
+  display: block;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+.workbench-project-header .ribbon-fields,
+.workbench-project-header .project-actions {
+  display: grid;
+  grid-template-rows: repeat(2, var(--ribbon-row));
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: center;
+  justify-content: center;
+  gap: 3px 8px;
+  margin: 0;
+  min-width: 0;
+}
+.workbench-project-header .desktop-parameter-bar,
+.workbench-project-header .floor-toolbar,
+.workbench-project-header .row-actions,
+.workbench-project-header .editor-fields,
+.workbench-project-header .form-grid,
+.workbench-project-header .project-auxiliary-tools,
+.workbench-project-header .project-extra {
+  display: contents;
+}
+.ribbon-field-pair {
+  display: contents;
+}
+.workbench-project-header .ribbon-fields .ribbon-field-pair {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: repeat(2, var(--ribbon-row));
+  gap: 3px;
+}
+.project-workbench-shell .workbench-project-header .ribbon-fields .field {
+  display: grid;
+  grid-template-columns: minmax(60px, max-content) 96px;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  min-width: 0;
+  margin: 0;
+}
+.project-workbench-shell
+  .workbench-project-header
+  .ribbon-fields
+  .field:has([role="combobox"]) {
+  grid-template-columns: minmax(60px, max-content) 148px;
+}
+.workbench-project-header .field > label {
+  display: block;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 15px;
+  margin: 0;
+}
+.workbench-project-header .number-input input,
+.workbench-project-header [data-slot="select-trigger"] {
+  height: var(--ribbon-row);
+  min-height: var(--ribbon-row);
+  width: 100%;
+  font-size: 12px;
+}
+.workbench-project-header .number-input {
+  min-width: 0;
+}
+.workbench-project-header .toggle {
+  margin: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  gap: 6px;
+}
+.workbench-project-header
+  button:is(
+    [data-slot="button"],
+    [data-slot="tooltip-trigger"],
+    [data-slot="dropdown-menu-trigger"],
+    [data-slot="dialog-trigger"]
+  ) {
+  height: var(--ribbon-row);
+  width: var(--ribbon-row);
+  min-width: var(--ribbon-row);
+  padding: 6px;
+}
+.workbench-project-header .project-action-group {
+  padding-inline: 6px 0;
+  align-self: stretch;
+  justify-content: flex-start;
+}
+.workbench-project-header .project-action-group::after {
+  display: none;
+}
+.workbench-project-header .project-extra-in-menu {
+  display: none;
+}
+.project-workbench-shell .analysis-canvas-workspace {
+  margin: 0;
+  min-height: 480px;
+}
+.project-workbench-shell .immersive-playground {
+  border-radius: 0;
+  border-width: 0;
+}
+.app-shell.project-workbench-shell .main-column > .mobile-app-header {
+  display: none;
+}
+.project-auxiliary-tools {
+  display: flex;
+  gap: 2px;
+}
+
+/* On a real desktop the system draws its own menu outside the WebView. */
+html[data-runtime="desktop"] .desktop-statusbar {
+  grid-row: 3;
+}
+html[data-runtime="desktop"][data-native-menu="true"] .app-shell {
+  grid-template-rows: 0 minmax(0, 1fr) 28px;
+}
+html[data-runtime="desktop"][data-native-menu="false"] .app-shell {
+  grid-template-rows: 28px minmax(0, 1fr) 28px;
+}
+html[data-runtime="desktop"] .desktop-menubar {
+  display: flex;
+  grid-column: 1/-1;
+  grid-row: 1;
+  height: 28px;
+  gap: 0;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+.desktop-project-picker {
+  max-height: 85dvh;
+  overflow-y: auto;
+}
+.desktop-menu-trigger {
+  font-size: 12px;
+  padding: 3px 10px;
+  outline: none;
+  border-radius: 3px;
+}
+.desktop-menu-trigger[data-state="open"],
+.desktop-menu-trigger:focus-visible {
+  background: var(--accent);
+}
+.desktop-menu-content {
+  min-width: 220px;
+  padding: 4px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  z-index: 60;
+  box-shadow: 0 6px 18px #0002;
+}
+.desktop-menu-item {
+  padding: 6px 10px;
+  font-size: 12px;
+  border-radius: 3px;
+  outline: none;
+  cursor: default;
+}
+.desktop-menu-item[data-highlighted] {
+  background: var(--accent);
+}
+.desktop-menu-item[data-disabled] {
+  color: var(--muted-foreground);
+  opacity: 0.5;
+}
+@media (min-width: 1001px) {
+  html[data-runtime="desktop"] .project-workbench-shell .route-content {
+    overflow: hidden;
+  }
+  html[data-runtime="desktop"]
+    .project-workbench-shell
+    .project-page.analysis-page {
+    height: 100%;
+  }
+  html[data-runtime="desktop"]
+    .project-workbench-shell
+    .analysis-canvas-workspace {
+    min-height: 0;
+  }
+  html[data-runtime="desktop"] .project-workbench-shell .immersive-playground,
+  html[data-runtime="desktop"]
+    .project-workbench-shell
+    .immersive-playground
+    > svg {
+    min-height: 0;
+  }
+}
+@media (max-width: 1000px) {
+  .project-workbench-shell .project-header.workbench-project-header {
+    --ribbon-row: 44px;
+    height: 128px;
+    min-height: 128px;
+    max-height: 128px;
+    padding: 4px;
+    gap: 0;
+  }
+  .workbench-project-header .ribbon-group {
+    padding-inline: 8px;
+    gap: 3px;
+  }
+  .workbench-project-header .ribbon-fields,
+  .workbench-project-header .project-actions {
+    gap: 2px 4px;
+  }
+  .workbench-project-header .ribbon-legend {
+    font-size: 10px;
+  }
+  .workbench-project-header .project-auxiliary-tools {
+    display: none;
+  }
+  .workbench-project-header .project-action-group {
+    padding-inline: 4px 0;
+  }
+  .workbench-project-header .ribbon-parameters .field {
+    grid-template-columns: max-content 96px;
+  }
+  .workbench-project-header .ribbon-parameters .field:has([role="combobox"]) {
+    grid-template-columns: max-content 148px;
+  }
+  .workbench-project-header .toggle {
+    min-height: 44px;
+  }
+  .workbench-project-header .project-header-toolbar {
+    scrollbar-width: thin;
+  }
+}
+
+/* Keep tour geometry and semantic parameter pairs measurable inside the ribbon. */
+.workbench-project-header .ribbon-parameters .desktop-parameter-bar {
+  display: grid;
+  grid-row: span 2;
+  grid-template-rows: repeat(2, var(--ribbon-row));
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: center;
+  gap: 3px 8px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}

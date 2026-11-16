@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "StructCalc",
+        "width": 1400,
+        "height": 920,
+        "minWidth": 360,
+        "minHeight": 560,
+        "backgroundColor": "#111316",
+        "create": false
+      }
+    ]
+  }
+}

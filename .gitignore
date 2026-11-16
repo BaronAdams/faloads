@@ -1,25 +1,45 @@
-# Flutter/Dart
-.dart_tool/
-.packages
-build/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-*.iml
-
-# Platform folders are generated in CI (flutter create --platforms=android,ios .)
-# and are intentionally not committed — keep the repo to Dart source + config.
-/android/
-/ios/
-/macos/
-/windows/
-/linux/
-/web/
-
-# IDE
+node_modules/
+dist/
+*.tsbuildinfo
+playwright-report/
+test-results/
+src-tauri/target/
+src-tauri/gen/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+keystore.properties
+.DS_Store
 .idea/
 .vscode/
+# Flutter reference is archived, not built by the new workflows.
+legacy/flutter/.dart_tool/
+legacy/flutter/build/
+legacy/flutter/.flutter-plugins*
+legacy/flutter/android/
+legacy/flutter/ios/
+legacy/flutter/linux/
+legacy/flutter/macos/
+legacy/flutter/windows/
+legacy/flutter/web/
 
-# OS
-.DS_Store
+native-test-results/
+artifacts/
+src-tauri/icons/android/
+src-tauri/icons/ios/
+src-tauri/icons/Square*.png
+src-tauri/icons/StoreLogo.png
+
+# Ignore caches left by the former Flutter checkout.
+.dart_tool/
+build/
+.flutter-plugins*
+.packages
+/android/
+/ios/
+/linux/
+/macos/
+/windows/
+/web/

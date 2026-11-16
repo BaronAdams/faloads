@@ -1,0 +1,96 @@
+export const projectTypes = [
+  {
+    id: "beam",
+    icon: "01C",
+    label: "Analyse de poutres",
+    description: "Appuis, charges, efforts et déplacements",
+    family: "Analyse structurale",
+  },
+  {
+    id: "frame",
+    icon: "02B",
+    label: "Analyse de portiques plans",
+    description: "Nœuds, barres et portiques plans",
+    family: "Analyse structurale",
+  },
+  {
+    id: "column-load",
+    icon: "03C",
+    label: "Poteau isolé",
+    description: "Descente de charges et aire tributaire",
+    family: "Descente de charges",
+  },
+  {
+    id: "wall-load",
+    icon: "04B",
+    label: "Voile isolé",
+    description: "Charges verticales et action du vent",
+    family: "Descente de charges",
+  },
+  {
+    id: "building",
+    icon: "05B",
+    label: "Bâtiment complet",
+    description: "Niveaux, panneaux et éléments porteurs",
+    family: "Descente de charges",
+  },
+  {
+    id: "column",
+    icon: "06C",
+    label: "Poteau",
+    description: "Section de poteau en béton armé sous effort normal",
+    family: "Dimensionnement Béton Armé",
+  },
+  {
+    id: "beam-size",
+    icon: "07B",
+    label: "Poutre",
+    description: "Dimensions de poutre en béton armé selon portée et charges",
+    family: "Dimensionnement Béton Armé",
+  },
+  {
+    id: "wall",
+    icon: "08C",
+    label: "Voile",
+    description: "Épaisseur et section de voile en béton armé",
+    family: "Dimensionnement Béton Armé",
+  },
+  {
+    id: "stairs",
+    icon: "09A",
+    label: "Escalier",
+    description: "Géométrie des marches et paillasse en béton armé",
+    family: "Dimensionnement Béton Armé",
+  },
+  {
+    id: "balcony",
+    icon: "10C",
+    label: "Balcon",
+    description: "Épaisseur du balcon et moment de la console",
+    family: "Dimensionnement Béton Armé",
+  },
+  {
+    id: "slab",
+    icon: "11C",
+    label: "Plancher",
+    description: "Épaisseur de dalle pleine ou plancher à corps creux",
+    family: "Dimensionnement Béton Armé",
+  },
+  {
+    id: "retaining",
+    icon: "12B",
+    label: "Mur de soutènement",
+    description: "Poussée des terres et dimensions du mur en béton armé",
+    family: "Dimensionnement Béton Armé",
+  },
+  {
+    id: "footing",
+    icon: "13C",
+    label: "Semelle de fondation",
+    description: "Dimensions de semelle en béton armé, isolée ou filante",
+    family: "Dimensionnement Béton Armé",
+  },
+] as const;
+export type ProjectType = (typeof projectTypes)[number]["id"];
+export const typeInfo = (id: ProjectType) =>
+  projectTypes.find((t) => t.id === id)!;

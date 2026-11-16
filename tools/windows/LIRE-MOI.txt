@@ -1,0 +1,21 @@
+StructCalc 0.2 - Tauri 2 / React
+
+Pour Windows 10/11 x64 :
+1. Extrayez completement l'archive GitHub.
+2. Utilisez l'installateur *-setup.exe : il verifie et installe WebView2 si
+   necessaire (connexion Internet requise lors de cette installation).
+3. StructCalc.exe est egalement fourni en version portable ; WebView2 doit
+   deja etre installe sur le PC pour cette version.
+
+Si l'affichage est noir, fermez la fenetre puis ouvrez
+Lancer-compatibilite.cmd. Ce lancement demande a WebView2 de desactiver
+l'acceleration GPU. Il peut aider sur certains pilotes graphiques.
+
+Les projets sont stockes dans le repertoire de donnees de l'application,
+com.structcalc.app/workspace.json. Les donnees Flutter ne sont pas effacees.
+La nouvelle application utilise son propre espace de sauvegarde.
+Utilisez Parametres > Exporter mon espace pour une sauvegarde portable.
+
+Une lecture locale invalide propose Reessayer ou une session temporaire,
+sans effacer la sauvegarde originale. Les journaux natifs sont conserves
+dans le dossier de journaux Tauri de l'application.

@@ -1,0 +1,33 @@
+{
+  "source": "lib/src/widgets/struct_icon.dart at 288f40098a8bff0110a7fee3063637e56216dde2",
+  "sourceSha256": "82b1103d69d844fc3396eca248f1efdec360f49188db6ad2658b924f70116cee",
+  "method": "Unmodified Flutter CustomPainter; 88 logical pixels; pixelRatio 4; transparent PNG; native dark and light surfaces.",
+  "files": {
+    "06C-dark.png": "0ce5e03296720145c942a04101a5025518f6e0f67694c8df961aca02cb6d4fcc",
+    "07B-light.png": "a43aebef96b47abae9c73edd5a6fb39e1ff85e5959a176db94125ba112122f6c",
+    "05B-dark.png": "d4dfa55d19a28d1f047118fdc443082dc89e2fd2c60dfefec8f5fa8ebaf894ea",
+    "01C-dark.png": "4eae55ddf61b16ee351725dd65ef662ac0167b034469d20e88e061b758c10fa4",
+    "08C-dark.png": "cb1c25f3934462cb53d907f49d31376f7dbdaa0c2477cde3139f88903a236b0d",
+    "07B-dark.png": "7220e9140707b32dc7b2132f79cd8b275b7d1c17c6b6fa837723a34e9c1d9195",
+    "10C-dark.png": "afed440a87d7c6b640d3fe62b51ce320bab4eea59ad8b72b4178d20c73a45a23",
+    "13C-dark.png": "672c72d50bac6965875a0f00abe5732e8a45e825cecc9c9382f373b2aba87b37",
+    "01C-light.png": "8e787a49b685cc1a1521ff1002c1f863620eda6e488a5b6110d322f61841b3cf",
+    "02B-light.png": "3d8b44b3873f230204872c33f2570069576d1224c9876c61bebc5722c626f71b",
+    "03C-dark.png": "2154704defebd1739206991dcb4d4d951b9ada0ed2750fa02ef5f5afda08800e",
+    "11C-light.png": "287515b35af1cbf6e6245b74a8ff96e96e36017c4119d3285dff1b47f46dbc04",
+    "11C-dark.png": "c80eaec764b24264ef6cf3ba70e9a808b003921a5cad802bb57e3a1fd619d785",
+    "10C-light.png": "8abb96dec27dad9c16750674c369f54c58c2c4b68ec9d75df42a12ebc6477499",
+    "12B-dark.png": "2946825f9cf3291e52953b48e2557930e26c61526c0a59a30e40b5aa5bd72f87",
+    "13C-light.png": "cdb9529fd416484cba95e06b87126b50a6a1631c8df35dca254af04b47502e0f",
+    "03C-light.png": "65b089e995bf6c0bb3f07f54ec5f24a8cffa0e9aba9dccce565472dc320784d8",
+    "09A-light.png": "32bcc6db210162bbf0dc0a01fd39af58213c559435b66a3da23c50cc4f1b09bd",
+    "04B-light.png": "6c526539c58fd3dde8afc74eee7704747bcb05982296d00341466b7adaeb3a91",
+    "06C-light.png": "7004cbb83839d494fa3db9d1e1434c4037c52c88a11d5ba62763177b200a2a5b",
+    "04B-dark.png": "6f44dd7c3d7e525b73d661c69be514ac8096f0974c346b64dd09bf2669d285a3",
+    "08C-light.png": "7104f905fb4947bf24b16b69a04d9f4cd07df8aefba573c4a4cbc6996f164f33",
+    "05B-light.png": "c6d646f682f4fdefbb65c81bd7c9348e030d9699d15c6db888f371a7c26616e8",
+    "02B-dark.png": "d4978f62f4a7bc384c940e284526698180bbb8070960ec657237e459f5305526",
+    "12B-light.png": "ece4af7d5fda1c6dee195cf80b44675220a925674b7d30297804e2f8c4849252",
+    "09A-dark.png": "12eb6cd6a99c45e8a910850e658fcc3ea3550ed8975bef2df1947db75e14dfc0"
+  }
+}

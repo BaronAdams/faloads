@@ -1,0 +1,623 @@
+/* Platform workspaces. The browser keeps the existing catalogue and layout. */
+:root {
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --plot-m: #9464d4;
+  --plot-v: #1679a5;
+  --plot-n: #b45e20;
+  --plot-displacement: #24836b;
+  --plot-rotation: #b34972;
+}
+.dark {
+  --plot-m: #bd9af2;
+  --plot-v: #59c4ec;
+  --plot-n: #f5b668;
+  --plot-displacement: #61cfac;
+  --plot-rotation: #ef91be;
+}
+html[data-runtime="mobile"] body,
+html[data-runtime="web"] body {
+  padding-top: var(--safe-top);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+.mobile-app-header {
+  position: sticky;
+  top: var(--safe-top);
+  z-index: 45;
+}
+.mobile-app-header::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  height: var(--safe-top);
+  background: var(--card);
+}
+html[data-runtime="mobile"] .app-shell {
+  display: block;
+}
+html[data-runtime="mobile"] .app-sidebar {
+  display: none;
+}
+html[data-runtime="mobile"] .mobile-app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 22px;
+  min-height: 58px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+html[data-runtime="mobile"] .mobile-navigation {
+  position: fixed;
+  z-index: 40;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-around;
+  gap: 4px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  padding: 9px 10px calc(9px + var(--safe-bottom));
+  min-height: 59px;
+}
+html[data-runtime="mobile"] .mobile-navigation > a {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--muted-foreground);
+  font-size: 10px;
+  min-width: 70px;
+}
+html[data-runtime="mobile"] .mobile-navigation > a.active {
+  color: var(--primary);
+}
+html[data-runtime="mobile"] .main-column {
+  padding-bottom: calc(76px + var(--safe-bottom));
+}
+.playground > svg {
+  fill: var(--foreground);
+}
+.mobile-navigation {
+  padding-bottom: calc(9px + var(--safe-bottom));
+}
+.onboarding {
+  padding-top: max(20px, var(--safe-top));
+}
+.selection-highlight {
+  fill: var(--orange);
+  fill-opacity: 0.12;
+  stroke: var(--orange);
+  stroke-width: 2;
+  rx: 4;
+}
+.playground svg text {
+  font-size: var(--drawing-text-size, 18px);
+}
+.playground svg text.numeric {
+  font-size: var(--drawing-number-size, 16px);
+}
+.plot-series {
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+.series-key {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  background: var(--series-color);
+  margin-right: 8px;
+  vertical-align: middle;
+}
+.editor-sheet {
+  gap: 0;
+  padding: 0;
+  max-width: none;
+  max-height: none;
+  overflow: hidden;
+}
+.editor-sheet-left {
+  width: min(440px, 90vw);
+  height: 100dvh;
+  border-radius: 0;
+}
+.editor-sheet-bottom {
+  height: min(620px, calc(94dvh - var(--safe-top)));
+  max-height: calc(94dvh - var(--safe-top));
+  border-radius: 20px 20px 0 0;
+}
+.editor-sheet [data-slot="sheet-header"] {
+  padding: 24px 52px 20px 24px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+.editor-sheet [data-slot="sheet-title"] {
+  font-size: 18px;
+}
+.editor-sheet [data-slot="sheet-description"] {
+  font-size: 13px;
+  line-height: 1.6;
+}
+.editor-sheet > form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.editor-sheet .editor-fields {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px;
+  margin: 0;
+  max-height: none;
+}
+.editor-sheet [data-slot="sheet-footer"] {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  gap: 8px;
+  padding: 16px 24px calc(16px + var(--safe-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}
+.editor-sheet button {
+  min-height: 40px;
+}
+.editor-sheet [role="switch"] {
+  min-height: 0;
+}
+.editor-sheet .toggle {
+  min-height: 36px;
+}
+.editor-sheet input,
+.editor-sheet [data-slot="select-trigger"] {
+  min-height: 44px;
+  font-size: 14px;
+}
+.editor-sheet .form-grid {
+  gap: 16px;
+}
+.editor-sheet .field > label {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.sheet-handle {
+  width: 40px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 4px;
+  align-self: center;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+.sheet-grip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 28px;
+  min-height: 28px !important;
+  flex-shrink: 0;
+  touch-action: none;
+  cursor: grab;
+}
+.sheet-grip .sheet-handle {
+  margin-top: 0;
+}
+.level-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card);
+}
+.level-summary > button:first-child {
+  flex: 1;
+  text-align: left;
+  background: transparent;
+  min-width: 0;
+}
+.level-summary strong,
+.level-summary small {
+  display: block;
+}
+.level-summary small {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  margin-top: 4px;
+}
+.level-layout > .levels-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.level-layout,
+.descent-graphs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.9fr);
+  gap: 24px;
+  align-items: start;
+}
+.profile-panel {
+  position: sticky;
+  top: 80px;
+}
+.structural-graph {
+  width: 100%;
+  overflow: auto;
+}
+.structural-graph > svg {
+  width: 100%;
+  height: auto;
+  min-width: 320px;
+  display: block;
+}
+.structural-graph text {
+  fill: var(--foreground);
+  font-size: 24px;
+}
+.structural-graph .numeric {
+  font-size: 22px;
+}
+.profile-graph {
+  max-height: 520px;
+}
+.graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted-foreground);
+  padding-top: 12px;
+}
+.selected-result {
+  padding: 16px;
+  border-left: 3px solid var(--orange);
+  background: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+}
+.selected-result strong {
+  font-size: 13px;
+}
+.selected-result span {
+  font-size: 12px;
+}
+.selected-result button {
+  margin-left: auto;
+}
+@media (max-width: 1000px) {
+  .level-layout,
+  .descent-graphs {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .profile-panel {
+    position: static;
+  }
+  .main-column {
+    padding-bottom: calc(76px + var(--safe-bottom));
+  }
+  .segmented button,
+  .playground-footer button {
+    min-height: 40px;
+  }
+  .view-chips button {
+    min-height: 36px;
+  }
+  .building-workspace [data-slot="card-content"] > .playground > svg {
+    height: 300px !important;
+  }
+  .editor-sheet-bottom .editor-fields {
+    max-height: 58dvh;
+  }
+  .editor-sheet [data-slot="sheet-header"] {
+    padding: 16px 48px 16px 20px;
+  }
+  .editor-sheet .editor-fields {
+    padding: 20px;
+  }
+  .editor-sheet [data-slot="sheet-footer"] {
+    padding-inline: 20px;
+  }
+}
+/* Native desktop: a fixed workbench, separate scrolling panes, narrow tool rail. */
+@media (min-width: 1001px) {
+  html[data-runtime="desktop"] .app-shell {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+    grid-template-columns: 76px minmax(0, 1fr);
+    grid-template-rows: 44px minmax(0, 1fr) 28px;
+  }
+  html[data-runtime="desktop"] .desktop-commandbar {
+    grid-column: 1/-1;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--card);
+  }
+  .desktop-wordmark {
+    font-weight: 600;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .desktop-wordmark > span {
+    color: var(--primary);
+    font-size: 26px;
+    line-height: 1;
+  }
+  .desktop-context {
+    color: var(--muted-foreground);
+    font-size: 12px;
+  }
+  .desktop-commandbar > a:last-child {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+  }
+  html[data-runtime="desktop"] .app-sidebar {
+    grid-row: 2;
+    padding: 16px 8px;
+    height: auto;
+    position: static;
+    min-height: 0;
+  }
+  html[data-runtime="desktop"] .app-sidebar > .brand,
+  html[data-runtime="desktop"] .nav-caption,
+  html[data-runtime="desktop"] .sidebar-bottom,
+  html[data-runtime="desktop"] .sidebar-profile,
+  html[data-runtime="desktop"] .nav-chevron {
+    display: none;
+  }
+  html[data-runtime="desktop"] .app-sidebar nav {
+    gap: 12px;
+  }
+  html[data-runtime="desktop"] .app-sidebar nav a {
+    padding: 12px 4px;
+    height: 64px;
+    gap: 8px;
+    flex-direction: column;
+    justify-content: center;
+    font-size: 10px;
+    border-radius: 8px;
+    border: 0;
+  }
+  html[data-runtime="desktop"] .app-sidebar nav a span {
+    text-align: center;
+    line-height: 1.2;
+  }
+  html[data-runtime="desktop"] .app-sidebar nav a > svg {
+    width: 20px;
+    height: 20px;
+    flex: none;
+  }
+  html[data-runtime="desktop"] .main-column {
+    grid-row: 2;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+  html[data-runtime="desktop"] .route-content {
+    height: 100%;
+    overflow: auto;
+  }
+  .desktop-statusbar {
+    grid-column: 1/-1;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 0 16px;
+    border-top: 1px solid var(--border);
+    background: var(--card);
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+  .desktop-statusbar span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .desktop-statusbar span:last-child {
+    margin-left: auto;
+    font-family: var(--font-mono);
+  }
+  html[data-runtime="desktop"] .project-page {
+    max-width: none;
+    padding: 16px 20px;
+  }
+  html[data-runtime="desktop"] .project-header {
+    gap: 8px 12px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+  }
+  html[data-runtime="desktop"] .project-heading h1 {
+    font-size: 18px;
+    letter-spacing: 0;
+    margin-top: 0;
+  }
+  html[data-runtime="desktop"] .project-heading .eyebrow {
+    display: none;
+  }
+  html[data-runtime="desktop"] .project-name {
+    margin-top: 0;
+    margin-left: 0;
+  }
+  html[data-runtime="desktop"] .analysis-page {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+  html[data-runtime="desktop"] .analysis-subbar {
+    flex-shrink: 0;
+    margin-bottom: 12px;
+  }
+  html[data-runtime="desktop"] .analysis-layout {
+    grid-template-columns: 248px minmax(0, 1fr);
+    flex: 1;
+    min-height: 0;
+    gap: 16px;
+    align-items: stretch;
+  }
+  html[data-runtime="desktop"] .inspector {
+    position: static;
+    max-height: none;
+    min-height: 0;
+    overflow-y: auto;
+    gap: 12px;
+  }
+  html[data-runtime="desktop"] .analysis-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 336px;
+    min-height: 0;
+    align-items: stretch;
+    gap: 16px;
+  }
+  html[data-runtime="desktop"] .scene-area {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    min-height: 0;
+    overflow: auto;
+    border-radius: 8px;
+  }
+  html[data-runtime="desktop"] .scene-area > .playground {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 320px;
+  }
+  html[data-runtime="desktop"] .scene-area .playground > svg {
+    flex: 1;
+    min-height: 220px;
+    height: auto !important;
+    max-height: none;
+  }
+  html[data-runtime="desktop"] .scene-area .playground-footer > small {
+    display: none;
+  }
+  html[data-runtime="desktop"] .results-area {
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 4px;
+    gap: 12px;
+  }
+  html[data-runtime="desktop"] .results-area .metrics-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  html[data-runtime="desktop"] .results-area .metric {
+    padding: 12px;
+  }
+  html[data-runtime="desktop"] .results-area .metric strong {
+    font-size: 24px;
+  }
+  html[data-runtime="desktop"] [data-slot="card"] {
+    border-radius: 8px;
+    padding-block: 16px;
+    gap: 12px;
+    box-shadow: none;
+  }
+  html[data-runtime="desktop"] .element-row {
+    min-height: 52px;
+  }
+  html[data-runtime="desktop"] .element-row strong {
+    font-size: 12px;
+  }
+  html[data-runtime="desktop"] .element-row small {
+    font-size: 11px;
+  }
+  html[data-runtime="desktop"] .inspector .field > label {
+    font-size: 12px;
+  }
+  html[data-runtime="desktop"] .diagram > svg {
+    min-height: 170px;
+  }
+  html[data-runtime="desktop"] .diagram svg text {
+    font-size: 36px;
+  }
+  html[data-runtime="desktop"] .dashboard {
+    max-width: none;
+    padding: 24px 32px;
+  }
+  html[data-runtime="desktop"] .dashboard .page-title h1 {
+    font-size: 28px;
+  }
+  html[data-runtime="desktop"] .dashboard-aside {
+    width: 240px;
+  }
+  html[data-runtime="desktop"] .project-type-card,
+  html[data-runtime="desktop"] .analysis-family .project-type-card {
+    min-height: 104px;
+    padding: 16px;
+  }
+  html[data-runtime="desktop"] .project-type-card > img,
+  html[data-runtime="desktop"] .analysis-family .project-type-card > img {
+    width: 56px;
+    height: 56px;
+  }
+  html[data-runtime="desktop"] .building-layout {
+    grid-template-columns: 248px minmax(0, 1fr);
+    gap: 16px;
+  }
+  html[data-runtime="desktop"] .building-layout.show-results {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (min-width: 1001px) and (max-width: 1279px) {
+  html[data-runtime="desktop"] .analysis-workspace {
+    display: flex;
+    overflow: auto;
+  }
+  html[data-runtime="desktop"] .scene-area {
+    min-height: 460px;
+    flex-shrink: 0;
+  }
+  html[data-runtime="desktop"] .results-area {
+    overflow: visible;
+    flex-shrink: 0;
+  }
+  html[data-runtime="desktop"] .results-area .metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1000px) {
+  .desktop-commandbar,
+  .desktop-statusbar {
+    display: none;
+  }
+}
+@media print {
+  .desktop-commandbar,
+  .desktop-statusbar {
+    display: none;
+  }
+  html[data-runtime="desktop"] .app-shell,
+  html[data-runtime="desktop"] .analysis-page,
+  html[data-runtime="desktop"] .main-column,
+  html[data-runtime="desktop"] .route-content,
+  html[data-runtime="desktop"] .analysis-workspace {
+    display: block;
+    height: auto;
+    overflow: visible;
+  }
+  html[data-runtime="desktop"] .results-area {
+    overflow: visible;
+  }
+}

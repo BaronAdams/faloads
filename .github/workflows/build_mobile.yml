@@ -1,73 +1,148 @@
-name: Build mobile
-
+name: Build Tauri mobile
 on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch: {}
-
-env:
-  FLUTTER_CHANNEL: stable
-
+  workflow_dispatch:
+    inputs:
+      ios_host:
+        description: Mac architecture for the iOS simulator
+        type: choice
+        default: intel
+        options:
+          - intel
+          - apple-silicon
+permissions:
+  contents: read
+concurrency:
+  group: tauri-mobile-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  analyze_test:
-    name: Analyze & test
+  android:
+    name: Build Android ARM64 APK
     runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      NDK_VERSION: "27.2.12479018"
+      ANDROID_KEY_BASE64: ${{ secrets.ANDROID_KEY_BASE64 }}
+      ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+      - uses: actions/setup-node@v4
         with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
-      # Platform folders (android/, ios/, ...) are generated, not committed —
-      # `flutter create .` on an existing project only fills in what's missing.
-      - run: flutter create --platforms=android,ios --org com.structcalc .
-      - run: flutter pub get
-      - run: flutter analyze
-      - run: flutter test
-
-  build_android:
-    name: Build Android APK
-    needs: analyze_test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
+          node-version: "24"
+          cache: npm
+      - uses: actions/setup-java@v4
         with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
-      - run: flutter create --platforms=android,ios --org com.structcalc .
-      - run: flutter pub get
-      - run: flutter build apk --release
-      - uses: actions/upload-artifact@v4
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
         with:
-          name: structcalc-android
-          path: build/app/outputs/flutter-apk/app-release.apk
-          if-no-files-found: error
-
-  build_ios:
-    name: Build iOS (unsigned)
-    needs: analyze_test
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with:
-          channel: ${{ env.FLUTTER_CHANNEL }}
-      - run: flutter create --platforms=android,ios --org com.structcalc .
-      - run: flutter pub get
-      # No Apple Developer signing identity is configured in this repo, so we
-      # build unsigned. To install on a physical iPhone, package the .app
-      # below as an .ipa (steps here) and sideload it with Sideloadly or
-      # AltStore, which sign it locally with your own free Apple ID.
-      - run: flutter build ios --release --no-codesign
-      - name: Package unsigned .ipa
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Install Android SDK and NDK
         run: |
-          set -e
-          cd build/ios/iphoneos
-          mkdir -p Payload
-          cp -r Runner.app Payload/
-          zip -r structcalc-unsigned.ipa Payload
+          sdkmanager 'platforms;android-36' 'build-tools;36.0.0' "ndk;$NDK_VERSION"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/$NDK_VERSION" >> "$GITHUB_ENV"
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.1"
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: android-arm64
+      - run: npm ci
+      - run: npm run icons
+      - run: npm run android:init
+      - run: npm run tauri android build -- --ci --target aarch64 --apk
+      - name: Sign installable APK
+        run: bash tools/sign-android.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: structcalc-ios-unsigned
-          path: build/ios/iphoneos/structcalc-unsigned.ipa
+          name: structcalc-tauri-android-arm64
+          path: artifacts/android/
           if-no-files-found: error
+          retention-days: 14
+  ios:
+    name: Build iOS simulator (${{ inputs.ios_host == 'apple-silicon' && 'ARM64' || 'Intel' }})
+    # macos-latest uses the ARM64 pool, which can fail before a runner starts.
+    # Tauri's Xcode script builds simulators for the host CPU, so keep them aligned.
+    runs-on: ${{ inputs.ios_host == 'apple-silicon' && 'macos-15' || 'macos-15-intel' }}
+    timeout-minutes: 55
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - name: Select Xcode and native simulator architecture
+        run: |
+          # The Tauri build subprocess filters environment variables; select the
+          # same Xcode system-wide so its xcrun also uses the expected SDK.
+          sudo xcode-select --switch "$DEVELOPER_DIR"
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+          case "$(uname -m)" in
+            x86_64)
+              echo 'IOS_TARGET=x86_64' >> "$GITHUB_ENV"
+              echo 'IOS_ARCH=x86_64' >> "$GITHUB_ENV"
+              ;;
+            arm64)
+              echo 'IOS_TARGET=aarch64-sim' >> "$GITHUB_ENV"
+              echo 'IOS_ARCH=arm64' >> "$GITHUB_ENV"
+              ;;
+            *) echo 'Unsupported simulator host architecture' >&2; exit 1 ;;
+          esac
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.99.1"
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+          key: ios-simulator
+          cache-on-failure: true
+      - run: npm ci
+      - run: npm run icons
+      - run: npm run tauri ios init -- --ci --skip-targets-install
+      - name: Restrict the generated Xcode project to the simulator
+        run: |
+          # Archive destination discovery can pick iPhone despite --target.
+          # This generated project is used exclusively for simulator builds.
+          ruby -ryaml - src-tauri/gen/apple/project.yml <<'RUBY'
+          path = ARGV.fetch(0)
+          project = YAML.load_file(path)
+          targets = project.fetch('targets').values.select { |target| target['platform'] == 'iOS' }
+          abort 'No iOS target in generated project' if targets.empty?
+          targets.each do |target|
+            target.fetch('settings').fetch('base').merge!(
+              'SDKROOT' => 'iphonesimulator',
+              'SUPPORTED_PLATFORMS' => 'iphonesimulator'
+            )
+          end
+          File.write(path, YAML.dump(project))
+          RUBY
+          xcodegen generate --no-env --spec src-tauri/gen/apple/project.yml
+      - run: npm run tauri -- -vv ios build --ci --target "$IOS_TARGET" --no-sign --archive-only
+      - name: Package simulator application
+        run: |
+          APP_PATH=$(find src-tauri/gen/apple -type d -name '*.app' -path '*/build/*' -print -quit)
+          test -n "$APP_PATH"
+          APP_EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Info.plist")
+          xcrun lipo "$APP_PATH/$APP_EXECUTABLE" -verify_arch "$IOS_ARCH"
+          file "$APP_PATH/$APP_EXECUTABLE"
+          xcrun vtool -show-build "$APP_PATH/$APP_EXECUTABLE" > ios-simulator-build.txt
+          cat ios-simulator-build.txt
+          grep -Eq 'platform[[:space:]]+IOSSIMULATOR' ios-simulator-build.txt
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "structcalc-ios-simulator-$IOS_ARCH.zip"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: structcalc-tauri-ios-simulator-${{ env.IOS_ARCH }}
+          path: structcalc-ios-simulator-*.zip
+          if-no-files-found: error
+          retention-days: 14

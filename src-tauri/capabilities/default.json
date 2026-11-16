@@ -1,0 +1,5 @@
+{
+ "$schema": "../gen/schemas/desktop-schema.json",
+ "identifier":"main-capability", "description":"Local StructCalc window and user-selected import/export files",
+ "windows":["main"], "permissions":["core:default","dialog:allow-open","dialog:allow-save","fs:allow-read-text-file","fs:allow-write-text-file"]
+}
