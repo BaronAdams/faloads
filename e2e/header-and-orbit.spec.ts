@@ -5,8 +5,14 @@ async function native(page: Page, phone: boolean) {
   await page.addInitScript((mobile) => {
     Object.assign(window, {
       isTauri: true,
+      __TAURI_EVENT_PLUGIN_INTERNALS__: { unregisterListener: () => {} },
       __TAURI_INTERNALS__: {
+        transformCallback: () => 1,
+        unregisterCallback: () => {},
         invoke: async (cmd: string, args: any) => {
+          if (cmd === "desktop_menu_ready")
+            return localStorage.getItem("preview.native-menu") === "true";
+          if (cmd === "plugin:event|listen") return 1;
           if (cmd === "read_workspace")
             return JSON.parse(
               localStorage.getItem("structcalc.workspace.v1") ?? "null",
@@ -94,6 +100,37 @@ for (const type of ["beam", "frame", "building"] as const) {
     ).toBe(true);
   });
 }
+test("the system menu leaves no empty web row and keeps the status bar below the drawing", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== "desktop", "Native menu layout");
+  await page.setViewportSize({ width: 1028, height: 730 });
+  await page.evaluate(() =>
+    localStorage.setItem("preview.native-menu", "true"),
+  );
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute(
+    "data-native-menu",
+    "true",
+  );
+  await expect(page.locator(".desktop-menubar")).toHaveCount(0);
+  await page.goto("/#/new/beam");
+  await createStudy(page);
+  const header = (await page
+    .getByTestId("project-workbench-header")
+    .boundingBox())!;
+  const footer = (await page.locator(".desktop-statusbar").boundingBox())!;
+  const canvas = (await page.getByTestId("playground").boundingBox())!;
+  const save = (await page
+    .getByRole("button", { name: "Enregistrer", exact: true })
+    .boundingBox())!;
+  expect(header.y).toBe(0);
+  expect(header.height).toBe(64);
+  expect(footer.height).toBe(28);
+  expect(footer.y + footer.height).toBe(730);
+  expect(canvas.y + canvas.height).toBeLessThanOrEqual(footer.y + 1);
+  expect(save.x + save.width).toBeLessThanOrEqual(1028);
+});
 test("Desktop menus save the active project and control its drawing", async ({
   page,
 }, info) => {

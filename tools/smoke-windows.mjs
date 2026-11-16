@@ -8,6 +8,32 @@ if (process.platform !== "win32" || process.env.CI !== "true")
 const executable = resolve(process.argv[2]);
 mkdirSync("native-test-results", { recursive: true });
 let savedId;
+async function checkWorkbenchLayout(page) {
+  const layout = await page.evaluate(() => {
+    const rect = (selector) => {
+      const r = document.querySelector(selector).getBoundingClientRect();
+      return { x: r.x, y: r.y, width: r.width, height: r.height };
+    };
+    return {
+      width: innerWidth,
+      height: innerHeight,
+      header: rect(".project-header"),
+      footer: rect(".desktop-statusbar"),
+      save: rect('[data-tour="save"]'),
+    };
+  });
+  expect(layout.header.height).toBe(layout.width > 1000 ? 64 : 108);
+  expect(layout.save.x + layout.save.width).toBeLessThanOrEqual(
+    layout.width + 1,
+  );
+  if (layout.width > 1000) {
+    expect(layout.footer.height).toBe(28);
+    expect(
+      Math.abs(layout.footer.y + layout.footer.height - layout.height),
+    ).toBeLessThanOrEqual(2);
+  }
+  return layout;
+}
 for (const [i, mode] of ["default", "compatibility"].entries()) {
   const port = 9432 + i,
     errors = [],
@@ -34,7 +60,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       appendFileSync(`native-test-results/${mode}-${name}.txt`, data),
     );
   }
-  let browser;
+  let browser, layout;
   try {
     let ready = false;
     for (let retry = 0; retry < 120; retry++) {
@@ -93,6 +119,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .getByRole("button", { name: "Explorer librement", exact: true })
         .click();
       await expect(page.locator(".desktop-menubar")).toHaveCount(0);
+      layout = await checkWorkbenchLayout(page);
       // Exercise the same Tauri event channel used by the system menu.
       await page.evaluate(() =>
         window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
@@ -120,6 +147,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           exact: true,
         }),
       ).toBeVisible();
+      layout = await checkWorkbenchLayout(page);
       await page.getByRole("button", { name: "Calculer", exact: true }).click();
       await expect(page.locator(".canvas-result-status")).toContainText(
         "Calcul actualisé",
@@ -128,6 +156,12 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .getByRole("button", { name: "Ouvrir les résultats", exact: true })
         .click();
       await expect(page.locator(".metric").first()).toContainText("111,00");
+      await expect
+        .poll(async () => {
+          const box = await page.getByRole("dialog").boundingBox();
+          return box.x + box.width;
+        })
+        .toBeLessThanOrEqual((await page.evaluate(() => innerWidth)) + 1);
       await page.screenshot({
         path: "native-test-results/windows-compatibility.png",
         fullPage: true,
@@ -143,6 +177,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           success: true,
           url: page.url(),
           nativeStorageRestored: mode === "compatibility",
+          layout,
         },
         null,
         2,

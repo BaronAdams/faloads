@@ -193,6 +193,9 @@
 }
 
 /* On a real desktop the system draws its own menu outside the WebView. */
+html[data-runtime="desktop"] .desktop-statusbar {
+  grid-row: 3;
+}
 html[data-runtime="desktop"][data-native-menu="true"] .app-shell {
   grid-template-rows: 0 minmax(0, 1fr) 28px;
 }
