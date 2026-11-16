@@ -407,7 +407,10 @@ export function Playground({
               x: v.current.x + p.x - old.x,
               y: v.current.y + p.y - old.y,
             });
-            if (Math.hypot(p.x - drag.current.x, p.y - drag.current.y) > 4)
+            if (
+              Math.hypot(p.x - drag.current.x, p.y - drag.current.y) >
+              4 * geometry.units
+            )
               drag.current.moved = true;
           }
         }}

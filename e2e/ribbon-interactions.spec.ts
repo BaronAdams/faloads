@@ -208,7 +208,9 @@ test("phone long-press drags a load while a short swipe pans without changing it
       touchPoints: type === "touchEnd" ? [] : [{ x: px, y: py, id: 1 }],
     });
   await touch("touchStart", x, y);
-  await page.waitForTimeout(420); // The product's deliberate long-press threshold.
+  await page.waitForTimeout(80);
+  await touch("touchMove", x + 2, y); // Normal finger jitter stays below the 4 px threshold.
+  await page.waitForTimeout(340); // The product's deliberate long-press threshold.
   await touch("touchMove", x + 45, y);
   await touch("touchEnd", x + 45, y);
   await expect(page.getByRole("dialog")).toHaveCount(0);
