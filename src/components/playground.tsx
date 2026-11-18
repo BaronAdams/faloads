@@ -26,6 +26,13 @@ interface View {
 }
 const CanvasGeometry = createContext({ units: 1, height: 420 });
 export const useCanvasGeometry = () => useContext(CanvasGeometry);
+const CanvasPointer = createContext<{
+  pointer: { x: number; y: number } | null;
+  view: View;
+  height: number;
+  units: number;
+}>({ pointer: null, view: { k: 1, x: 0, y: 0 }, height: 420, units: 1 });
+export const useCanvasPointer = () => useContext(CanvasPointer);
 export function Playground({
   children,
   onSelect,
@@ -40,8 +47,10 @@ export function Playground({
   onElementDrag,
   onOrbit,
   onReset,
+  probe = false,
 }: {
   children: ReactNode;
+  probe?: boolean;
   onOrbit?: (delta: { x: number; y: number }) => void;
   onReset?: () => void;
   onSelect?: (key: string, additive?: boolean) => void;
@@ -62,6 +71,7 @@ export function Playground({
 }) {
   const svg = useRef<SVGSVGElement>(null),
     content = useRef<SVGGElement>(null),
+    [cursor, setCursor] = useState<{ x: number; y: number } | null>(null),
     [geometry, setGeometry] = useState({ units: 1, height: 420 }),
     [selectionBoxes, setSelectionBoxes] = useState<
       {
@@ -254,6 +264,7 @@ export function Playground({
           if (e.code === "Space") {
             e.preventDefault();
             space.current = true;
+            setCursor(null);
           }
           if (e.key === "+") zoom(1.2);
           if (e.key === "-") zoom(1 / 1.2);
@@ -276,6 +287,7 @@ export function Playground({
           space.current = false;
         }}
         onPointerDown={(e) => {
+          setCursor(null);
           const p = local(e.clientX, e.clientY);
           points.current.set(e.pointerId, p);
           svg.current!.setPointerCapture(e.pointerId);
@@ -332,6 +344,15 @@ export function Playground({
           }
         }}
         onPointerMove={(e) => {
+          if (
+            probe &&
+            e.pointerType !== "touch" &&
+            !e.buttons &&
+            !hand &&
+            !space.current
+          ) {
+            setCursor(local(e.clientX, e.clientY));
+          }
           if (!points.current.has(e.pointerId)) return;
           const d = drag.current;
           const current = local(e.clientX, e.clientY);
@@ -460,6 +481,7 @@ export function Playground({
         onContextMenu={(e) => {
           if (onElementDrag || onElementContext || onOrbit) e.preventDefault();
         }}
+        onPointerLeave={() => setCursor(null)}
         onPointerCancel={(e) => {
           stopHold();
           if (drag.current?.element && drag.current.key)
@@ -500,7 +522,21 @@ export function Playground({
           transform={`translate(${view.x} ${view.y}) scale(${view.k})`}
         >
           <CanvasGeometry.Provider value={geometry}>
-            {children}
+            <CanvasPointer.Provider
+              value={{
+                pointer:
+                  cursor && !hand && !space.current
+                    ? {
+                        x: (cursor.x - view.x) / view.k,
+                        y: (cursor.y - view.y) / view.k,
+                      }
+                    : null,
+                view,
+                ...geometry,
+              }}
+            >
+              {children}
+            </CanvasPointer.Provider>
           </CanvasGeometry.Provider>
           {selectionBoxes.map((selectionBox, index) => (
             <rect

@@ -98,7 +98,7 @@ for (const type of ["beam", "frame", "building"] as const) {
     ).toBe(true);
   });
 }
-test("the system menu leaves no empty web row and keeps the status bar below the drawing", async ({
+test("the macOS system menu leaves no empty web row and keeps the status bar below the drawing", async ({
   page,
 }, info) => {
   test.skip(info.project.name !== "desktop", "Native menu layout");

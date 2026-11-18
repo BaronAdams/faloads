@@ -187,7 +187,7 @@
   gap: 2px;
 }
 
-/* On a real desktop the system draws its own menu outside the WebView. */
+/* Only macOS draws its global menu outside the WebView. */
 html[data-runtime="desktop"] .desktop-statusbar {
   grid-row: 3;
 }
@@ -202,6 +202,10 @@ html[data-runtime="desktop"] .desktop-menubar {
   grid-column: 1/-1;
   grid-row: 1;
   height: 28px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 0;
   padding: 0 8px;
   border-bottom: 1px solid var(--border);
@@ -216,6 +220,12 @@ html[data-runtime="desktop"] .desktop-menubar {
   padding: 3px 10px;
   outline: none;
   border-radius: 3px;
+}
+@media (max-width: 600px) {
+  .desktop-menu-trigger {
+    flex-shrink: 0;
+    padding-inline: 6px;
+  }
 }
 .desktop-menu-trigger[data-state="open"],
 .desktop-menu-trigger:focus-visible {
@@ -244,6 +254,48 @@ html[data-runtime="desktop"] .desktop-menubar {
 .desktop-menu-item[data-disabled] {
   color: var(--muted-foreground);
   opacity: 0.5;
+}
+.playground svg text.probe-label {
+  font-family: var(--font-mono, "JetBrains Mono", monospace);
+  font-size: 11px;
+  fill: white;
+}
+.deflection-verdict {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+.deflection-verdict.within-limit {
+  color: var(--teal);
+}
+.deflection-verdict.over-limit {
+  color: var(--destructive);
+}
+.deflection-verdict p {
+  font-size: 12px;
+  margin-top: 3px;
+}
+.deflection-values {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.deflection-values dt {
+  font-size: 12px;
+  color: var(--muted-foreground);
+}
+.deflection-values dd {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 20px;
+  margin-top: 6px;
+}
+.deflection-values small {
+  font-size: 12px;
+}
+.deflection-scope {
+  margin-top: 12px;
 }
 @media (min-width: 1001px) {
   html[data-runtime="desktop"] .project-workbench-shell .route-content {
@@ -438,7 +490,12 @@ html[data-runtime="desktop"] .desktop-menubar {
   }
 }
 
-.desktop-detail-dialog .editor-footer {
+.desktop-detail-dialog .editor-fields .form-grid,
+.desktop-detail-dialog .editor-fields .field {
+  margin-bottom: 0;
+}
+.desktop-detail-dialog .editor-footer,
+.desktop-detail-dialog [data-slot="sheet-footer"] {
   display: flex;
   flex-direction: row;
   flex-wrap: wrap;
@@ -449,12 +506,16 @@ html[data-runtime="desktop"] .desktop-menubar {
   padding: 16px 0 0;
   background: transparent;
 }
-.desktop-detail-dialog .editor-footer > button {
+.desktop-detail-dialog .editor-footer > button,
+.desktop-detail-dialog [data-slot="sheet-footer"] > button {
   flex: none;
   width: auto;
   min-width: 90px;
 }
-.desktop-detail-dialog .editor-footer > button:first-child:not(:last-child) {
+.desktop-detail-dialog .editor-footer > button:first-child:not(:last-child),
+.desktop-detail-dialog
+  [data-slot="sheet-footer"]
+  > button:first-child:not(:last-child) {
   margin-right: auto;
 }
 .focused-analysis-page .svg-element:focus {

@@ -1,8 +1,11 @@
+use tauri::AppHandle;
+#[cfg(target_os = "macos")]
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
-    AppHandle, Emitter, Wry,
+    Emitter, Wry,
 };
 
+#[cfg(target_os = "macos")]
 fn item(
     app: &AppHandle,
     id: &str,
@@ -12,6 +15,14 @@ fn item(
     MenuItem::with_id(app, id, text, true, shortcut)
 }
 
+// macOS owns its global menu. Windows/Linux use the themed, keyboard-accessible
+// application menubar, exactly as in the application previews.
+#[cfg(not(target_os = "macos"))]
+pub fn install(_app: &AppHandle) -> tauri::Result<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
     let menu = Menu::new(app)?;
     #[cfg(target_os = "macos")]

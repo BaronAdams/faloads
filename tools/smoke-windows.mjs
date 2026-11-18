@@ -18,11 +18,14 @@ async function checkWorkbenchLayout(page) {
       width: innerWidth,
       height: innerHeight,
       header: rect(".project-header"),
+      menubar: rect(".desktop-menubar"),
       footer: rect(".desktop-statusbar"),
       save: rect('[data-tour="save"]'),
     };
   });
   expect(layout.header.height).toBe(layout.width > 1000 ? 104 : 128);
+  expect(layout.menubar.height).toBe(28);
+  expect(layout.header.y).toBe(28);
   expect(layout.save.x + layout.save.width).toBeLessThanOrEqual(
     layout.width + 1,
   );
@@ -102,8 +105,14 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await page.evaluate(() =>
         window.__TAURI_INTERNALS__.invoke("desktop_menu_ready"),
       ),
-    ).toBe(true);
-    await expect(page.locator(".desktop-menubar")).toHaveCount(0);
+    ).toBe(false);
+    if (mode === "compatibility") {
+      await expect(page.locator(".desktop-menubar")).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute(
+        "data-native-menu",
+        "false",
+      );
+    }
     if (mode === "default") {
       await page
         .getByRole("button", { name: "Passer la présentation" })
@@ -118,7 +127,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await page
         .getByRole("button", { name: "Explorer librement", exact: true })
         .click();
-      await expect(page.locator(".desktop-menubar")).toHaveCount(0);
+      await expect(page.locator(".desktop-menubar")).toBeVisible();
       layout = await checkWorkbenchLayout(page);
       const analysisHeader = page.getByTestId("project-workbench-header");
       await expect(
@@ -135,16 +144,58 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         }),
       ).toHaveCount(0);
 
-      // Exercise the same Tauri event channel used by the system menu.
-      await page.evaluate(() =>
-        window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
-          event: "desktop-menu",
-          payload: "study:calculate",
-        }),
-      );
+      // Exercise the visible, themed menu in the real packaged EXE.
+      await page
+        .getByRole("menubar")
+        .getByRole("menuitem", { name: "Calcul", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Lancer le calcul", exact: true })
+        .click();
       await expect(page.locator(".canvas-result-status")).toContainText(
         "Calcul actualisé",
       );
+      await page
+        .getByRole("button", { name: "Ouvrir les paramètres", exact: true })
+        .click();
+      expect(
+        (await page.getByRole("dialog").boundingBox()).width,
+      ).toBeLessThanOrEqual(600);
+      await page
+        .getByRole("button", { name: "Revenir au schéma", exact: true })
+        .click();
+      await expect(page.locator(".canvas-result-status")).toContainText(
+        "Calcul actualisé",
+      );
+      await page
+        .getByRole("button", { name: "Ouvrir les résultats", exact: true })
+        .click();
+      await expect(page.getByRole("dialog")).toContainText("Flèche admissible");
+      await expect(page.getByTestId("deflection-check")).toContainText(
+        "Critère respecté",
+      );
+      await page.screenshot({
+        path: "native-test-results/windows-deflection.png",
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "Fermer le panneau", exact: true })
+        .click();
+      await page.getByRole("button", { name: "Moment M", exact: true }).click();
+      const axis = await page.getByTestId("diagram-axis").boundingBox();
+      await page.mouse.move(axis.x + axis.width * 0.5, axis.y - 50);
+      await expect(page.getByTestId("structure-probe")).toContainText("kN·m");
+      await expect(page.getByTestId("probe-guide")).toHaveAttribute(
+        "stroke",
+        "white",
+      );
+      await page.screenshot({
+        path: "native-test-results/windows-probe.png",
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "Structure", exact: true })
+        .click();
       await page
         .getByRole("button", { name: "Enregistrer", exact: true })
         .click();
@@ -229,6 +280,9 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .getByRole("button", { name: "Ouvrir les résultats", exact: true })
         .click();
       await expect(page.locator(".metric").first()).toContainText("111,00");
+      await expect(page.getByTestId("deflection-check")).toContainText(
+        "Critère respecté",
+      );
       await expect
         .poll(async () => {
           const box = await page.getByRole("dialog").boundingBox();

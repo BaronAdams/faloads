@@ -8,8 +8,19 @@ const n = z.number().finite(),
   position = n.min(0).max(1000),
   id = z.string().min(1).max(100);
 const restraint = z.union([z.boolean(), n.nonnegative().max(1e12)]);
+const readingOptions = {
+  probeUnit: z.enum(["m", "cm", "mm"]).optional(),
+  deflectionLimit: z
+    .object({
+      mode: z.enum(["ratio", "absolute"]),
+      ratio: n.min(1).max(100000),
+      mm: n.positive().max(100000),
+    })
+    .optional(),
+};
 export const beamSchema = z
   .object({
+    ...readingOptions,
     kind: z.literal("beam"),
     sectionTypes: sectionTypesSchema,
     L: n.positive().max(1000),
@@ -110,6 +121,7 @@ export type BeamSupport = BeamModel["supports"][number];
 export type BeamLoad = BeamModel["loads"][number];
 export const frameSchema = z
   .object({
+    ...readingOptions,
     kind: z.literal("frame"),
     sectionTypes: sectionTypesSchema,
     pl: z

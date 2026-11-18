@@ -2,6 +2,11 @@ import { AnalysisSelectionSummary } from "@/components/analysis-selection-summar
 import { ProfilePicker, ProfileDimensions } from "@/components/section-profile";
 import { profileProperties, type ProfileShape } from "@/domain/section-profile";
 import { DistributedLoad } from "@/components/distributed-load";
+import { StructureProbe } from "@/components/structure-probe";
+import {
+  DeflectionResults,
+  AnalysisReadingSettings,
+} from "@/components/analysis-reading";
 import {
   AnalysisViewMenu,
   defaultAnnotations,
@@ -189,7 +194,11 @@ export function AnalysisPage({
   const calculation = useCalculation<{
     beam?: BeamResult;
     frame?: FrameResult;
-  }>("analysis", model);
+  }>("analysis", {
+    ...model,
+    probeUnit: undefined,
+    deflectionLimit: undefined,
+  });
   const analysis = { ...calculation.result, error: calculation.error };
   const displayView = calculation.fresh ? view : "structure";
   useEffect(() => {
@@ -938,6 +947,7 @@ export function AnalysisPage({
       <QuickAnalysis kind={kind} open={quick} onOpenChange={setQuick} />
       <div className="analysis-canvas-workspace" aria-busy={calculation.busy}>
         <Playground
+          probe
           immersive
           height={600}
           onSelect={displayView === "structure" ? select : undefined}
@@ -1293,11 +1303,11 @@ export function AnalysisPage({
             <Calculator />
             Calcul simplifié G/Q
           </Button>
+          <AnalysisReadingSettings model={model} onChange={commit} />
           <Notice>
             Modèle élastique linéaire. Les charges sont utilisées telles que
-            saisies. Le calcul simplifié G/Q est accessible dans la barre
-            supérieure. Aucune vérification complète du béton armé n’est
-            effectuée.
+            saisies. Le calcul simplifié G/Q est accessible dans ces paramètres.
+            Aucune vérification complète du béton armé n’est effectuée.
           </Notice>
 
           {requestedDisplay && (
@@ -1348,6 +1358,11 @@ export function AnalysisPage({
           />
           {calculation.fresh ? (
             <>
+              <DeflectionResults
+                model={model}
+                beam={analysis.beam}
+                frame={analysis.frame}
+              />
               <div className="metrics-grid">
                 {model.kind === "beam" ? (
                   <>
@@ -2388,6 +2403,13 @@ function BeamScene({
   const { units, height } = useCanvasGeometry();
   const X = (x: number) => 80 + (x / model.L) * 840,
     y = height / 2;
+  const readingMember = {
+    id: "beam",
+    label: "Poutre",
+    a: { x: X(0), y },
+    b: { x: X(model.L), y },
+    length: model.L,
+  };
   if (result && view !== "structure") {
     const values = result[view],
       max = Math.max(1e-12, ...values.map(Math.abs));
@@ -2436,6 +2458,11 @@ function BeamScene({
             }
           />
         ))}
+        <StructureProbe
+          members={[{ ...readingMember, points: curve.points }]}
+          field={view}
+          unit={model.probeUnit}
+        />
       </>
     );
   }
@@ -2678,6 +2705,7 @@ function BeamScene({
       >
         <tspan data-annotation="dimensions-values">{fmt(model.L)} m</tspan>
       </text>
+      <StructureProbe members={[readingMember]} unit={model.probeUnit} />
     </>
   );
 }
@@ -2769,6 +2797,16 @@ function FrameScene({
           .map((n) => (
             <Support key={n.id} x={X(n.x)} y={Y(n.y) + 3} type={n.s} />
           ))}
+        <StructureProbe
+          members={curves.map((curve, i) => ({
+            ...curve,
+            label: `B${i + 1}`,
+            length: result.mem[i].g.L,
+          }))}
+          field={view}
+          unit={model.probeUnit}
+          resultant={view === "v"}
+        />
       </>
     );
   }
@@ -3023,6 +3061,24 @@ function FrameScene({
       >
         {fmt(maxX - minX)} m × {fmt(maxY - minY)} m
       </text>
+      <StructureProbe
+        members={model.mem.flatMap((m, i) => {
+          const a = model.nodes[m.a - 1],
+            b = model.nodes[m.b - 1];
+          return a && b
+            ? [
+                {
+                  id: m.id,
+                  label: `B${i + 1}`,
+                  a: { x: X(a.x), y: Y(a.y) },
+                  b: { x: X(b.x), y: Y(b.y) },
+                  length: Math.hypot(b.x - a.x, b.y - a.y),
+                },
+              ]
+            : [];
+        })}
+        unit={model.probeUnit}
+      />
     </>
   );
 }
