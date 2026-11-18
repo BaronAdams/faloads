@@ -321,3 +321,193 @@ html[data-runtime="desktop"] .desktop-menubar {
   border: 0;
   background: transparent;
 }
+
+/* Analysis editors: one continuous ribbon, with the selection last. */
+.focused-analysis-page .workbench-project-header .project-action-group {
+  padding: 2px 10px 4px;
+}
+.focused-analysis-page .workbench-project-header .project-action-group::after {
+  display: block;
+}
+.project-workbench-shell
+  .focused-analysis-page
+  .workbench-project-header
+  .ribbon-fields
+  .field {
+  grid-template-columns: max-content 86px;
+}
+.focused-analysis-page .workbench-project-header .field > label {
+  font-size: 11px;
+}
+.focused-analysis-page .workbench-project-header .number-input input {
+  padding-inline: 6px 24px;
+}
+.profile-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+}
+.profile-picker > button {
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+}
+.profile-icon {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.workbench-project-header .profile-picker {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, var(--ribbon-row));
+  grid-row: span 2;
+  gap: 3px;
+}
+.distributed-load [data-drag-handle] {
+  cursor: ew-resize;
+  outline: none;
+}
+.distributed-load [data-drag-handle]:focus-visible > circle:last-child {
+  stroke: var(--orange);
+  stroke-width: 3;
+}
+.focused-analysis-page.hide-sections-labels
+  [data-annotation="sections-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-sections-values
+  [data-annotation="sections-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-supports-labels
+  [data-annotation="supports-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-supports-values
+  [data-annotation="supports-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-loads-labels [data-annotation="loads-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-loads-values [data-annotation="loads-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-nodes-labels [data-annotation="nodes-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-nodes-values [data-annotation="nodes-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-members-labels [data-annotation="members-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-members-values [data-annotation="members-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-reactions-labels
+  [data-annotation="reactions-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-reactions-values
+  [data-annotation="reactions-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-dimensions-labels
+  [data-annotation="dimensions-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-dimensions-values
+  [data-annotation="dimensions-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-diagrams-labels
+  [data-annotation="diagrams-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-diagrams-values
+  [data-annotation="diagrams-values"] {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .profile-picker > button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+.desktop-detail-dialog .editor-footer {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  position: static;
+  padding: 16px 0 0;
+  background: transparent;
+}
+.desktop-detail-dialog .editor-footer > button {
+  flex: none;
+  width: auto;
+  min-width: 90px;
+}
+.desktop-detail-dialog .editor-footer > button:first-child:not(:last-child) {
+  margin-right: auto;
+}
+.focused-analysis-page .svg-element:focus {
+  outline: none;
+}
+.focused-analysis-page .svg-element:focus-visible {
+  outline: 1px solid var(--orange);
+  outline-offset: 4px;
+}
+.focused-analysis-page.hide-pointLoads-labels
+  [data-load-kind="point"]
+  [data-annotation="loads-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-pointLoads-values
+  [data-load-kind="point"]
+  [data-annotation="loads-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-distributedLoads-labels
+  [data-load-kind="dist"]
+  [data-annotation="loads-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-distributedLoads-values
+  [data-load-kind="dist"]
+  [data-annotation="loads-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-moments-labels
+  [data-load-kind="moment"]
+  [data-annotation="loads-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-moments-values
+  [data-load-kind="moment"]
+  [data-annotation="loads-values"] {
+  display: none;
+}
+.focused-analysis-page.hide-nodalLoads-labels
+  [data-load-kind="nodal"]
+  [data-annotation="loads-labels"] {
+  display: none;
+}
+.focused-analysis-page.hide-nodalLoads-values
+  [data-load-kind="nodal"]
+  [data-annotation="loads-values"] {
+  display: none;
+}
+.analysis-view-menu-compact {
+  width: min(280px, calc(100vw - 24px));
+}
+.analysis-view-menu-compact [role^="menuitem"] {
+  min-height: 44px;
+  padding-block: 10px;
+}

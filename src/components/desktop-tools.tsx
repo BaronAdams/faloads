@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  Pencil,
   Copy,
   ClipboardPaste,
   Trash2,
@@ -40,6 +41,7 @@ export type EditorActions = {
   undo: (redo?: boolean) => void;
   add: () => void;
   duplicate?: () => void;
+  modify?: () => void;
 };
 export function useEditorKeys(
   actions: EditorActions,
@@ -140,11 +142,19 @@ export function SceneMenu({
         side="bottom"
         onCloseAutoFocus={(e) => {
           e.preventDefault();
+          if (document.querySelector('[role="dialog"][data-state="open"]'))
+            return;
           document
             .querySelector<SVGSVGElement>(".playground svg[tabindex]")
             ?.focus();
         }}
       >
+        {actions.modify && (
+          <DropdownMenuItem onSelect={actions.modify}>
+            <Pencil />
+            Modifier
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={actions.copy}>
           <Copy />
           Copier les propriétés<kbd>Ctrl C</kbd>
@@ -183,11 +193,13 @@ export function DetailDialog({
   onOpenChange,
   title,
   children,
+  description,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   title: string;
   children: ReactNode;
+  description?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -195,8 +207,8 @@ export function DetailDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Paramètres du projet courant. Les changements mettent le calcul en
-            attente d’actualisation.
+            {description ??
+              "Paramètres du projet courant. Les changements mettent le calcul en attente d’actualisation."}
           </DialogDescription>
         </DialogHeader>
         {children}

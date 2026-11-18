@@ -1,3 +1,4 @@
+import { profileProperties } from "./section-profile";
 import { type AnalysisModel, removeFrameNode } from "./analysis";
 export type AnalysisSelection = {
   type:
@@ -8,7 +9,8 @@ export type AnalysisSelection = {
     | "node"
     | "member"
     | "nodal"
-    | "member-load";
+    | "member-load"
+    | "member-dist";
   id: string;
 };
 export function analysisElements(
@@ -22,7 +24,16 @@ export function analysisElements(
           section: m.sections,
           hinge: m.hinges,
         }
-      : { node: m.nodes, member: m.mem, nodal: m.nl, "member-load": m.pl };
+      : {
+          node: m.nodes,
+          member: m.mem,
+          nodal: m.nl,
+          "member-load": m.pl,
+          "member-dist": m.mem.filter(
+            (b) =>
+              b.w !== 0 || (b.w2 ?? 0) !== 0 || b.q !== 0 || (b.q2 ?? 0) !== 0,
+          ),
+        };
   return Object.entries(collections).flatMap(([type, values]) =>
     values.map((value: { id: string } & Record<string, unknown>) => ({
       key: `${type}:${value.id}`,
@@ -31,11 +42,26 @@ export function analysisElements(
     })),
   );
 }
-const positions = ["id", "x", "x1", "x2", "y", "a", "b", "n", "member", "t"];
+const positions = [
+  "id",
+  "x",
+  "x1",
+  "x2",
+  "y",
+  "a",
+  "b",
+  "n",
+  "member",
+  "t",
+  "loadStart",
+  "loadEnd",
+];
 export function analysisProperties(
   type: string,
   value: Record<string, unknown>,
 ) {
+  if (type === "member-dist")
+    return Object.fromEntries(["w", "w2", "q", "q2"].map((k) => [k, value[k]]));
   return Object.fromEntries(
     Object.entries(value).filter(
       ([k]) => !positions.includes(k) || (k === "b" && type === "section"),
@@ -54,14 +80,14 @@ export function patchAnalysis(
       if (
         next.kind === "beam" &&
         el.key.startsWith("section:") &&
-        el.value.shape === "rect"
+        el.value.shape !== "custom"
       ) {
-        const b = Number(el.value.b),
-          h = Number(el.value.h);
+        const properties = profileProperties(
+          el.value as unknown as Parameters<typeof profileProperties>[0],
+        );
         Object.assign(el.value, {
-          A: b * h,
-          I: (b * h ** 3) / 12,
-          As: next.kappa * b * h,
+          ...properties,
+          As: next.kappa * properties.A,
         });
       }
     }
@@ -91,6 +117,9 @@ export function deleteAnalysis(
     for (let i = next.nodes.length - 1; i >= 0; i--)
       if (keys.includes(`node:${next.nodes[i].id}`))
         next = removeFrameNode(next, i);
+    for (const member of next.mem)
+      if (keys.includes(`member-dist:${member.id}`))
+        Object.assign(member, { w: 0, q: 0, w2: 0, q2: 0 });
     next.mem = next.mem.filter((v) => !keys.includes(`member:${v.id}`));
     next.nl = next.nl.filter((v) => !keys.includes(`nodal:${v.id}`));
     next.pl = next.pl.filter(

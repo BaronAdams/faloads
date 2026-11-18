@@ -231,17 +231,12 @@ test("simplified G/Q calculation responds to load edits in the mobile sheet", as
   await ready(page);
   await page.goto("/#/new/beam");
   await createStudy(page);
-  if (info.project.name === "mobile") {
-    await page
-      .getByRole("button", { name: "Autres actions du projet", exact: true })
-      .click();
-    await page
-      .getByRole("menuitem", { name: "Calcul simplifié G/Q", exact: true })
-      .click();
-  } else
-    await page
-      .getByRole("button", { name: "Calcul simplifié G/Q", exact: true })
-      .click();
+  await parameters(page);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Calcul simplifié G/Q", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByRole("heading", { name: "Calcul simplifié G/Q" }),

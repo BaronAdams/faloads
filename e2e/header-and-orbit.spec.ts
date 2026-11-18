@@ -177,7 +177,7 @@ test("a narrow desktop scrolls long parameter groups without resizing the header
   page,
 }, info) => {
   test.skip(info.project.name !== "desktop", "Desktop ribbon");
-  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.setViewportSize({ width: 800, height: 768 });
   await page.goto("/#/new/beam");
   await createStudy(
     page,
@@ -186,20 +186,19 @@ test("a narrow desktop scrolls long parameter groups without resizing the header
   const header = page.getByTestId("project-workbench-header"),
     canvas = page.getByTestId("playground");
   const y = (await canvas.boundingBox())!.y;
-  const load = canvas
-    .locator('[data-element^="load:"]')
-    .first()
-    .locator("rect")
-    .first();
+  const load = canvas.locator(".distributed-load").first();
   await load.click();
   await header.getByLabel("Intensité q₂", { exact: true }).fill("18");
-  expect((await header.boundingBox())!.height).toBe(104);
+  expect((await header.boundingBox())!.height).toBe(128);
   expect((await canvas.boundingBox())!.y).toBe(y);
   expect(
     await header
       .locator(".project-header-toolbar")
       .evaluate((el) => el.scrollWidth > el.clientWidth),
   ).toBe(true);
+  await header
+    .getByRole("button", { name: "Enregistrer", exact: true })
+    .scrollIntoViewIfNeeded();
   await expect(
     header.getByRole("button", { name: "Enregistrer", exact: true }),
   ).toBeInViewport();
@@ -214,17 +213,25 @@ test("a narrow desktop scrolls long parameter groups without resizing the header
     .locator("rect")
     .click();
   await header
+    .getByRole("button", { name: "Modifier la sélection", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
     .getByRole("combobox", { name: "Type d’appui", exact: true })
     .click();
   await page
     .getByRole("option", { name: "Ressort vertical", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Appliquer", exact: true })
     .click();
   const stiffness = header.getByLabel("Raideur verticale kᵧ", { exact: true });
   await expect(stiffness).toBeVisible();
   const field = (await stiffness.boundingBox())!,
     bounds = (await header.boundingBox())!;
   expect(field.y + field.height).toBeLessThanOrEqual(bounds.y + bounds.height);
-  expect(bounds.height).toBe(104);
+  expect(bounds.height).toBe(128);
 });
 test("the compact project menu opens project dimensions on a phone", async ({
   page,

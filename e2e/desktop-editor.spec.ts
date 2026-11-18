@@ -114,9 +114,11 @@ test("edits a beam in the header, opens a professional context menu, and drags i
     .first();
   await force.click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".desktop-parameter-bar")).toContainText(
-    "Force verticale Fy",
-  );
+  await expect(
+    page
+      .getByTestId("project-workbench-header")
+      .getByLabel("Force verticale Fy", { exact: true }),
+  ).toBeVisible();
   expect(
     (await page.getByTestId("project-workbench-header").boundingBox())!.height,
   ).toBeLessThan(150);
@@ -275,9 +277,9 @@ test("keeps section libraries inside each study and supports point forces on fra
   await page
     .getByRole("menuitem", { name: "Force sur une barre", exact: true })
     .click();
-  await expect(page.locator(".desktop-parameter-bar")).toContainText(
-    "Position sur la barre",
-  );
+  await expect(
+    page.getByLabel("Position sur la barre", { exact: true }),
+  ).toBeVisible();
   await page.getByLabel("Position sur la barre", { exact: true }).fill("30");
   const loadHandle = page
     .locator('[data-element^="member-load:"]')

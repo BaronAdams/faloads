@@ -51,6 +51,7 @@ export function Playground({
     key: string,
     delta: { x: number; y: number },
     phase: "start" | "move" | "end" | "cancel",
+    handle?: "start" | "end",
   ) => boolean | void;
   height?: number;
   label?: string;
@@ -83,6 +84,7 @@ export function Playground({
       right: boolean;
       shift: boolean;
       element: boolean;
+      handle?: "start" | "end";
     } | null>(null),
     holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     pinch = useRef(false),
@@ -298,6 +300,9 @@ export function Playground({
             right: e.button === 2,
             shift: e.shiftKey,
             element: false,
+            handle: (e.target as Element)
+              .closest("[data-drag-handle]")
+              ?.getAttribute("data-drag-handle") as "start" | "end" | undefined,
           };
           drag.current = d;
           if (d.right) {
@@ -317,10 +322,11 @@ export function Playground({
               holdTimer.current = null;
               if (drag.current === d && !d.moved && !pinch.current)
                 d.element =
-                  onElementDrag(key, { x: 0, y: 0 }, "start") === true;
+                  onElementDrag(key, { x: 0, y: 0 }, "start", d.handle) ===
+                  true;
             };
             // A touch swipe pans. Holding an element briefly enables precise editing.
-            if (e.pointerType === "touch")
+            if (e.pointerType === "touch" && !d.handle)
               holdTimer.current = setTimeout(begin, 350);
             else begin();
           }
@@ -345,6 +351,7 @@ export function Playground({
                   y: (current.y - d.y) / v.current.k,
                 },
                 "move",
+                d.handle,
               );
             points.current.set(e.pointerId, current);
             return;
@@ -441,6 +448,7 @@ export function Playground({
               d.key,
               { x: (p.x - d.x) / v.current.k, y: (p.y - d.y) / v.current.k },
               d.moved ? "end" : "cancel",
+              d.handle,
             );
             if (d.moved) return;
           }
@@ -540,7 +548,7 @@ export function Arrow({
   dx?: number;
   dy?: number;
   color?: string;
-  label?: string;
+  label?: ReactNode;
 }) {
   const { units } = useCanvasGeometry();
   const len = Math.hypot(dx, dy) || 1,

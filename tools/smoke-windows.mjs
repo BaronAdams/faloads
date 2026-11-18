@@ -120,6 +120,21 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .click();
       await expect(page.locator(".desktop-menubar")).toHaveCount(0);
       layout = await checkWorkbenchLayout(page);
+      const analysisHeader = page.getByTestId("project-workbench-header");
+      await expect(
+        analysisHeader.getByRole("button", {
+          name: "Retour aux calculs",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+      await expect(analysisHeader.getByRole("switch")).toHaveCount(0);
+      await expect(
+        analysisHeader.getByRole("button", {
+          name: "Calcul simplifié G/Q",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+
       // Exercise the same Tauri event channel used by the system menu.
       await page.evaluate(() =>
         window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {

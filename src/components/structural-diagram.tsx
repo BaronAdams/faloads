@@ -104,6 +104,7 @@ export function StructuralDiagram({
             textAnchor="middle"
             dominantBaseline="middle"
             className="numeric diagram-value"
+            data-annotation="diagrams-values"
             fill={color}
             stroke="var(--plot)"
             strokeWidth={4 * units}

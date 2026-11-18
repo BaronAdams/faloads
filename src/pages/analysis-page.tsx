@@ -1,3 +1,11 @@
+import { AnalysisSelectionSummary } from "@/components/analysis-selection-summary";
+import { ProfilePicker, ProfileDimensions } from "@/components/section-profile";
+import { profileProperties, type ProfileShape } from "@/domain/section-profile";
+import { DistributedLoad } from "@/components/distributed-load";
+import {
+  AnalysisViewMenu,
+  defaultAnnotations,
+} from "@/components/analysis-view-menu";
 import { RibbonGroup } from "@/components/project-ribbon";
 import { useDesktopCommands } from "@/lib/desktop-commands";
 import { runtime } from "@/lib/runtime";
@@ -38,7 +46,7 @@ import {
   MoveRight,
   ChevronRight,
   Calculator,
-  SlidersHorizontal,
+  Settings,
   ChartNoAxesCombined,
   ArrowDown,
   ArrowDownWideNarrow,
@@ -137,6 +145,7 @@ export function AnalysisPage({
   project?: Project;
 }) {
   const desktop = runtime === "desktop";
+  const [annotations, setAnnotations] = useState(defaultAnnotations);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]),
     [menu, setMenu] = useState<MenuPoint>(null),
     [clipboard, setClipboard] = useState<{
@@ -323,6 +332,16 @@ export function AnalysisPage({
   const selectedElement = selection
     ? elements.find((v) => v.key === `${selection.type}:${selection.id}`)
     : undefined;
+  useEffect(() => {
+    if (!selection) return;
+    document
+      .querySelector<HTMLElement>(".selection-ribbon-group")
+      ?.scrollIntoView({
+        inline: "end",
+        block: "nearest",
+        behavior: "instant",
+      });
+  }, [selection?.type, selection?.id]);
   const clear = () => {
     setSelection(null);
     setSelectedKeys([]);
@@ -343,6 +362,13 @@ export function AnalysisPage({
     commit(patchAnalysis(model, selectedKeys, delta));
   };
   const actions: EditorActions = {
+    modify: () => {
+      if (selection) {
+        setEditor(structuredClone(model));
+        setParameters(false);
+        setMenu(null);
+      }
+    },
     copy: () => {
       if (selectedElement) {
         setClipboard({
@@ -388,13 +414,14 @@ export function AnalysisPage({
     key: string,
     delta: { x: number; y: number },
     phase: "start" | "move" | "end" | "cancel",
+    handle?: "start" | "end",
   ) => {
     if (phase === "start") {
       const type = key.split(":")[0];
       if (
         !(model.kind === "beam"
           ? ["support", "load", "hinge"].includes(type)
-          : type === "member-load")
+          : ["member-load", "member-dist"].includes(type))
       )
         return false;
       dragModel.current = structuredClone(model);
@@ -420,13 +447,31 @@ export function AnalysisPage({
       if (!element) return;
       const dx = (delta.x * next.L) / 840;
       if (type === "load" && element.type === "dist") {
-        const length = Number(element.x2) - Number(element.x1);
-        const x = Math.max(
-          0,
-          Math.min(next.L - length, Number(element.x1) + dx),
-        );
-        element.x1 = x;
-        element.x2 = x + length;
+        if (handle === "start") {
+          element.x1 =
+            Math.round(
+              Math.max(
+                0,
+                Math.min(Number(element.x2) - 0.001, Number(element.x1) + dx),
+              ) * 1000,
+            ) / 1000;
+        } else if (handle === "end") {
+          element.x2 =
+            Math.round(
+              Math.max(
+                Number(element.x1) + 0.001,
+                Math.min(next.L, Number(element.x2) + dx),
+              ) * 1000,
+            ) / 1000;
+        } else {
+          const length = Number(element.x2) - Number(element.x1);
+          const x = Math.max(
+            0,
+            Math.min(next.L - length, Number(element.x1) + dx),
+          );
+          element.x1 = x;
+          element.x2 = x + length;
+        }
       } else
         element.x =
           Math.round(
@@ -438,9 +483,15 @@ export function AnalysisPage({
               ),
             ) * 1000,
           ) / 1000;
-    } else if (next.kind === "frame" && type === "member-load") {
-      const l = next.pl.find((v) => v.id === id)!;
-      const m = next.mem.find((v) => v.id === l.member)!;
+    } else if (
+      next.kind === "frame" &&
+      ["member-load", "member-dist"].includes(type)
+    ) {
+      const l = next.pl.find((v) => v.id === id);
+      const m =
+        type === "member-dist"
+          ? next.mem.find((v) => v.id === id)!
+          : next.mem.find((v) => v.id === l!.member)!;
       const a = next.nodes[m.a - 1],
         b = next.nodes[m.b - 1];
       const minX = Math.min(...next.nodes.map((v) => v.x)),
@@ -454,13 +505,20 @@ export function AnalysisPage({
       );
       const dx = b.x - a.x,
         dy = b.y - a.y;
-      l.t = Math.max(
-        0,
-        Math.min(
-          1,
-          l.t + (delta.x * dx - delta.y * dy) / (scale * (dx * dx + dy * dy)),
-        ),
-      );
+      const dt = (delta.x * dx - delta.y * dy) / (scale * (dx * dx + dy * dy));
+      if (type === "member-dist") {
+        const start = m.loadStart ?? 0,
+          end = m.loadEnd ?? 1;
+        if (handle === "start")
+          m.loadStart = Math.max(0, Math.min(end - 0.0001, start + dt));
+        else if (handle === "end")
+          m.loadEnd = Math.min(1, Math.max(start + 0.0001, end + dt));
+        else {
+          const length = end - start;
+          m.loadStart = Math.max(0, Math.min(1 - length, start + dt));
+          m.loadEnd = m.loadStart + length;
+        }
+      } else l!.t = Math.max(0, Math.min(1, l!.t + dt));
     } else return;
     if (phase === "end") {
       setHistory((h) => [...h.slice(-29), initial]);
@@ -472,8 +530,53 @@ export function AnalysisPage({
       setEditor(null);
     } else setModel(next);
   };
+  const nudgeBoundary = (
+    key: string,
+    edge: "start" | "end",
+    direction: number,
+  ) => {
+    const next = structuredClone(model),
+      [type, id] = key.split(":");
+    if (next.kind === "beam") {
+      const load = next.loads.find((l) => l.id === id)!;
+      if (edge === "start")
+        load.x1 = Math.max(
+          0,
+          Math.min(load.x2 - 0.001, load.x1 + direction * 0.01),
+        );
+      else
+        load.x2 = Math.min(
+          next.L,
+          Math.max(load.x1 + 0.001, load.x2 + direction * 0.01),
+        );
+    } else if (type === "member-dist") {
+      const m = next.mem.find((m) => m.id === id)!;
+      if (edge === "start")
+        m.loadStart = Math.max(
+          0,
+          Math.min(
+            (m.loadEnd ?? 1) - 0.0001,
+            (m.loadStart ?? 0) + direction * 0.01,
+          ),
+        );
+      else
+        m.loadEnd = Math.min(
+          1,
+          Math.max(
+            (m.loadStart ?? 0) + 0.0001,
+            (m.loadEnd ?? 1) + direction * 0.01,
+          ),
+        );
+    }
+    commit(next);
+  };
   const remove = () => {
     if (!editor || !selection) return;
+    if (desktop) {
+      actions.remove();
+      setEditor(null);
+      return;
+    }
     const next = structuredClone(editor),
       id = selection.id;
     if (next.kind === "beam") {
@@ -498,6 +601,10 @@ export function AnalysisPage({
         const i = next.nodes.findIndex((n) => n.id === id);
         commit(removeFrameNode(next, i));
       } else {
+        if (selection.type === "member-dist") {
+          const m = next.mem.find((m) => m.id === id);
+          if (m) Object.assign(m, { w: 0, w2: 0, q: 0, q2: 0 });
+        }
         if (selection.type === "member")
           next.mem = next.mem.filter((m) => m.id !== id);
         if (selection.type === "nodal")
@@ -516,7 +623,8 @@ export function AnalysisPage({
     if (!editor) return;
     try {
       (editor.kind === "beam" ? beamSchema : frameSchema).parse(editor);
-      commit(editor);
+      if (desktop) applyDesktop(editor);
+      else commit(editor);
       setEditor(null);
       studyAction("element:applied");
     } catch (e) {
@@ -568,6 +676,38 @@ export function AnalysisPage({
               <ArrowDown size={16} />
               Force sur une barre
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                if (model.kind !== "frame") return;
+                const next = structuredClone(model);
+                const empty = (m: FrameModel["mem"][number]) =>
+                  m.w === 0 &&
+                  (m.w2 ?? 0) === 0 &&
+                  m.q === 0 &&
+                  (m.q2 ?? 0) === 0;
+                const preferred = next.mem.find((m) => m.id === selection?.id);
+                const member =
+                  preferred && empty(preferred)
+                    ? preferred
+                    : next.mem.find(empty);
+                if (!member) {
+                  toast.info(
+                    "Toutes les barres ont déjà une charge répartie. Sélectionnez une charge pour la modifier.",
+                  );
+                  return;
+                }
+                Object.assign(member, {
+                  w: 10,
+                  w2: 10,
+                  loadStart: 0,
+                  loadEnd: 1,
+                });
+                open({ type: "member-dist", id: member.id }, next);
+              }}
+            >
+              <ArrowDownWideNarrow />
+              Charge répartie sur une barre
+            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => add("nodal")}>
               <ArrowDown size={16} /> Charge nodale
             </DropdownMenuItem>
@@ -588,83 +728,38 @@ export function AnalysisPage({
         ?.click(),
   });
   const parameterToolbar = desktop ? (
-    <div className="desktop-parameter-bar" data-tour="parameters-inputs">
-      {selectedElement && selection ? (
-        <ElementEditor
-          key={selectedElement.key}
-          model={model}
-          selection={selection}
-          onChange={applyDesktop}
-          multiple={selectedKeys.length > 1}
-        />
-      ) : (
-        <>
-          {model.kind === "beam" && (
-            <Numeric
-              label="Longueur L"
-              value={model.L}
-              min={0.1}
-              max={1000}
-              unit="m"
-              onChange={(L) => commit(resizeBeam(model, L))}
-            />
-          )}
-          <Numeric
-            label="Module E"
-            value={model.kind === "beam" ? model.material.E / 1000 : model.E}
-            min={0.001}
-            max={10000}
-            unit="GPa"
-            onChange={(E) =>
-              commit(
-                model.kind === "beam"
-                  ? {
-                      ...model,
-                      material: { ...model.material, E: E * 1000 },
-                    }
-                  : { ...model, E },
-              )
-            }
-          />
-        </>
-      )}
-      {selectedElement && ["section", "member"].includes(selection!.type) && (
-        <Choice
-          label="Dimension type"
-          value="custom"
-          options={[
-            { value: "custom", label: "Choisir une section" },
-            ...model.sectionTypes
-              .filter((t) => t.kind === "beam" || t.kind === "column")
-              .map((t) => ({ value: t.id, label: t.name })),
-          ]}
-          onChange={(id) => {
-            const t = model.sectionTypes.find((t) => t.id === id);
-            if (t)
-              commit(
-                patchAnalysis(
-                  model,
-                  selectedKeys,
-                  model.kind === "beam"
-                    ? {
-                        shape: "rect",
-                        b: t.b / 100,
-                        h: t.h / 100,
-                        A: (t.b * t.h) / 1e4,
-                        I: (t.b * t.h ** 3) / 12 / 1e8,
-                        As: (model.kappa * t.b * t.h) / 1e4,
-                      }
-                    : { bw: t.b, h: t.h },
-                ),
-              );
-          }}
+    <div
+      className="desktop-parameter-bar"
+      data-tour={selection ? undefined : "parameters-inputs"}
+    >
+      {model.kind === "beam" && (
+        <Numeric
+          compact
+          shortLabel="L"
+          label="Longueur L"
+          value={model.L}
+          min={0.1}
+          max={1000}
+          unit="m"
+          onChange={(L) => commit(resizeBeam(model, L))}
         />
       )}
-      {selectedElement && (
-        <IconButton label="Désélectionner" onClick={clear}>
-          <X />
-        </IconButton>
-      )}
+      <Numeric
+        compact
+        shortLabel="E"
+        label="Module E"
+        value={model.kind === "beam" ? model.material.E / 1000 : model.E}
+        min={0.001}
+        max={10000}
+        unit="GPa"
+        onChange={(E) =>
+          commit(
+            model.kind === "beam"
+              ? { ...model, material: { ...model.material, E: E * 1000 } }
+              : { ...model, E },
+          )
+        }
+      />
     </div>
   ) : undefined;
   const calculationTools = (
@@ -694,7 +789,7 @@ export function AnalysisPage({
         data-tour="parameters"
         onClick={() => closeParameters(true)}
       >
-        <SlidersHorizontal />
+        <Settings />
       </IconButton>
       <div className="project-auxiliary-tools">
         <SectionTypes
@@ -706,7 +801,16 @@ export function AnalysisPage({
     </>
   );
   return (
-    <div className="project-page analysis-page">
+    <div
+      className={`project-page analysis-page focused-analysis-page ${Object.entries(
+        annotations,
+      )
+        .flatMap(([key, flags]) => [
+          !flags.labels ? `hide-${key}-labels` : "",
+          !flags.values ? `hide-${key}-values` : "",
+        ])
+        .join(" ")}`}
+    >
       <ProjectHeader
         type={kind}
         project={project}
@@ -714,6 +818,28 @@ export function AnalysisPage({
         name={name}
         setName={setName}
         workbench
+        hideBack
+        flowActions
+        trailingToolbar={
+          selectedElement && selection ? (
+            <RibbonGroup
+              label={`Sélection · ${selectedKeys.length || 1}`}
+              className="ribbon-parameters selection-ribbon-group"
+            >
+              <AnalysisSelectionSummary
+                model={model}
+                selection={selection}
+                multiple={selectedKeys.length > 1}
+                onChange={applyDesktop}
+                onDetails={() => {
+                  setEditor(structuredClone(model));
+                  setParameters(false);
+                }}
+                onClear={clear}
+              />
+            </RibbonGroup>
+          ) : undefined
+        }
         toolbar={
           <>
             {!desktop && calculationTools}
@@ -735,17 +861,19 @@ export function AnalysisPage({
               </IconButton>
             </RibbonGroup>
             {parameterToolbar && (
-              <RibbonGroup
-                label={
-                  selectedElement
-                    ? `Sélection · ${selectedKeys.length}`
-                    : "Modèle"
-                }
-                className="ribbon-parameters"
-              >
+              <RibbonGroup label="Modèle" className="ribbon-parameters">
                 {parameterToolbar}
               </RibbonGroup>
             )}
+            <RibbonGroup label="Vue">
+              <AnalysisViewMenu
+                kind={kind}
+                reactions={reactions && calculation.fresh}
+                onReactions={requestReactions}
+                annotations={annotations}
+                onChange={setAnnotations}
+              />
+            </RibbonGroup>
             <RibbonGroup label="Diagrammes" className="ribbon-diagrams">
               {(["structure", "M", "V", "N", "v", "theta"] as View[]).map(
                 (v) => (
@@ -795,24 +923,11 @@ export function AnalysisPage({
                   </IconButton>
                 ),
               )}
-              <Toggle
-                label="Afficher les réactions"
-                checked={reactions && calculation.fresh}
-                onChange={requestReactions}
-              />
             </RibbonGroup>
             {desktop && calculationTools}
           </>
         }
         tools={headerTools}
-        extra={
-          <IconButton
-            label="Calcul simplifié G/Q"
-            onClick={() => setQuick(true)}
-          >
-            <Calculator />
-          </IconButton>
-        }
       />
       <SceneMenu
         point={menu}
@@ -898,6 +1013,8 @@ export function AnalysisPage({
         >
           {model.kind === "beam" ? (
             <BeamScene
+              selected={selection ? `${selection.type}:${selection.id}` : null}
+              onNudge={nudgeBoundary}
               model={model}
               result={calculation.fresh ? analysis.beam : undefined}
               reactions={reactions}
@@ -905,6 +1022,8 @@ export function AnalysisPage({
             />
           ) : (
             <FrameScene
+              selected={selection ? `${selection.type}:${selection.id}` : null}
+              onNudge={nudgeBoundary}
               model={model}
               result={calculation.fresh ? analysis.frame : undefined}
               reactions={reactions}
@@ -1164,6 +1283,16 @@ export function AnalysisPage({
               </Panel>
             </>
           )}
+          <Button
+            variant="outline"
+            onClick={() => {
+              setParameters(false);
+              setQuick(true);
+            }}
+          >
+            <Calculator />
+            Calcul simplifié G/Q
+          </Button>
           <Notice>
             Modèle élastique linéaire. Les charges sont utilisées telles que
             saisies. Le calcul simplifié G/Q est accessible dans la barre
@@ -1483,8 +1612,8 @@ export function AnalysisPage({
           </Button>
         </EditorFooter>
       </EditorSheet>
-      <EditorSheet
-        open={!!editor && !desktop}
+      <ParametersContainer
+        open={!!editor}
         title="Paramètres de l’élément"
         description="Les modifications s’appliquent après validation du formulaire."
         onOpenChange={(open) => {
@@ -1499,6 +1628,35 @@ export function AnalysisPage({
               onChange={setEditor}
             />
           )}
+          {editor &&
+            selection &&
+            ["section", "member"].includes(selection.type) && (
+              <Choice
+                label="Dimension type"
+                value="custom"
+                options={[
+                  { value: "custom", label: "Choisir une section" },
+                  ...model.sectionTypes
+                    .filter((t) => t.kind === "beam" || t.kind === "column")
+                    .map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                onChange={(id) => {
+                  const t = model.sectionTypes.find((t) => t.id === id);
+                  if (t)
+                    setEditor(
+                      patchAnalysis(
+                        editor,
+                        selectedKeys.length
+                          ? selectedKeys
+                          : [`${selection.type}:${selection.id}`],
+                        editor.kind === "beam"
+                          ? { shape: "rect", b: t.b / 100, h: t.h / 100 }
+                          : { shape: "rect", bw: t.b, h: t.h },
+                      ),
+                    );
+                }}
+              />
+            )}
           <EditorFooter>
             <Button
               type="button"
@@ -1523,7 +1681,7 @@ export function AnalysisPage({
             </Button>
           </EditorFooter>
         </form>
-      </EditorSheet>
+      </ParametersContainer>
     </div>
   );
 }
@@ -1739,14 +1897,9 @@ function ElementEditor({
         if (p.x1 !== undefined && index > 0) sections[index - 1].x2 = p.x1;
         if (p.x2 !== undefined && index < sections.length - 1)
           sections[index + 1].x1 = p.x2;
-        if (
-          sections[index].shape === "rect" &&
-          (p.b !== undefined || p.h !== undefined)
-        ) {
-          const { b, h } = sections[index];
-          sections[index].A = b * h;
-          sections[index].I = (b * h ** 3) / 12;
-          sections[index].As = model.kappa * b * h;
+        if (sections[index].shape !== "custom") {
+          const props = profileProperties(sections[index]);
+          Object.assign(sections[index], props, { As: model.kappa * props.A });
         }
         onChange({ ...model, sections });
       };
@@ -1773,32 +1926,14 @@ function ElementEditor({
               onChange={(x2) => patch({ x2 })}
             />
           </FormGrid>
-          <Choice
-            label="Section"
+          <ProfilePicker
             value={s.shape}
-            options={[
-              { value: "rect", label: "Rectangulaire" },
-              { value: "custom", label: "Propriétés personnalisées" },
-            ]}
-            onChange={(shape) => patch({ shape: shape as "rect" | "custom" })}
+            onChange={(shape) =>
+              patch({ shape, ...(shape === "circle" ? { h: s.b } : {}) })
+            }
           />
-          {s.shape === "rect" ? (
-            <FormGrid>
-              <Numeric
-                label="Largeur b"
-                value={s.b * 100}
-                min={0.01}
-                unit="cm"
-                onChange={(b) => patch({ b: b / 100 })}
-              />
-              <Numeric
-                label="Hauteur h"
-                value={s.h * 100}
-                min={0.01}
-                unit="cm"
-                onChange={(h) => patch({ h: h / 100 })}
-              />
-            </FormGrid>
+          {s.shape !== "custom" ? (
+            <ProfileDimensions value={s} onChange={patch} unit="m" />
           ) : (
             <>
               <Numeric
@@ -1949,6 +2084,70 @@ function ElementEditor({
       </div>
     );
   }
+  if (model.kind === "frame" && selection.type === "member-dist") {
+    const b = model.mem.find((m) => m.id === selection.id)!;
+    const patch = (p: Partial<typeof b>) =>
+      onChange({
+        ...model,
+        mem: model.mem.map((m) => (m.id === b.id ? { ...b, ...p } : m)),
+      });
+    return (
+      <div className="editor-fields">
+        <FormGrid>
+          <Numeric
+            label="Début de la charge"
+            value={(b.loadStart ?? 0) * 100}
+            min={0}
+            max={(b.loadEnd ?? 1) * 100 - 0.01}
+            unit="%"
+            disabled={multiple}
+            onChange={(v) => patch({ loadStart: v / 100 })}
+          />
+          <Numeric
+            label="Fin de la charge"
+            value={(b.loadEnd ?? 1) * 100}
+            min={(b.loadStart ?? 0) * 100 + 0.01}
+            max={100}
+            unit="%"
+            disabled={multiple}
+            onChange={(v) => patch({ loadEnd: v / 100 })}
+          />
+          <Numeric
+            label="Intensité initiale w₁"
+            value={b.w}
+            min={-1e6}
+            unit="kN/m"
+            onChange={(w) => patch({ w })}
+          />
+          <Numeric
+            label="Intensité finale w₂"
+            value={b.w2 ?? b.w}
+            min={-1e6}
+            unit="kN/m"
+            onChange={(w2) => patch({ w2 })}
+          />
+          <Numeric
+            label="Charge locale initiale qᵧ₁"
+            value={b.q}
+            min={-1e6}
+            unit="kN/m"
+            onChange={(q) => patch({ q })}
+          />
+          <Numeric
+            label="Charge locale finale qᵧ₂"
+            value={b.q2 ?? b.q}
+            min={-1e6}
+            unit="kN/m"
+            onChange={(q2) => patch({ q2 })}
+          />
+        </FormGrid>
+        <Notice>
+          w est verticale dans le repère global, positive vers le bas ; qᵧ agit
+          dans la normale locale de la barre.
+        </Notice>
+      </div>
+    );
+  }
   if (model.kind === "frame" && selection.type === "member-load") {
     const l = model.pl.find((v) => v.id === selection.id);
     if (!l) return null;
@@ -2073,22 +2272,38 @@ function ElementEditor({
             />
           ))}
         </FormGrid>
-        <FormGrid>
-          <Numeric
-            label="Largeur b"
-            value={b.bw}
-            min={0.01}
+        <ProfilePicker
+          value={b.shape ?? "rect"}
+          onChange={(shape) =>
+            patch({ shape, ...(shape === "circle" ? { h: b.bw } : {}) })
+          }
+        />
+        {b.shape === "custom" ? (
+          <FormGrid>
+            <Numeric
+              label="Aire A"
+              value={(b.A ?? (b.bw * b.h) / 1e4) * 1e4}
+              min={0.001}
+              unit="cm²"
+              onChange={(A) => patch({ A: A / 1e4 })}
+            />
+            <Numeric
+              label="Inertie I"
+              value={(b.I ?? (b.bw * b.h ** 3) / 12 / 1e8) * 1e8}
+              min={0.001}
+              unit="cm⁴"
+              onChange={(I) => patch({ I: I / 1e8 })}
+            />
+          </FormGrid>
+        ) : (
+          <ProfileDimensions
+            value={{ ...b, b: b.bw }}
             unit="cm"
-            onChange={(bw) => patch({ bw })}
+            onChange={({ b: bw, ...p }) =>
+              patch({ ...p, ...(bw === undefined ? {} : { bw }) })
+            }
           />
-          <Numeric
-            label="Hauteur h"
-            value={b.h}
-            min={0.01}
-            unit="cm"
-            onChange={(h) => patch({ h })}
-          />
-        </FormGrid>
+        )}
         <Signed
           label="Charge verticale globale"
           value={b.w}
@@ -2157,11 +2372,15 @@ function ElementEditor({
 }
 function BeamScene({
   model,
+  selected,
+  onNudge,
   result,
   reactions,
   view,
 }: {
   model: BeamModel;
+  selected: string | null;
+  onNudge: (key: string, edge: "start" | "end", direction: number) => void;
   result?: BeamResult;
   reactions: boolean;
   view: View;
@@ -2256,124 +2475,111 @@ function BeamScene({
             fontSize="12"
             textAnchor="middle"
           >
-            S{i + 1} · {fmt(s.b * 100, 0)} × {fmt(s.h * 100, 0)} cm
+            <tspan data-annotation="sections-labels">S{i + 1}</tspan>
+            <tspan data-annotation="sections-values">
+              {" "}
+              ·{" "}
+              {s.shape === "circle"
+                ? `Ø ${fmt(s.b * 100)}`
+                : `${fmt(s.b * 100)} × ${fmt(s.h * 100)}`}{" "}
+              cm
+            </tspan>
           </text>
         </g>
       ))}
-      {model.loads.map((l, i) => (
-        <g
-          key={l.id}
-          data-element={`load:${l.id}`}
-          className="svg-element"
-          tabIndex={0}
-          role="button"
-        >
-          {l.type === "dist" ? (
-            <>
-              <rect
-                x={X(l.x1) - 8}
-                y={y - 115}
-                width={X(l.x2) - X(l.x1) + 16}
-                height="115"
-                fill="transparent"
-              />
-              {Array.from(
-                {
-                  length: Math.max(
-                    3,
-                    Math.ceil(((l.x2 - l.x1) / model.L) * 25),
-                  ),
-                },
-                (_, j) => {
-                  const t =
-                      j /
-                      Math.max(
-                        2,
-                        Math.ceil(((l.x2 - l.x1) / model.L) * 25) - 1,
-                      ),
-                    q = l.q1 + (l.q2 - l.q1) * t,
-                    h =
-                      (Math.abs(q) /
-                        Math.max(1, Math.abs(l.q1), Math.abs(l.q2))) *
-                      65;
-                  return (
-                    <Arrow
-                      key={j}
-                      x={X(l.x1 + (l.x2 - l.x1) * t)}
-                      y={q >= 0 ? y - h - 5 : y + h + 5}
-                      dy={q >= 0 ? h : -h}
-                    />
-                  );
-                },
-              )}
-              <line
-                x1={X(l.x1)}
-                y1={y - 70}
-                x2={X(l.x2)}
-                y2={y - 70}
-                stroke="var(--orange)"
-              />
-              <text
-                x={(X(l.x1) + X(l.x2)) / 2}
-                y={y - 88}
-                textAnchor="middle"
-                className="numeric"
-                fill="var(--orange)"
-                fontSize="14"
-              >
-                q{i + 1} · {fmt(l.q1)}
-                {l.q1 !== l.q2 ? ` → ${fmt(l.q2)}` : ""} kN/m
-              </text>
-            </>
-          ) : l.type === "point" ? (
-            <>
-              <rect
-                x={X(l.x) - 20}
-                y={y - 130}
-                width="45"
-                height="160"
-                fill="transparent"
-              />
-              {l.Fy !== 0 && (
-                <Arrow
+      {model.loads.map((l, i) =>
+        l.type === "dist" ? (
+          <DistributedLoad
+            key={l.id}
+            elementKey={`load:${l.id}`}
+            a={{ x: X(l.x1), y }}
+            b={{ x: X(l.x2), y }}
+            forceA={{ x: 0, y: l.q1 }}
+            forceB={{ x: 0, y: l.q2 }}
+            identifier={`q${i + 1}`}
+            label={`${fmt(l.q1)}${l.q1 !== l.q2 ? ` → ${fmt(l.q2)}` : ""} kN/m`}
+            selected={selected === `load:${l.id}`}
+            start={l.x1}
+            end={l.x2}
+            onNudge={(edge, direction) =>
+              onNudge(`load:${l.id}`, edge, direction)
+            }
+          />
+        ) : (
+          <g
+            key={l.id}
+            data-element={`load:${l.id}`}
+            data-load-kind={l.type}
+            className="svg-element"
+            tabIndex={0}
+            role="button"
+          >
+            {l.type === "point" ? (
+              <>
+                <rect
+                  x={X(l.x) - 20}
+                  y={y - 130}
+                  width="45"
+                  height="160"
+                  fill="transparent"
+                />
+                {l.Fy !== 0 && (
+                  <Arrow
+                    x={X(l.x)}
+                    y={l.Fy > 0 ? y - 115 : y + 115}
+                    dy={l.Fy > 0 ? 110 : -110}
+                    label={
+                      <>
+                        <tspan data-annotation="loads-labels">F{i + 1}</tspan>
+                        <tspan data-annotation="loads-values">
+                          {" "}
+                          · {fmt(Math.abs(l.Fy))} kN
+                        </tspan>
+                      </>
+                    }
+                  />
+                )}
+                {l.Fx !== 0 && (
+                  <Arrow
+                    x={X(l.x) - Math.sign(l.Fx) * 75}
+                    y={y - 12}
+                    dx={Math.sign(l.Fx) * 65}
+                    dy={0}
+                    label={
+                      <tspan data-annotation="loads-values">
+                        {fmt(Math.abs(l.Fx))} kN
+                      </tspan>
+                    }
+                  />
+                )}
+              </>
+            ) : (
+              <>
+                <path
+                  d={`M${X(l.x) - 25} ${y - 45}a30 30 0 1 ${l.M >= 0 ? 1 : 0} 50 0`}
+                  stroke="var(--orange)"
+                  fill="none"
+                  strokeWidth="2.5"
+                />
+                <text
                   x={X(l.x)}
-                  y={l.Fy > 0 ? y - 115 : y + 115}
-                  dy={l.Fy > 0 ? 110 : -110}
-                  label={`F${i + 1} · ${fmt(Math.abs(l.Fy))} kN`}
-                />
-              )}
-              {l.Fx !== 0 && (
-                <Arrow
-                  x={X(l.x) - Math.sign(l.Fx) * 75}
-                  y={y - 12}
-                  dx={Math.sign(l.Fx) * 65}
-                  dy={0}
-                  label={`${fmt(Math.abs(l.Fx))} kN`}
-                />
-              )}
-            </>
-          ) : (
-            <>
-              <path
-                d={`M${X(l.x) - 25} ${y - 45}a30 30 0 1 ${l.M >= 0 ? 1 : 0} 50 0`}
-                stroke="var(--orange)"
-                fill="none"
-                strokeWidth="2.5"
-              />
-              <text
-                x={X(l.x)}
-                y={y - 87}
-                textAnchor="middle"
-                fill="var(--orange)"
-                className="numeric"
-                fontSize="13"
-              >
-                ↻ {fmt(l.M)} kN·m
-              </text>
-            </>
-          )}
-        </g>
-      ))}
+                  y={y - 87}
+                  textAnchor="middle"
+                  fill="var(--orange)"
+                  className="numeric"
+                  fontSize="13"
+                >
+                  <tspan data-annotation="loads-labels">M</tspan>
+                  <tspan data-annotation="loads-values">
+                    {" "}
+                    · {fmt(l.M)} kN·m
+                  </tspan>
+                </text>
+              </>
+            )}
+          </g>
+        ),
+      )}
       {model.hinges.map((h) => (
         <circle
           key={h.id}
@@ -2421,7 +2627,9 @@ function BeamScene({
             fontSize="14"
             fill="var(--foreground)"
           >
-            {String.fromCharCode(65 + i)}
+            <tspan data-annotation="supports-labels">
+              {String.fromCharCode(65 + i)}
+            </tspan>
           </text>
         </g>
       ))}
@@ -2434,7 +2642,11 @@ function BeamScene({
                 y={y + 95 * units}
                 dy={-Math.sign(r.Fy) * 34 * units}
                 color="var(--teal)"
-                label={`${fmt(r.Fy)} kN`}
+                label={
+                  <tspan data-annotation="reactions-values">
+                    {fmt(r.Fy)} kN
+                  </tspan>
+                }
               />
             )}
           </g>
@@ -2464,19 +2676,23 @@ function BeamScene({
         fontSize="14"
         className="numeric"
       >
-        {fmt(model.L)} m
+        <tspan data-annotation="dimensions-values">{fmt(model.L)} m</tspan>
       </text>
     </>
   );
 }
 function FrameScene({
   model,
+  selected,
+  onNudge,
   result,
   reactions,
   view,
   amplification,
 }: {
   model: FrameModel;
+  selected: string | null;
+  onNudge: (key: string, edge: "start" | "end", direction: number) => void;
   result?: FrameResult;
   reactions: boolean;
   view: View;
@@ -2600,44 +2816,60 @@ function FrameScene({
               fontSize="12"
               fill="var(--muted-foreground)"
             >
-              B{i + 1}
+              <tspan data-annotation="members-labels">B{i + 1}</tspan>
+              <tspan data-annotation="members-values">
+                {" "}
+                ·{" "}
+                {b.shape === "circle"
+                  ? `Ø ${fmt(b.bw, 0)}`
+                  : `${fmt(b.bw, 0)} × ${fmt(b.h, 0)}`}{" "}
+                cm
+              </tspan>
             </text>
-            {b.w !== 0 &&
-              Array.from({ length: 7 }, (_, j) => {
-                const t = (j + 0.5) / 7;
-                return (
-                  <Arrow
-                    key={j}
-                    x={x1 + (x2 - x1) * t}
-                    y={y1 + (y2 - y1) * t - Math.sign(b.w) * 48}
-                    dy={Math.sign(b.w) * 44}
-                  />
-                );
-              })}
-            {b.w !== 0 && (
-              <text
-                x={(x1 + x2) / 2}
-                y={(y1 + y2) / 2 - 65}
-                textAnchor="middle"
-                className="numeric"
-                fontSize="13"
-                fill="var(--orange)"
-              >
-                {fmt(b.w)} kN/m
-              </text>
-            )}
-            {b.q !== 0 && (
-              <Arrow
-                x={(x1 + x2) / 2}
-                y={(y1 + y2) / 2}
-                dx={-Math.sign(b.q) * ((n.y - a.y) / memberLength) * 45}
-                dy={-Math.sign(b.q) * ((n.x - a.x) / memberLength) * 45}
-                label={`qᵧ ${fmt(b.q)}`}
-              />
-            )}
           </g>
         );
       })}
+      {model.mem
+        .filter(
+          (m) =>
+            m.w !== 0 || (m.w2 ?? 0) !== 0 || m.q !== 0 || (m.q2 ?? 0) !== 0,
+        )
+        .map((m, i) => {
+          const a = model.nodes[m.a - 1],
+            b = model.nodes[m.b - 1],
+            length = Math.hypot(b.x - a.x, b.y - a.y),
+            c = (b.x - a.x) / length,
+            si = (b.y - a.y) / length,
+            start = m.loadStart ?? 0,
+            end = m.loadEnd ?? 1;
+          return (
+            <DistributedLoad
+              key={`dist:${m.id}`}
+              elementKey={`member-dist:${m.id}`}
+              identifier={`q${i + 1}`}
+              a={{
+                x: X(a.x + (b.x - a.x) * start),
+                y: Y(a.y + (b.y - a.y) * start),
+              }}
+              b={{
+                x: X(a.x + (b.x - a.x) * end),
+                y: Y(a.y + (b.y - a.y) * end),
+              }}
+              forceA={{ x: -m.q * si, y: m.w - m.q * c }}
+              forceB={{
+                x: -(m.q2 ?? m.q) * si,
+                y: (m.w2 ?? m.w) - (m.q2 ?? m.q) * c,
+              }}
+              label={`${fmt(m.w)} → ${fmt(m.w2 ?? m.w)} kN/m${m.q !== 0 || (m.q2 ?? 0) !== 0 ? ` · qᵧ ${fmt(m.q)} → ${fmt(m.q2 ?? m.q)} kN/m` : ""}`}
+              selected={selected === `member-dist:${m.id}`}
+              start={start * 100}
+              end={end * 100}
+              onNudge={(edge, direction) =>
+                onNudge(`member-dist:${m.id}`, edge, direction)
+              }
+            />
+          );
+        })}
       {model.nodes.map((n, i) => (
         <g
           key={n.id}
@@ -2662,7 +2894,11 @@ function FrameScene({
             fontSize="13"
             fill="var(--foreground)"
           >
-            N{i + 1}
+            <tspan data-annotation="nodes-labels">N{i + 1}</tspan>
+            <tspan data-annotation="nodes-values">
+              {" "}
+              · ({fmt(n.x)} ; {fmt(n.y)}) m
+            </tspan>
           </text>
         </g>
       ))}
@@ -2677,6 +2913,7 @@ function FrameScene({
           <g
             key={l.id}
             data-element={`member-load:${l.id}`}
+            data-load-kind="point"
             tabIndex={0}
             role="button"
             className="svg-element"
@@ -2686,7 +2923,9 @@ function FrameScene({
                 x={x}
                 y={y - 55 * units * Math.sign(-l.fy)}
                 dy={55 * units * Math.sign(-l.fy)}
-                label={`${fmt(l.fy)} kN`}
+                label={
+                  <tspan data-annotation="loads-values">{`${fmt(l.fy)} kN`}</tspan>
+                }
               />
             )}
             {l.fx !== 0 && (
@@ -2695,7 +2934,9 @@ function FrameScene({
                 y={y}
                 dx={55 * units * Math.sign(l.fx)}
                 dy={0}
-                label={`${fmt(l.fx)} kN`}
+                label={
+                  <tspan data-annotation="loads-values">{`${fmt(l.fx)} kN`}</tspan>
+                }
               />
             )}
             <circle
@@ -2714,6 +2955,7 @@ function FrameScene({
           <g
             key={l.id}
             data-element={`nodal:${l.id}`}
+            data-load-kind="nodal"
             className="svg-element"
             tabIndex={0}
             role="button"
@@ -2724,7 +2966,9 @@ function FrameScene({
                 y={Y(n.y) - 17}
                 dx={Math.sign(l.fx) * 85}
                 dy={0}
-                label={`${fmt(Math.abs(l.fx))} kN`}
+                label={
+                  <tspan data-annotation="loads-values">{`${fmt(Math.abs(l.fx))} kN`}</tspan>
+                }
               />
             )}
             {l.fy !== 0 && (
@@ -2732,7 +2976,9 @@ function FrameScene({
                 x={X(n.x) + 15}
                 y={Y(n.y) + Math.sign(l.fy) * 80}
                 dy={-Math.sign(l.fy) * 70}
-                label={`${fmt(Math.abs(l.fy))} kN`}
+                label={
+                  <tspan data-annotation="loads-values">{`${fmt(Math.abs(l.fy))} kN`}</tspan>
+                }
               />
             )}
             {l.m !== 0 && (
@@ -2742,7 +2988,7 @@ function FrameScene({
                 fontSize="13"
                 fill="var(--orange)"
               >
-                ↺ {fmt(l.m)} kN·m
+                <tspan data-annotation="loads-values">↺ {fmt(l.m)} kN·m</tspan>
               </text>
             )}
           </g>
@@ -2759,7 +3005,9 @@ function FrameScene({
                   y={Y(n.y) + 70}
                   dy={-40 * Math.sign(r.r[1])}
                   color="var(--teal)"
-                  label={`${fmt(r.r[1])} kN`}
+                  label={
+                    <tspan data-annotation="reactions-values">{`${fmt(r.r[1])} kN`}</tspan>
+                  }
                 />
               )}
             </g>
