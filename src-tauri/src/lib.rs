@@ -51,15 +51,23 @@ mod application {
         window: tauri::WebviewWindow,
         action: String,
     ) -> Result<(), String> {
-        match action.as_str() {
-            "minimize" => window.minimize(),
-            "fullscreen" => window
-                .is_fullscreen()
-                .and_then(|full| window.set_fullscreen(!full)),
-            "close" => window.close(),
-            _ => return Err("Action de fenêtre inconnue".into()),
+        #[cfg(desktop)]
+        {
+            return match action.as_str() {
+                "minimize" => window.minimize(),
+                "fullscreen" => window
+                    .is_fullscreen()
+                    .and_then(|full| window.set_fullscreen(!full)),
+                "close" => window.close(),
+                _ => return Err("Action de fenêtre inconnue".into()),
+            }
+            .map_err(|error| error.to_string());
         }
-        .map_err(|error| error.to_string())
+        #[cfg(mobile)]
+        {
+            let _ = (window, action);
+            Err("Les commandes de fenêtre sont réservées au Desktop".into())
+        }
     }
 
     #[tauri::command]
