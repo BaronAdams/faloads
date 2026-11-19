@@ -39,7 +39,7 @@ const menus = [
       ["edit:redo", "Rétablir"],
       ["edit:copy", "Copier les propriétés"],
       ["edit:paste", "Coller les propriétés"],
-      ["edit:select-all", "Tout sélectionner de même nature"],
+      ["edit:select-all", "Tout sélectionner"],
       ["edit:delete", "Supprimer la sélection"],
       ["edit:add", "Ajouter un élément…"],
     ],

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { createStudy } from "./helpers";
+import { duplicateLevel, createStudy } from "./helpers";
 
 async function native(page: Page, phone: boolean) {
   await page.addInitScript((mobile) => {
@@ -260,7 +260,7 @@ test("3D mouse rotation stays independent from pan, zoom, selection and saved mo
 }, info) => {
   await page.goto("/#/new/building");
   await createStudy(page);
-  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
+  await duplicateLevel(page);
   await page
     .getByTestId("project-workbench-header")
     .getByRole("button", { name: "3D", exact: true })
@@ -280,6 +280,13 @@ test("3D mouse rotation stays independent from pan, zoom, selection and saved mo
   await page.mouse.move(x + 70, y + 30, { steps: 10 });
   await page.mouse.up();
   await expect(scene).not.toHaveAttribute("data-yaw", "35");
+  await expect(scene).toHaveAttribute("data-pitch", "28");
+  const yawAfterHorizontal = await scene.getAttribute("data-yaw");
+  await page.mouse.move(x + 70, y + 30);
+  await page.mouse.down();
+  await page.mouse.move(x + 72, y + 90, { steps: 10 });
+  await page.mouse.up();
+  await expect(scene).toHaveAttribute("data-yaw", yawAfterHorizontal!);
   await expect(scene).not.toHaveAttribute("data-pitch", "28");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const angle = await scene.getAttribute("data-yaw"),

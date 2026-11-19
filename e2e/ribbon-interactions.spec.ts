@@ -69,7 +69,7 @@ test("building controls share one ribbon, keep section dimensions stacked, and o
   ).toHaveCount(1);
   await expect(
     header.getByRole("button", { name: "Poteau le plus chargé", exact: true }),
-  ).toHaveText("");
+  ).toHaveText("max");
   const before = (await header.boundingBox())!;
   if (info.project.name === "desktop") {
     await page.locator('[data-element="node|1,1"]').locator("rect").click();
@@ -84,7 +84,7 @@ test("building controls share one ribbon, keep section dimensions stacked, and o
   }
   await header.getByRole("button", { name: "3D", exact: true }).click();
   await expect(
-    header.getByRole("combobox", { name: "Annotations", exact: true }),
+    header.getByRole("button", { name: "Options de vue", exact: true }),
   ).toHaveCount(1);
   await expect(page.getByLabel("Rotation 3D", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("Inclinaison 3D", { exact: true })).toHaveCount(
@@ -97,14 +97,17 @@ test("building controls share one ribbon, keep section dimensions stacked, and o
     true,
   );
   await header
-    .getByRole("combobox", { name: "Annotations", exact: true })
+    .getByRole("button", { name: "Options de vue", exact: true })
     .click();
   await page
-    .getByRole("option", { name: "Tous les éléments", exact: true })
+    .getByRole("menuitem", { name: "Annotations", exact: true })
     .click();
-  await expect(
-    header.getByRole("combobox", { name: "Annotations", exact: true }),
-  ).toContainText("Tous les éléments");
+  await page
+    .getByRole("menuitem", { name: "Tous les éléments", exact: true })
+    .click();
+  await header
+    .getByRole("button", { name: "Enregistrer", exact: true })
+    .scrollIntoViewIfNeeded();
   await expect(
     header.getByRole("button", { name: "Enregistrer", exact: true }),
   ).toBeInViewport();

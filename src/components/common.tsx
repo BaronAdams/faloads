@@ -67,7 +67,7 @@ export function IconButton({
   typeof Button
 >) {
   return (
-    <Tooltip>
+    <Tooltip delayDuration={350} disableHoverableContent>
       <TooltipTrigger asChild>
         <Button
           type="button"

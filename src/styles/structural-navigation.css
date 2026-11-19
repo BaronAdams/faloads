@@ -1,0 +1,184 @@
+.probe-controls-target {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 12;
+  width: min(310px, calc(100% - 28px));
+  pointer-events: none;
+}
+.probe-position-form {
+  pointer-events: auto;
+  padding: 12px;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.probe-form-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+.probe-position-form label {
+  display: block;
+  font-size: 11px;
+}
+.probe-position-form select {
+  display: block;
+  width: 100%;
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px;
+  margin: 5px 0 10px;
+}
+.probe-position-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+.probe-position-row label {
+  grid-column: 1/-1;
+}
+.probe-position-row input {
+  min-width: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+}
+.probe-position-form small {
+  display: block;
+  font-size: 10px;
+  margin-top: 8px;
+  color: var(--muted-foreground);
+}
+.probe-position-form [role="alert"] {
+  color: var(--destructive);
+  font-size: 11px;
+  margin-top: 8px;
+}
+.probe-mobile-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 11;
+}
+.building-floor-nav {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(45%, 320px);
+  width: 132px;
+  overflow-y: auto;
+  pointer-events: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 4px;
+  scrollbar-width: thin;
+}
+.building-floor-nav button {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  text-align: left;
+  font-weight: 400;
+  padding: 6px;
+  min-height: 30px;
+}
+.building-floor-nav button[aria-current] {
+  font-weight: 700;
+  background: var(--accent);
+}
+.building-floor-nav button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dimension-view-button {
+  width: 34px;
+  min-width: 34px;
+  padding-inline: 4px;
+  font-size: 12px;
+}
+.mixed-selection-note,
+.selection-kind {
+  font-size: 11px;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.workbench-project-header svg[data-critical-icon] {
+  width: 27px;
+  height: 27px;
+}
+.duplication-families {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.duplication-families legend {
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.building-hide-slabs-labels [data-building-annotation="slabs-labels"],
+.building-hide-slabs-values [data-building-annotation="slabs-values"],
+.building-hide-beams-labels [data-building-annotation="beams-labels"],
+.building-hide-beams-values [data-building-annotation="beams-values"],
+.building-hide-columns-labels [data-building-annotation="columns-labels"],
+.building-hide-columns-values [data-building-annotation="columns-values"],
+.building-hide-walls-labels [data-building-annotation="walls-labels"],
+.building-hide-walls-values [data-building-annotation="walls-values"],
+.building-hide-axes [data-building-annotation="axes"] {
+  display: none;
+}
+@media (max-width: 1000px) {
+  .probe-mobile-toggle,
+  .probe-position-row button,
+  .probe-position-row input,
+  .probe-form-heading button {
+    min-height: 44px;
+  }
+  .probe-form-heading button {
+    min-width: 44px;
+  }
+  .building-floor-nav {
+    top: 8px;
+    left: 8px;
+    width: 106px;
+    max-height: 34%;
+  }
+  .building-floor-nav button {
+    min-height: 40px;
+    font-size: 11px;
+    padding: 7px;
+  }
+}
+.workbench-project-header .selection-summary {
+  max-width: none;
+}
+[data-slot="tooltip-content"] {
+  pointer-events: none;
+}
+[data-radix-popper-content-wrapper]:has(> [data-slot="tooltip-content"]) {
+  pointer-events: none;
+}
+
+.probe-compact-reading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.probe-compact-reading output {
+  flex: 1;
+  min-width: 0;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 11px;
+}
+.probe-compact-reading output span {
+  display: block;
+}

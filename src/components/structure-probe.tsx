@@ -1,4 +1,11 @@
 import { useCanvasPointer } from "./playground";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { X, Pencil } from "lucide-react";
+import { runtime, useCompactViewport } from "@/lib/runtime";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { IconButton } from "./common";
 import {
   diagramFactor,
   diagramUnit,
@@ -8,6 +15,7 @@ import {
   projectReading,
   interpolateReading,
   lengthFactor,
+  parseReadingPosition,
   type ReadingMember,
 } from "@/domain/analysis-reading";
 import { fmt } from "@/lib/utils";
@@ -24,9 +32,97 @@ export function StructureProbe({
   unit?: "m" | "cm" | "mm";
   resultant?: boolean;
 }) {
-  const { pointer, view, height, units } = useCanvasPointer();
-  if (!pointer) return null;
-  const reading = projectReading(pointer, members);
+  const {
+    pointer,
+    pointerToken,
+    view,
+    height,
+    units,
+    inspecting,
+    portal,
+    closeInspection,
+  } = useCanvasPointer();
+  const [locked, setLocked] = useState<{ id: string; station: number } | null>(
+      null,
+    ),
+    [draft, setDraft] = useState<string | null>(null),
+    [error, setError] = useState<string>(),
+    [collapsed, setCollapsed] = useState(false),
+    input = useRef<HTMLInputElement>(null),
+    keyboardStarting = useRef(false);
+  const compact = useCompactViewport(),
+    mobile = runtime === "mobile" || (runtime === "web" && compact);
+  const raw = pointer ? projectReading(pointer, members) : undefined;
+  const fixed = members.find((m) => m.id === locked?.id);
+  const memberAt = (member: ReadingMember, station: number) => ({
+    member,
+    station,
+    point: {
+      x: member.a.x + ((member.b.x - member.a.x) * station) / member.length,
+      y: member.a.y + ((member.b.y - member.a.y) * station) / member.length,
+    },
+    distance: 0,
+  });
+  const reading =
+    fixed && locked
+      ? memberAt(fixed, Math.min(locked.station, fixed.length))
+      : (raw ??
+        (inspecting && members[0]
+          ? memberAt(members[0], members[0].length / 2)
+          : undefined));
+  const latest = useRef(reading);
+  latest.current = reading;
+  useEffect(() => {
+    if (inspecting && pointerToken && draft === null && raw) {
+      setLocked({ id: raw.member.id, station: raw.station });
+      setError(undefined);
+    }
+  }, [pointerToken]);
+  const wasInspecting = useRef(inspecting);
+  useEffect(() => {
+    if (wasInspecting.current && !inspecting) {
+      setLocked(null);
+      setDraft(null);
+      setError(undefined);
+    }
+    wasInspecting.current = inspecting;
+  }, [inspecting]);
+  useEffect(() => {
+    const keydown = (event: KeyboardEvent) => {
+      if (
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        !/^[0-9.,-]$/.test(event.key) ||
+        !latest.current ||
+        !portal
+      )
+        return;
+      if (
+        (event.target as Element)?.closest(
+          "input,textarea,select,[contenteditable=true],[role=dialog],[role=menu]",
+        )
+      )
+        return;
+      event.preventDefault();
+      const r = latest.current;
+      setLocked({ id: r.member.id, station: r.station });
+      setDraft(event.key);
+      setError(undefined);
+      keyboardStarting.current = true;
+      setCollapsed(false);
+      requestAnimationFrame(() => input.current?.focus());
+    };
+    window.addEventListener("keydown", keydown);
+    return () => window.removeEventListener("keydown", keydown);
+  }, [portal]);
+  const close = () => {
+    setLocked(null);
+    setDraft(null);
+    setError(undefined);
+    closeInspection();
+    setCollapsed(false);
+  };
   if (!reading) return null;
   const { member, point, station } = reading;
   const dx = member.b.x - member.a.x,
@@ -55,7 +151,7 @@ export function StructureProbe({
     field && member.points
       ? interpolateReading(member.points, station)
       : undefined;
-  const position = `${member.label} · x = ${fmt(station * lengthFactor(unit), 3)} ${unit}`;
+  const position = `${member.label} · x = ${draft ?? fmt(station * lengthFactor(unit), 3)} ${unit}${draft !== null ? " · Entrée" : ""}`;
   const symbol =
     field === "theta" ? "θ" : field === "v" && resultant ? "|u|" : field;
   const valueText =
@@ -92,39 +188,175 @@ export function StructureProbe({
       ? { x: value.x, y: value.y + 64 * size }
       : value;
   return (
-    <g
-      data-testid="structure-probe"
-      data-member={member.label}
-      data-station={station}
-      data-value={value?.value}
-      pointerEvents="none"
-      aria-hidden="true"
-    >
-      <line
-        data-testid="probe-guide"
-        x1={cuts[0].x}
-        y1={cuts[0].y}
-        x2={cuts.at(-1)!.x}
-        y2={cuts.at(-1)!.y}
-        stroke="white"
-        strokeWidth={0.8}
-        vectorEffect="non-scaling-stroke"
-      />
-      <circle cx={point.x} cy={point.y} r={3 * size} fill="white" />
-      {label(point, position, "position")}
-      {value && (
-        <circle
-          data-testid="probe-curve-point"
-          cx={value.x}
-          cy={value.y}
-          r={4 * size}
-          fill="#171b22"
+    <>
+      <g
+        data-testid="structure-probe"
+        data-member={member.label}
+        data-station={station}
+        data-value={value?.value}
+        pointerEvents="none"
+        aria-hidden="true"
+      >
+        <line
+          data-testid="probe-guide"
+          x1={cuts[0].x}
+          y1={cuts[0].y}
+          x2={cuts.at(-1)!.x}
+          y2={cuts.at(-1)!.y}
           stroke="white"
-          strokeWidth={1.2}
+          strokeWidth={0.8}
           vectorEffect="non-scaling-stroke"
         />
-      )}
-      {valueText && valueAnchor && label(valueAnchor, valueText, "value")}
-    </g>
+        <circle cx={point.x} cy={point.y} r={3 * size} fill="white" />
+        {label(point, position, "position")}
+        {value && (
+          <circle
+            data-testid="probe-curve-point"
+            cx={value.x}
+            cy={value.y}
+            r={4 * size}
+            fill="#171b22"
+            stroke="white"
+            strokeWidth={1.2}
+            vectorEffect="non-scaling-stroke"
+          />
+        )}
+        {valueText && valueAnchor && label(valueAnchor, valueText, "value")}
+      </g>
+      {portal &&
+        (inspecting || locked || draft !== null) &&
+        createPortal(
+          <form
+            className="probe-position-form"
+            aria-label="Lecture précise de position"
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerMove={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Escape") {
+                e.preventDefault();
+                close();
+              }
+            }}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const parsed = parseReadingPosition(
+                draft ?? String(station * lengthFactor(unit)),
+                member.length,
+                unit,
+              );
+              if (parsed.error) {
+                setError(parsed.error);
+                return;
+              }
+              setLocked({ id: member.id, station: parsed.station! });
+              setDraft(null);
+              setError(undefined);
+              if (mobile) {
+                input.current?.blur();
+                setCollapsed(true);
+              }
+            }}
+          >
+            {collapsed ? (
+              <div className="probe-compact-reading">
+                <output>
+                  <span>
+                    {member.label} · {fmt(station * lengthFactor(unit), 3)}{" "}
+                    {unit}
+                  </span>
+                  {valueText && <span>{valueText}</span>}
+                </output>
+                <IconButton
+                  label="Modifier la position"
+                  onClick={() => setCollapsed(false)}
+                >
+                  <Pencil />
+                </IconButton>
+                <IconButton label="Fermer la lecture" onClick={close}>
+                  <X />
+                </IconButton>
+              </div>
+            ) : (
+              <>
+                <div className="probe-form-heading">
+                  <strong>Lire une position</strong>
+                  <IconButton label="Fermer la lecture" onClick={close}>
+                    <X />
+                  </IconButton>
+                </div>
+                {members.length > 1 && (
+                  <label>
+                    Barre
+                    <select
+                      aria-label="Barre à lire"
+                      value={member.id}
+                      onChange={(e) => {
+                        const m = members.find((m) => m.id === e.target.value)!;
+                        setLocked({ id: m.id, station: m.length / 2 });
+                        setDraft(null);
+                        setError(undefined);
+                      }}
+                    >
+                      {members.map((m) => (
+                        <option key={m.id} value={m.id}>
+                          {m.label} · {fmt(m.length * lengthFactor(unit), 3)}{" "}
+                          {unit}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+                <div className="probe-position-row">
+                  <label htmlFor="probe-position-input">
+                    Position · {unit}
+                  </label>
+                  <Input
+                    id="probe-position-input"
+                    ref={input}
+                    inputMode="decimal"
+                    value={
+                      draft ??
+                      String(
+                        Number((station * lengthFactor(unit)).toFixed(6)),
+                      ).replace(".", ",")
+                    }
+                    aria-invalid={!!error}
+                    aria-describedby={
+                      error ? "probe-position-error" : undefined
+                    }
+                    onFocus={(e) => {
+                      if (keyboardStarting.current) {
+                        const end = e.currentTarget.value.length;
+                        e.currentTarget.setSelectionRange(end, end);
+                        keyboardStarting.current = false;
+                      } else e.currentTarget.select();
+                    }}
+                    onChange={(e) => {
+                      if (!locked) setLocked({ id: member.id, station });
+                      setDraft(e.target.value);
+                      setError(undefined);
+                    }}
+                  />
+                  <Button size="sm" type="submit">
+                    Aller
+                  </Button>
+                </div>
+                {error && (
+                  <p id="probe-position-error" role="alert">
+                    {error}
+                  </p>
+                )}
+                <small>
+                  0 à {fmt(member.length * lengthFactor(unit), 3)} {unit} ·
+                  Entrée pour déplacer le repère
+                </small>
+              </>
+            )}
+          </form>,
+          portal,
+        )}
+    </>
   );
 }

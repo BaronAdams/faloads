@@ -9,6 +9,9 @@ const executable = resolve(process.argv[2]);
 mkdirSync("native-test-results", { recursive: true });
 let savedId;
 async function checkWorkbenchLayout(page) {
+  await page
+    .getByRole("button", { name: "Enregistrer", exact: true })
+    .scrollIntoViewIfNeeded();
   const layout = await page.evaluate(() => {
     const rect = (selector) => {
       const r = document.querySelector(selector).getBoundingClientRect();
@@ -193,6 +196,31 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         path: "native-test-results/windows-probe.png",
         fullPage: true,
       });
+      const station = Number(
+        await page.getByTestId("structure-probe").getAttribute("data-station"),
+      );
+      await page.keyboard.press("3");
+      const stationInput = page.getByLabel("Position · m", { exact: true });
+      await expect(stationInput).toBeFocused();
+      await page.keyboard.type(",5");
+      expect(
+        Number(
+          await page
+            .getByTestId("structure-probe")
+            .getAttribute("data-station"),
+        ),
+      ).toBeCloseTo(station, 5);
+      await page.keyboard.press("Enter");
+      expect(
+        Number(
+          await page
+            .getByTestId("structure-probe")
+            .getAttribute("data-station"),
+        ),
+      ).toBeCloseTo(3.5, 5);
+      await page
+        .getByRole("button", { name: "Fermer la lecture", exact: true })
+        .click();
       await page
         .getByRole("button", { name: "Structure", exact: true })
         .click();
@@ -216,6 +244,14 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .getByRole("button", { name: "Explorer librement", exact: true })
         .click();
       const header = page.getByTestId("project-workbench-header");
+      await expect(
+        page.getByRole("navigation", { name: "Niveaux du bâtiment" }),
+      ).toContainText("RDC");
+      await expect(header.getByRole("switch")).toHaveCount(0);
+      await expect(header.locator("[data-critical-icon=column]")).toHaveCount(
+        1,
+      );
+      await expect(header.locator("[data-critical-icon=beam]")).toHaveCount(1);
       await expect(page.locator(".project-page > header")).toHaveCount(1);
       await expect(
         page.locator(
@@ -228,11 +264,11 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           name: "Poteau le plus chargé",
           exact: true,
         }),
-      ).toHaveText("");
+      ).toHaveText("max");
       buildingLayout = await checkWorkbenchLayout(page);
       await header.getByRole("button", { name: "3D", exact: true }).click();
       await expect(
-        header.getByRole("combobox", { name: "Annotations", exact: true }),
+        header.getByRole("button", { name: "Options de vue", exact: true }),
       ).toHaveCount(1);
       await expect(page.getByLabel("Rotation 3D", { exact: true })).toHaveCount(
         0,

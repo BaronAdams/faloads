@@ -12,6 +12,7 @@ import {
   defaultAnnotations,
 } from "@/components/analysis-view-menu";
 import { RibbonGroup } from "@/components/project-ribbon";
+import { toggleSelection, selectionFamily } from "@/domain/selection";
 import { useDesktopCommands } from "@/lib/desktop-commands";
 import { runtime } from "@/lib/runtime";
 import {
@@ -293,16 +294,7 @@ export function AnalysisPage({
   const select = (key: string, additive = false) => {
     const [type, id] = key.split(":");
     if (!desktop) return open({ type: type as Selection["type"], id });
-    const elements = analysisElements(model),
-      family = elements.find((v) => v.key === key)?.family;
-    const compatible = selectedKeys.filter(
-      (k) => elements.find((v) => v.key === k)?.family === family,
-    );
-    const keys = additive
-      ? compatible.includes(key)
-        ? compatible.filter((k) => k !== key)
-        : [...compatible, key]
-      : [key];
+    const keys = toggleSelection(selectedKeys, key, additive);
     setSelectedKeys(keys);
     const last = keys.at(-1)?.split(":");
     setSelection(
@@ -338,9 +330,12 @@ export function AnalysisPage({
     open({ type, id }, next);
   };
   const elements = analysisElements(model);
-  const selectedElement = selection
-    ? elements.find((v) => v.key === `${selection.type}:${selection.id}`)
-    : undefined;
+  const mixedSelection =
+    selectedKeys.length > 1 && !selectionFamily(elements, selectedKeys);
+  const selectedElement =
+    selection && !mixedSelection
+      ? elements.find((v) => v.key === `${selection.type}:${selection.id}`)
+      : undefined;
   useEffect(() => {
     if (!selection) return;
     document
@@ -412,6 +407,10 @@ export function AnalysisPage({
             .filter((v) => v.family === selectedElement.family)
             .map((v) => v.key),
         );
+      else {
+        setSelectedKeys(elements.map((e) => e.key));
+        setSelection(null);
+      }
     },
     clear,
     undo,
@@ -846,6 +845,16 @@ export function AnalysisPage({
                 }}
                 onClear={clear}
               />
+            </RibbonGroup>
+          ) : selectedKeys.length > 0 ? (
+            <RibbonGroup
+              label={`Sélection · ${selectedKeys.length}`}
+              className="selection-ribbon-group"
+            >
+              <span className="mixed-selection-note">Sélection mixte</span>
+              <IconButton label="Désélectionner" onClick={clear}>
+                <X />
+              </IconButton>
             </RibbonGroup>
           ) : undefined
         }
@@ -1358,11 +1367,6 @@ export function AnalysisPage({
           />
           {calculation.fresh ? (
             <>
-              <DeflectionResults
-                model={model}
-                beam={analysis.beam}
-                frame={analysis.frame}
-              />
               <div className="metrics-grid">
                 {model.kind === "beam" ? (
                   <>
@@ -1381,6 +1385,11 @@ export function AnalysisPage({
                         analysis.beam!.caracteristiques.fleche_max_abs * 1000
                       }
                       unit="mm"
+                    />
+                    <DeflectionResults
+                      model={model}
+                      beam={analysis.beam}
+                      frame={analysis.frame}
                     />
                     <Metric
                       label="Fermeture statique"
@@ -1421,6 +1430,22 @@ export function AnalysisPage({
                         ) * 1000
                       }
                       unit="mm"
+                    />
+                    <Metric
+                      label="Flèche maximale |v|"
+                      value={
+                        Math.max(
+                          ...analysis.frame!.mem.flatMap((m) =>
+                            m.pts.map((p) => Math.abs(p.v)),
+                          ),
+                        ) * 1000
+                      }
+                      unit="mm"
+                    />
+                    <DeflectionResults
+                      model={model}
+                      beam={analysis.beam}
+                      frame={analysis.frame}
                     />
                     <Metric
                       label="Équilibre des forces"

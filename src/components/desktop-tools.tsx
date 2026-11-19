@@ -65,6 +65,7 @@ export function useEditorKeys(
   useEffect(() => {
     if (!enabled) return;
     const handle = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (
         (e.target as Element).closest(
           "input, textarea, [contenteditable=true], [role=combobox], [role=dialog], [role=menu]",
@@ -165,7 +166,7 @@ export function SceneMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={actions.all}>
           <ListChecks />
-          Tout sélectionner du même type<kbd>Ctrl A</kbd>
+          Tout sélectionner<kbd>Ctrl A</kbd>
         </DropdownMenuItem>
         {actions.duplicate && (
           <DropdownMenuItem onSelect={actions.duplicate}>
@@ -203,7 +204,14 @@ export function DetailDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="desktop-detail-dialog">
+      <DialogContent
+        className="desktop-detail-dialog"
+        onEscapeKeyDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onOpenChange(false);
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
@@ -366,7 +374,10 @@ export function ShortcutHelp() {
               "Clic gauche maintenu + glisser",
               "Déplacer appuis / charges sur leur support",
             ],
-            ["Ctrl / Cmd A", "Sélectionner le même type"],
+            [
+              "Ctrl / Cmd A",
+              "Tout sélectionner ; avec présélection, sélectionner le même type",
+            ],
             ["Ctrl / Cmd C · V", "Copier / appliquer les propriétés"],
             ["Suppr", "Supprimer la sélection"],
             ["Inser / Ctrl N", "Ajouter un élément"],

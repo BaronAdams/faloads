@@ -20,7 +20,7 @@ En vue de diagramme, un second repère affiche la valeur interpolée sur le trac
 
 ## Flèche admissible
 
-Le panneau des résultats commence par le contrôle de flèche : valeur calculée, limite admissible, pourcentage d’utilisation et texte **Critère respecté** ou **Limite dépassée**. Le détail est disponible pour chaque travée, console ou barre.
+Le contrôle de flèche est placé immédiatement après la carte « Flèche maximale |v| » : valeur calculée, limite admissible, pourcentage d’utilisation et texte **Critère respecté** ou **Limite dépassée**. Le détail est disponible pour chaque travée, console ou barre.
 
 Le critère est propre au projet, réglable dans **Paramètres du modèle → Lecture et flèche admissible** : soit L/n (valeur initiale L/250), soit une limite absolue en mm. Les fichiers existants restent lisibles sans migration obligatoire. Changer la limite ou l’unité de lecture ne périme pas les résultats mécaniques. Une modification des données structurales continue de masquer les résultats jusqu’au prochain calcul.
 
@@ -41,3 +41,5 @@ Ce contrôle élastique porte sur les charges saisies et le critère choisi par 
 Les tests unitaires couvrent la projection, les unités, l’interpolation aux discontinuités, les portées et consoles, la flexion analytique d’une poutre et d’une console de cadre, et la séparation du déplacement axial. Les parcours navigateur couvrent la barre stylisée, le clavier, la largeur des dialogues, la projection après zoom et pan, les unités des diagrammes, le changement de critère et sa persistance Desktop/mobile.
 
 Les captures ci-dessus utilisent Chromium avec l’intégration Tauri simulée. Le workflow Windows lance également le véritable EXE dans WebView2 : il exige la présence de la barre stylisée, utilise son menu Calcul, vérifie le repère et le contrôle de flèche, puis relit le projet sauvegardé en mode de compatibilité. Ses captures se trouvent dans l’artefact de diagnostics natifs.
+
+La [lecture précise et la navigation du bâtiment](structural-navigation.md) présentent la saisie au clavier, le mode tactile et les nouvelles commandes du bâtiment.

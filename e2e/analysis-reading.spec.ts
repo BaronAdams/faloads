@@ -196,6 +196,17 @@ for (const kind of ["beam", "frame"] as const) {
     });
     const verdict = page.getByTestId("deflection-check");
     await expect(results).toContainText("Flèche admissible");
+    const order = await results
+      .locator(".metrics-grid")
+      .first()
+      .evaluate((el) =>
+        [...el.children].map((child) => child.textContent ?? ""),
+      );
+    const deflectionIndex = order.findIndex((text) =>
+      text.includes("Flèche maximale |v|"),
+    );
+    expect(deflectionIndex).toBeGreaterThanOrEqual(0);
+    expect(order[deflectionIndex + 1]).toContain("Contrôle de flèche");
     await expect(verdict).toContainText("Critère respecté");
     await results
       .getByRole("button", { name: "Fermer le panneau", exact: true })

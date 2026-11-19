@@ -1,3 +1,11 @@
+import { BuildingViewMenu } from "@/components/building-view-menu";
+import { BuildingCriticalIcon } from "@/components/building-critical-icon";
+import { BuildingDuplication } from "@/components/building-duplication";
+import {
+  defaultBuildingAnnotations,
+  type OrbitAxis,
+} from "@/domain/building-view";
+import { toggleSelection, selectionFamily } from "@/domain/selection";
 import { RibbonGroup } from "@/components/project-ribbon";
 import { useDesktopCommands } from "@/lib/desktop-commands";
 import { useEffect, useRef, useState } from "react";
@@ -7,19 +15,18 @@ import {
   Undo2,
   Redo2,
   Trash2,
-  SlidersHorizontal,
+  Settings,
+  Pencil,
   ChartNoAxesCombined,
   Calculator,
   X,
   Grid2X2,
-  Box,
   ArrowUp,
   ArrowDown,
   Layers,
   Square,
   Columns3,
   Minus,
-  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -90,9 +97,11 @@ import { type Project } from "@/lib/storage";
 import { fmt, uid } from "@/lib/utils";
 import { WindFields } from "./descent-page";
 export function BuildingPage({ project }: { project?: Project }) {
-  const [annotations, setAnnotations] = useState<
-      "slabs" | "beams" | "columns" | "all"
-    >("slabs"),
+  const [annotations, setAnnotations] = useState(defaultBuildingAnnotations),
+    [orbitAxis, setOrbitAxis] = useState<OrbitAxis>("auto"),
+    [duplication, setDuplication] = useState<{ selection: boolean } | null>(
+      null,
+    ),
     [allLevels, setAllLevels] = useState(false);
   const desktop = runtime === "desktop",
     { drafts } = useWorkspace(),
@@ -255,7 +264,11 @@ export function BuildingPage({ project }: { project?: Project }) {
     setActive(0);
   };
   const elements = buildingElements(floor),
-    selected = elements.find((e) => e.key === selection),
+    mixedSelection =
+      selectedKeys.length > 1 && !selectionFamily(elements, selectedKeys),
+    selected = !mixedSelection
+      ? elements.find((e) => e.key === selection)
+      : undefined,
     [type, key] = (selection ?? "").split("|");
   const select = (key: string, additive = false) => {
     if (!desktop) {
@@ -264,15 +277,7 @@ export function BuildingPage({ project }: { project?: Project }) {
       setEditor(calculation.fresh ? null : structuredClone(floor));
       return;
     }
-    const family = elements.find((e) => e.key === key)?.family;
-    const compatible = selectedKeys.filter(
-      (k) => elements.find((e) => e.key === k)?.family === family,
-    );
-    const keys = additive
-      ? compatible.includes(key)
-        ? compatible.filter((k) => k !== key)
-        : [...compatible, key]
-      : [key];
+    const keys = toggleSelection(selectedKeys, key, additive);
     setSelection(keys.at(-1) ?? null);
     setSelectedKeys(keys);
     setEditor(null);
@@ -327,6 +332,20 @@ export function BuildingPage({ project }: { project?: Project }) {
     studyAction("element:applied");
   };
   const actions: EditorActions = {
+    modify: () => {
+      if (mixedSelection) {
+        toast.info(
+          "Sélectionnez des éléments de même nature pour modifier leurs paramètres.",
+        );
+        return;
+      }
+      if (selection) {
+        if (desktop) setDetails(true);
+        else setEditor(structuredClone(floor));
+        setMenu(null);
+      }
+    },
+    duplicate: () => setDuplication({ selection: selectedKeys.length > 0 }),
     copy: () => {
       if (selected && selection) {
         setClipboard({
@@ -352,6 +371,14 @@ export function BuildingPage({ project }: { project?: Project }) {
             )
             .map((e) => e.key),
         );
+      else {
+        setSelectedKeys(
+          elements
+            .filter((e) => !("exists" in e.value) || e.value.exists)
+            .map((e) => e.key),
+        );
+        setSelection(null);
+      }
     },
     remove: () => {
       if (!selectedKeys.length) return;
@@ -424,18 +451,24 @@ export function BuildingPage({ project }: { project?: Project }) {
     setCritical(max);
     setEditor(null);
     setView("3d");
-    setAnnotations(kind === "column" ? "columns" : "beams");
+    setAnnotations((value) => ({
+      ...value,
+      [kind === "column" ? "columns" : "beams"]: { labels: true, values: true },
+    }));
     setAllLevels(false);
   };
   const slot =
-    type === "node"
+    type === "node" && !mixedSelection
       ? working.nodes[key]
-      : type === "edge"
+      : type === "edge" && !mixedSelection
         ? working.edges[key]
         : null;
-  const panel = type === "panel" ? working.panels[key] : null;
+  const panel =
+    type === "panel" && !mixedSelection ? working.panels[key] : null;
   const free =
-    type === "oblique" ? working.obliques.find((o) => o.id === key) : null;
+    type === "oblique" && !mixedSelection
+      ? working.obliques.find((o) => o.id === key)
+      : null;
   const selectionFields = (full = false) => (
     <>
       {slot && (
@@ -780,40 +813,10 @@ export function BuildingPage({ project }: { project?: Project }) {
   });
   const floorControls = (
     <div className="floor-toolbar">
-      <Choice
-        label="Niveau actif"
-        value={floor.id}
-        options={model.floors.map((f) => ({ value: f.id, label: f.name }))}
-        onChange={(id) =>
-          changeFloor(model.floors.findIndex((f) => f.id === id))
-        }
-      />
       <div className="row-actions">
         <IconButton
-          label="Annuler"
-          disabled={!history.length}
-          onClick={() => undo()}
-        >
-          <Undo2 />
-        </IconButton>
-        <IconButton
-          label="Rétablir"
-          disabled={!future.length}
-          onClick={() => undo(true)}
-        >
-          <Redo2 />
-        </IconButton>
-        <IconButton
           label="Dupliquer"
-          onClick={() => {
-            const copy = {
-              ...structuredClone(floor),
-              id: uid(),
-              name: `R+${model.floors.length}`,
-            };
-            commit({ ...model, floors: [...model.floors, copy] });
-            changeFloor(model.floors.length);
-          }}
+          onClick={() => setDuplication({ selection: false })}
         >
           <Copy />
         </IconButton>
@@ -877,55 +880,140 @@ export function BuildingPage({ project }: { project?: Project }) {
   );
   const contextualParameters = desktop ? (
     <div className="desktop-parameter-bar">
-      {selection ? (
-        selectionFields()
-      ) : (
-        <>
-          <Numeric
-            label="Hauteur d’étage"
-            value={floor.height}
-            unit="m"
-            min={0.1}
-            max={100}
-            onChange={(height) => patchFloor({ ...floor, height })}
-          />
-          <div data-tour="building-inputs">
-            <Numeric
-              label="X · travée 1"
-              value={floor.spanX[0]}
-              min={0.1}
-              max={100}
-              unit="m"
-              onChange={(x) =>
-                patchFloor({
-                  ...floor,
-                  spanX: floor.spanX.map((v, i) => (i === 0 ? x : v)),
-                })
-              }
-            />
-          </div>
-          <Numeric
-            label="Y · travée 1"
-            value={floor.spanY[0]}
-            min={0.1}
-            max={100}
-            unit="m"
-            onChange={(y) =>
-              patchFloor({
-                ...floor,
-                spanY: floor.spanY.map((v, i) => (i === 0 ? y : v)),
-              })
-            }
-          />
-        </>
-      )}
-      {selection && (
-        <IconButton label="Désélectionner" onClick={clear}>
-          <X />
-        </IconButton>
-      )}
+      <Numeric
+        compact
+        shortLabel="H"
+        label="Hauteur d’étage"
+        value={floor.height}
+        unit="m"
+        min={0.1}
+        max={100}
+        onChange={(height) => patchFloor({ ...floor, height })}
+      />
+      <div data-tour="building-inputs">
+        <Numeric
+          compact
+          shortLabel="X₁"
+          label="X · travée 1"
+          value={floor.spanX[0]}
+          min={0.1}
+          max={100}
+          unit="m"
+          onChange={(x) =>
+            patchFloor({
+              ...floor,
+              spanX: floor.spanX.map((v, i) => (i === 0 ? x : v)),
+            })
+          }
+        />
+      </div>
+      <Numeric
+        compact
+        shortLabel="Y₁"
+        label="Y · travée 1"
+        value={floor.spanY[0]}
+        min={0.1}
+        max={100}
+        unit="m"
+        onChange={(y) =>
+          patchFloor({
+            ...floor,
+            spanY: floor.spanY.map((v, i) => (i === 0 ? y : v)),
+          })
+        }
+      />
     </div>
   ) : null;
+  const compactSelection = (
+    <div
+      className="desktop-parameter-bar selection-summary"
+      data-tour="parameters-inputs"
+    >
+      {mixedSelection ? (
+        <span className="mixed-selection-note">Sélection mixte</span>
+      ) : (
+        <>
+          <span className="selection-kind">
+            {type === "node"
+              ? "Poteau"
+              : type === "edge"
+                ? slot?.kind === "wall"
+                  ? "Voile"
+                  : "Poutre"
+                : panel
+                  ? "Plancher"
+                  : "Élément libre"}
+          </span>
+          {desktop && (slot || free) && (
+            <div className="ribbon-field-pair">
+              <Numeric
+                compact
+                shortLabel="b"
+                label="Largeur b"
+                value={(slot ?? free)!.b}
+                unit="cm"
+                min={1}
+                max={1000}
+                onChange={(b) => patchSelected({ b })}
+              />
+              <Numeric
+                compact
+                shortLabel="h"
+                label="Hauteur h"
+                value={(slot ?? free)!.h}
+                unit="cm"
+                min={1}
+                max={1000}
+                onChange={(h) => patchSelected({ h })}
+              />
+            </div>
+          )}
+          {desktop && panel && (
+            <>
+              <Numeric
+                compact
+                shortLabel="e"
+                label="Épaisseur"
+                value={panel.level.thickness * 100}
+                unit="cm"
+                min={1}
+                max={1000}
+                onChange={(h) =>
+                  patchSelected({
+                    level: { ...panel.level, thickness: h / 100 },
+                  })
+                }
+              />
+              <Numeric
+                compact
+                shortLabel="Q"
+                label="Exploitation Q"
+                value={panel.level.q}
+                unit="kN/m²"
+                min={0}
+                max={1000}
+                onChange={(q) =>
+                  patchSelected({ level: { ...panel.level, q } })
+                }
+              />
+            </>
+          )}
+          <IconButton
+            label="Modifier la sélection"
+            onClick={() => {
+              if (desktop) setDetails(true);
+              else setEditor(structuredClone(floor));
+            }}
+          >
+            <Pencil />
+          </IconButton>
+        </>
+      )}
+      <IconButton label="Désélectionner" onClick={clear}>
+        <X />
+      </IconButton>
+    </div>
+  );
   const calculationTools = (
     <RibbonGroup label="Calcul">
       <IconButton
@@ -951,21 +1039,12 @@ export function BuildingPage({ project }: { project?: Project }) {
   );
   const headerTools = (
     <>
-      {desktop && selection && (
-        <IconButton
-          label="Détails de la sélection"
-          className="project-details-tool"
-          onClick={() => setDetails(true)}
-        >
-          <Settings2 />
-        </IconButton>
-      )}
       <IconButton
         label="Ouvrir les paramètres"
         data-tour="parameters"
         onClick={() => openParameters(true)}
       >
-        <SlidersHorizontal />
+        <Settings />
       </IconButton>
       <div className="project-auxiliary-tools">
         <ShortcutHelp />
@@ -975,7 +1054,20 @@ export function BuildingPage({ project }: { project?: Project }) {
   const ParametersContainer = desktop ? DetailDialog : EditorSheet;
   return (
     <div
-      className={`project-page building-page analysis-page ${desktop ? "desktop-building-workspace" : ""}`}
+      className={`project-page building-page analysis-page ${desktop ? "desktop-building-workspace" : ""} ${Object.entries(
+        annotations,
+      )
+        .flatMap(([kind, flags]) =>
+          typeof flags === "object"
+            ? [
+                !flags.labels ? `building-hide-${kind}-labels` : "",
+                !flags.values ? `building-hide-${kind}-values` : "",
+              ]
+            : !flags
+              ? `building-hide-${kind}`
+              : "",
+        )
+        .join(" ")}`}
     >
       <ProjectHeader
         type="building"
@@ -984,6 +1076,18 @@ export function BuildingPage({ project }: { project?: Project }) {
         name={name}
         setName={setName}
         workbench
+        hideBack
+        flowActions
+        trailingToolbar={
+          selectedKeys.length > 0 ? (
+            <RibbonGroup
+              label={`Sélection · ${selectedKeys.length}`}
+              className="ribbon-parameters selection-ribbon-group"
+            >
+              {compactSelection}
+            </RibbonGroup>
+          ) : undefined
+        }
         toolbar={
           <>
             {!desktop && calculationTools}
@@ -1036,83 +1140,75 @@ export function BuildingPage({ project }: { project?: Project }) {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              <IconButton
+                label="Annuler"
+                disabled={!history.length}
+                onClick={() => undo()}
+              >
+                <Undo2 />
+              </IconButton>
+              <IconButton
+                label="Rétablir"
+                disabled={!future.length}
+                onClick={() => undo(true)}
+              >
+                <Redo2 />
+              </IconButton>
             </RibbonGroup>
             <RibbonGroup label="Niveaux">{floorControls}</RibbonGroup>
             {contextualParameters && (
-              <RibbonGroup
-                label={
-                  selection
-                    ? `Sélection · ${selectedKeys.length}`
-                    : "Grille de l’étage"
-                }
-                className="ribbon-parameters"
-              >
+              <RibbonGroup label="Modèle" className="ribbon-parameters">
                 {contextualParameters}
               </RibbonGroup>
             )}
             <RibbonGroup label="Vue">
-              <IconButton
-                label="Plan"
-                variant={view === "plan" ? "secondary" : "ghost"}
+              <Button
+                size="sm"
+                className="dimension-view-button"
                 aria-pressed={view === "plan"}
+                variant={view === "plan" ? "secondary" : "ghost"}
                 onClick={() => setView("plan")}
               >
-                <Grid2X2 />
-              </IconButton>
-              <IconButton
-                label="3D"
-                variant={view === "3d" ? "secondary" : "ghost"}
+                2D
+              </Button>
+              <Button
+                size="sm"
+                className="dimension-view-button"
                 aria-pressed={view === "3d"}
+                variant={view === "3d" ? "secondary" : "ghost"}
                 onClick={() => setView("3d")}
               >
-                <Box />
-              </IconButton>
+                3D
+              </Button>
               <Choice
                 label="Cas de charges"
                 value={field}
                 options={["G", "Q", "ELS", "ELU"]}
                 onChange={(v) => setField(v as LoadCase)}
               />
-              {view === "plan" ? (
-                <Label className="toggle">
-                  <Switch checked={influence} onCheckedChange={setInfluence} />
-                  Surfaces d’influence
-                </Label>
-              ) : (
-                <>
-                  <Choice
-                    label="Annotations"
-                    value={annotations}
-                    options={[
-                      { value: "slabs", label: "Planchers · kN/m²" },
-                      { value: "beams", label: "Poutres · kN/m" },
-                      { value: "columns", label: "Poteaux · kN" },
-                      { value: "all", label: "Tous les éléments" },
-                    ]}
-                    onChange={(v) => setAnnotations(v as typeof annotations)}
-                  />
-                  <Label className="toggle">
-                    <Switch
-                      checked={allLevels}
-                      onCheckedChange={setAllLevels}
-                    />
-                    Tous les niveaux
-                  </Label>
-                </>
-              )}
+              <BuildingViewMenu
+                annotations={annotations}
+                onChange={setAnnotations}
+                influence={influence}
+                onInfluence={setInfluence}
+                allLevels={allLevels}
+                onAllLevels={setAllLevels}
+                orbitAxis={orbitAxis}
+                onOrbitAxis={setOrbitAxis}
+              />
             </RibbonGroup>
             <RibbonGroup label="Charges critiques">
               <IconButton
                 label="Poteau le plus chargé"
                 onClick={() => highest("column")}
               >
-                <Columns3 />
+                <BuildingCriticalIcon kind="column" />
               </IconButton>
               <IconButton
                 label="Poutre la plus chargée"
                 onClick={() => highest("beam")}
               >
-                <Minus />
+                <BuildingCriticalIcon kind="beam" />
               </IconButton>
             </RibbonGroup>
             {desktop && calculationTools}
@@ -1126,6 +1222,32 @@ export function BuildingPage({ project }: { project?: Project }) {
           />
         }
       />
+      {duplication && (
+        <BuildingDuplication
+          source={floor}
+          keys={selectedKeys}
+          initialSelection={duplication.selection}
+          defaultName={`R+${model.floors.length}`}
+          onClose={() => setDuplication(null)}
+          onDuplicate={(copy, position) => {
+            if (model.floors.length >= 60) {
+              toast.error("Le bâtiment contient déjà 60 niveaux.");
+              return;
+            }
+            if (model.floors.some((f) => f.name === copy.name)) {
+              toast.error("Un niveau porte déjà ce nom.");
+              return;
+            }
+            const floors = [...model.floors],
+              index = position === "top" ? floors.length : active + 1;
+            floors.splice(index, 0, copy);
+            if (commit({ ...model, floors })) {
+              changeFloor(index);
+              setDuplication(null);
+            }
+          }}
+        />
+      )}
       <SceneMenu
         point={menu}
         onClose={() => setMenu(null)}
@@ -1144,14 +1266,25 @@ export function BuildingPage({ project }: { project?: Project }) {
                 ? `${floor.id}|${selection}`
                 : null
           }
-          selectedKeys={desktop && view === "plan" ? selectedKeys : undefined}
+          selectedKeys={
+            desktop
+              ? view === "plan"
+                ? selectedKeys
+                : selectedKeys.map((k) => `${floor.id}|${k}`)
+              : undefined
+          }
+          orbitAxis={orbitAxis}
           onSelect={
             view === "plan"
               ? select
-              : (key) => {
+              : (key, additive) => {
                   const [id, ...parts] = key.split("|");
                   const i = model.floors.findIndex((f) => f.id === id);
                   if (i < 0) return;
+                  if (i === active) {
+                    select(parts.join("|"), additive);
+                    return;
+                  }
                   setActive(i);
                   setSelection(parts.join("|"));
                   setSelectedKeys([parts.join("|")]);
@@ -1188,20 +1321,49 @@ export function BuildingPage({ project }: { project?: Project }) {
                 }
               : undefined
           }
-          onDeselect={() => {
-            if (view === "plan") clear();
-          }}
+          onDeselect={clear}
           onElementDrag={view === "plan" ? dragElement : undefined}
           onElementContext={
-            desktop && view === "plan"
+            desktop
               ? (key, p) => {
-                  if (!selectedKeys.includes(key)) select(key);
+                  if (view === "plan") {
+                    if (!selectedKeys.includes(key)) select(key);
+                  } else {
+                    const [id, ...parts] = key.split("|"),
+                      index = model.floors.findIndex((f) => f.id === id);
+                    if (index < 0) return;
+                    const element = parts.join("|");
+                    if (index !== active) {
+                      setActive(index);
+                      setSelection(element);
+                      setSelectedKeys([element]);
+                    } else if (!selectedKeys.includes(element)) select(element);
+                  }
                   setMenu(p);
                 }
               : undefined
           }
           controls={
             <>
+              <nav
+                className="building-floor-nav"
+                aria-label="Niveaux du bâtiment"
+              >
+                {[...model.floors].reverse().map((f, reverseIndex) => {
+                  const index = model.floors.length - 1 - reverseIndex;
+                  return (
+                    <button
+                      key={f.id}
+                      type="button"
+                      aria-current={index === active ? "step" : undefined}
+                      onClick={() => changeFloor(index)}
+                    >
+                      <Layers size={14} />
+                      <span>{f.name}</span>
+                    </button>
+                  );
+                })}
+              </nav>
               <div className="canvas-result-status">
                 <CalculationStatus
                   fresh={calculation.fresh}
@@ -1219,7 +1381,7 @@ export function BuildingPage({ project }: { project?: Project }) {
                   <Notice danger>{calculation.error}</Notice>
                 </div>
               )}
-              {selection && !critical && (
+              {selection && !mixedSelection && !critical && (
                 <div
                   className="building-selection-summary"
                   data-testid="selected-building-result"

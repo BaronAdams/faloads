@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { createStudy } from "./helpers";
+import { duplicateLevel, createStudy } from "./helpers";
 async function native(page: Page) {
   await page.addInitScript(() =>
     Object.assign(window, {
@@ -221,8 +221,8 @@ test("cumulates from roof to ground, displays 3D load cases and selects the crit
 }) => {
   await page.goto("/#/new/building");
   await createStudy(page);
-  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
-  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
+  await duplicateLevel(page);
+  await duplicateLevel(page);
   await page
     .getByRole("button", { name: "Calculer le bâtiment", exact: true })
     .click();
@@ -338,8 +338,15 @@ test("changes slab thickness in bulk without overwriting individual live loads",
   await slab("0,0").click();
   await page.getByLabel("Exploitation Q", { exact: true }).fill("4");
   await slab("1,0").click();
-  await page.getByRole("combobox", { name: "Plancher", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Modifier la sélection", exact: true })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Type de plancher", exact: true })
+    .click();
   await page.getByRole("option", { name: "Dalle pleine", exact: true }).click();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await canvasFocus(page);
   await page.keyboard.press("Control+a");
   await expect(page.getByTestId("selection-highlight")).toHaveCount(6);

@@ -1,4 +1,4 @@
-import { createStudy, parameters, calculate } from "./helpers";
+import { duplicateLevel, createStudy, parameters, calculate } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 const ready = async (page: Page) => {
   await page.goto("/");
@@ -172,7 +172,7 @@ test("building editing, deleted segments, floor duplication and results work", a
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("dialog").getByRole("switch").click();
   await page.getByRole("button", { name: "Appliquer", exact: true }).click();
-  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
+  await duplicateLevel(page);
   await parameters(page);
   await expect(page.getByLabel("Nom du niveau")).toHaveValue("R+1");
   await page

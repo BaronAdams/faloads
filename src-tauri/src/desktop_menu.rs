@@ -84,12 +84,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::separator(app)?,
             &item(app, "edit:copy", "Copier les propriétés", None)?,
             &item(app, "edit:paste", "Coller les propriétés", None)?,
-            &item(
-                app,
-                "edit:select-all",
-                "Tout sélectionner de même nature",
-                None,
-            )?,
+            &item(app, "edit:select-all", "Tout sélectionner", None)?,
             &item(app, "edit:delete", "Supprimer la sélection", None)?,
             &item(app, "edit:add", "Ajouter un élément…", None)?,
         ],

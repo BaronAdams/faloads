@@ -69,6 +69,26 @@ export const defaultDeflectionLimit = {
 };
 export const lengthFactor = (unit: AnalysisModel["probeUnit"]) =>
   unit === "mm" ? 1000 : unit === "cm" ? 100 : 1;
+export function parseReadingPosition(
+  text: string,
+  length: number,
+  unit: AnalysisModel["probeUnit"],
+) {
+  const normalized = text.trim().replace(",", ".");
+  if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized))
+    return { error: "Saisissez un nombre, par exemple 2,5." };
+  const station = Number(normalized) / lengthFactor(unit);
+  const roundingTolerance = 0.5e-6 / lengthFactor(unit);
+  if (
+    !Number.isFinite(station) ||
+    station < 0 ||
+    station > length + roundingTolerance
+  )
+    return {
+      error: `La position doit être comprise entre 0 et ${length * lengthFactor(unit)} ${unit ?? "m"}.`,
+    };
+  return { station: Math.min(station, length) };
+}
 type DeflectionCheck = {
   label: string;
   length: number;
