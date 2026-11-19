@@ -25,6 +25,7 @@ type Entry = {
   checked?: boolean;
   toggle?: (value: boolean) => void;
   action?: () => void;
+  disabled?: boolean;
 };
 export function BuildingViewMenu({
   annotations,
@@ -35,6 +36,10 @@ export function BuildingViewMenu({
   onAllLevels,
   orbitAxis,
   onOrbitAxis,
+  is3D,
+  focused,
+  canFocus,
+  onFocus,
 }: {
   annotations: BuildingAnnotations;
   onChange: (v: BuildingAnnotations) => void;
@@ -44,17 +49,36 @@ export function BuildingViewMenu({
   onAllLevels: (v: boolean) => void;
   orbitAxis: OrbitAxis;
   onOrbitAxis: (v: OrbitAxis) => void;
+  is3D: boolean;
+  focused: boolean;
+  canFocus: boolean;
+  onFocus: (v: boolean) => void;
 }) {
   const compact = useCompactViewport(),
     [path, setPath] = useState<number[]>([]);
   const nodes: Entry[] = [
+    ...(is3D
+      ? [
+          {
+            label: "Annotations de l’élément sélectionné",
+            checked: focused,
+            disabled: !canFocus,
+            toggle: onFocus,
+          },
+        ]
+      : []),
     {
       label: "Annotations",
       children: [
         ...Object.entries(buildingAnnotationNames).map(([key, label]) => ({
           label,
           children: (["labels", "values"] as const).map((flag) => ({
-            label: flag === "labels" ? "Repères" : "Valeurs",
+            label:
+              flag === "labels"
+                ? is3D && key !== "slabs"
+                  ? "Repères en plan"
+                  : "Repères"
+                : "Valeurs",
             checked:
               annotations[key as keyof typeof buildingAnnotationNames][flag],
             toggle: (value: boolean) =>
@@ -149,6 +173,7 @@ export function BuildingViewMenu({
       ) : entry.toggle ? (
         <DropdownMenuCheckboxItem
           key={entry.label}
+          disabled={entry.disabled}
           checked={entry.checked}
           onSelect={(e) => e.preventDefault()}
           onCheckedChange={entry.toggle}

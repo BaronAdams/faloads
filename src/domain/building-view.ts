@@ -58,6 +58,7 @@ export function buildingProjection(
   };
 }
 export type BuildingLabel = {
+  element?: string;
   id: string;
   x: number;
   y: number;

@@ -20,13 +20,15 @@ Le contrôle de flèche est placé immédiatement sous la carte **Flèche maxima
 
 ## Bâtiment : commandes et niveaux
 
-Le header conserve une hauteur fixe. Les groupes Édition, Niveaux, Modèle, Vue, Charges critiques, Calcul et Projet se suivent ; la sélection apparaît en dernier. Le groupe Projet utilise un engrenage pour les paramètres. Les paramètres essentiels de la sélection restent dans le header ; **Modifier** ouvre les paramètres détaillés, également accessibles par clic droit. Les grandes listes, les switches et les longs choix d’annotations quittent le header.
+Le header conserve une hauteur fixe. Les groupes Édition, Niveaux, Niveau actif, Vue, Charges critiques, Calcul et Projet se suivent ; la sélection apparaît en dernier. Le groupe Projet utilise un engrenage pour les paramètres. Les paramètres essentiels de la sélection restent dans le header ; **Modifier** ouvre les paramètres détaillés, également accessibles par clic droit. Les grandes listes, les switches et les longs choix d’annotations quittent le header.
+
+Le groupe **Niveau actif · R+2** indique explicitement le niveau modifié, en plan comme en 3D. Il contient sa hauteur et le bouton **Grille du niveau actif**, qui ouvre toutes ses travées. Les raccourcis X₁/Y₁ sont retirés. Le niveau actif ressort légèrement dans le volume 3D.
 
 Les boutons **2D** et **3D** portent un texte explicite. Les deux icônes rouges « max » représentent respectivement un poteau avec une force verticale et une poutre avec son chargement réparti. Leurs noms accessibles et infobulles précisent leur action.
 
 Dans le dessin, la liste des niveaux est classée du sommet vers le RDC. Le niveau courant apparaît en gras. Cette liste reste disponible en 2D et en 3D, et défile quand le bâtiment contient de nombreux niveaux.
 
-![Header et navigation du bâtiment](structural-navigation-preview/building-desktop.png)
+![Header et navigation du bâtiment](structure-annotations-preview/building-desktop.png)
 
 ## Rotation et annotations 3D
 
@@ -36,7 +38,7 @@ Le menu **Vue → Annotations** règle les repères et les valeurs des planchers
 
 Les annotations 3D sont placées en évitant les collisions, avec des traits de rappel si nécessaire. Le repère de l’élément critique est prioritaire. Quand la place manque, les annotations excédentaires sont masquées et un compteur invite à zoomer. Leur taille à l’écran reste stable pendant le zoom, qui permet d’espacer les éléments et de lire davantage de valeurs.
 
-![Navigation du bâtiment sur mobile](structural-navigation-preview/building-mobile.png)
+![Navigation du bâtiment sur mobile](structure-annotations-preview/building-mobile.png)
 
 ## Duplication et sélection
 
@@ -49,3 +51,5 @@ Dans les espaces d’édition structurale Desktop, **Ctrl+A** sans présélectio
 ## Vérifications
 
 Les tests couvrent la conversion des unités et les limites de saisie, les copies partielles et leurs identifiants, la rotation rigide, l’absence de chevauchement entre annotations et les sélections mixtes. Les parcours Desktop/mobile vérifient les champs, les erreurs, le toucher, le zoom, les niveaux, la duplication, le header fixe et les raccourcis. Le test de l’EXE Windows vérifie également la saisie au clavier avant/après Entrée et les nouvelles commandes du bâtiment.
+
+Les noms de poutres, poteaux et voiles sont retirés du volume 3D. Pour lire un élément, sélectionnez-le puis utilisez **Isoler les annotations de cet élément**, ou **Vue → Annotations de l’élément sélectionné**. La structure reste visible ; seules les annotations de cet élément restent affichées. La lecture suit la sélection et le cas de charges. La commande inverse rétablit les réglages par famille. [Détails et captures des appuis et annotations](structure-annotations.md).

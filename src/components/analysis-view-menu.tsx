@@ -58,7 +58,7 @@ export function AnalysisViewMenu({
   const types: AnnotationKind[] =
     kind === "beam"
       ? ["sections", "supports", "loads", "reactions", "dimensions", "diagrams"]
-      : ["nodes", "members", "loads", "reactions", "diagrams"];
+      : ["nodes", "supports", "members", "loads", "reactions", "diagrams"];
   const loadTypes: AnnotationKind[] = [
     "pointLoads",
     "distributedLoads",
@@ -66,34 +66,33 @@ export function AnalysisViewMenu({
   ];
   const flags = (type: AnnotationKind) => (
     <>
-      {!["dimensions", "diagrams", "reactions"].includes(type) && (
-        <DropdownMenuCheckboxItem
-          checked={annotations[type].labels}
-          onSelect={(e) => e.preventDefault()}
-          onCheckedChange={(labels) =>
-            onChange({
-              ...annotations,
-              [type]: { ...annotations[type], labels },
-            })
-          }
-        >
-          Repères
-        </DropdownMenuCheckboxItem>
-      )}
-      {type !== "supports" && (
-        <DropdownMenuCheckboxItem
-          checked={annotations[type].values}
-          onSelect={(e) => e.preventDefault()}
-          onCheckedChange={(values) =>
-            onChange({
-              ...annotations,
-              [type]: { ...annotations[type], values },
-            })
-          }
-        >
-          Valeurs
-        </DropdownMenuCheckboxItem>
-      )}
+      {!["dimensions", "diagrams", "reactions"].includes(type) &&
+        !(type === "supports" && kind === "frame") && (
+          <DropdownMenuCheckboxItem
+            checked={annotations[type].labels}
+            onSelect={(e) => e.preventDefault()}
+            onCheckedChange={(labels) =>
+              onChange({
+                ...annotations,
+                [type]: { ...annotations[type], labels },
+              })
+            }
+          >
+            Repères
+          </DropdownMenuCheckboxItem>
+        )}
+      <DropdownMenuCheckboxItem
+        checked={annotations[type].values}
+        onSelect={(e) => e.preventDefault()}
+        onCheckedChange={(values) =>
+          onChange({
+            ...annotations,
+            [type]: { ...annotations[type], values },
+          })
+        }
+      >
+        {type === "supports" ? "Déplacements imposés" : "Valeurs"}
+      </DropdownMenuCheckboxItem>
     </>
   );
   const options = (type: AnnotationKind) => (

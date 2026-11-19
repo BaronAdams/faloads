@@ -278,6 +278,22 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       ).toHaveCount(0);
       const scene = page.getByTestId("building-3d");
       await expect(scene).toBeVisible();
+      await expect(
+        header.getByRole("group", { name: "Niveau actif · RDC", exact: true }),
+      ).toBeVisible();
+      await header
+        .getByRole("button", { name: "Grille du niveau actif", exact: true })
+        .click();
+      const grid = page.getByRole("dialog", {
+        name: "Grille · RDC",
+        exact: true,
+      });
+      await expect(
+        grid.getByLabel("X · travée 3", { exact: true }),
+      ).toBeVisible();
+      await grid
+        .getByRole("button", { name: "Revenir au schéma", exact: true })
+        .click();
       const yaw = await scene.getAttribute("data-yaw");
       const canvas = await page.getByTestId("playground").boundingBox();
       await page.mouse.move(
@@ -297,6 +313,33 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       );
       await page.screenshot({
         path: "native-test-results/windows-building.png",
+        fullPage: true,
+      });
+      await header
+        .getByRole("button", { name: "Calculer le bâtiment", exact: true })
+        .click();
+      await expect(page.getByTestId("building-cumulative")).toBeVisible();
+      await page
+        .getByRole("button", { name: "Fermer le panneau", exact: true })
+        .click();
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+      const column = scene.locator('[data-element*="|node|1,1"]');
+      await column.press("Enter");
+      await page
+        .getByRole("button", {
+          name: "Isoler les annotations de cet élément",
+          exact: true,
+        })
+        .click();
+      await expect(scene.getByTestId("building-annotation")).toHaveCount(1);
+      await expect(scene.getByTestId("building-annotation")).toContainText(
+        "kN",
+      );
+      await expect(
+        scene.locator(".building-annotation-layer"),
+      ).not.toContainText(/Poutre|Poteau/);
+      await page.screenshot({
+        path: "native-test-results/windows-building-focus.png",
         fullPage: true,
       });
     } else {

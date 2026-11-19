@@ -3,6 +3,7 @@ import { ProfilePicker, ProfileDimensions } from "@/components/section-profile";
 import { profileProperties, type ProfileShape } from "@/domain/section-profile";
 import { DistributedLoad } from "@/components/distributed-load";
 import { StructureProbe } from "@/components/structure-probe";
+import { SupportMotion } from "@/components/support-motion";
 import {
   DeflectionResults,
   AnalysisReadingSettings,
@@ -1860,7 +1861,7 @@ function ElementEditor({
               onChange={(uy) => patch({ uy })}
             />
           )}
-          <ParameterGroup title="Liaisons et déplacements imposés">
+          <Disclosure title="Rigidités des liaisons">
             {(["ux", "uy", "rz"] as const).map((axis) => (
               <div key={axis}>
                 <Choice
@@ -1901,9 +1902,13 @@ function ElementEditor({
                 )}
               </div>
             ))}
+          </Disclosure>
+          <fieldset className="support-motion-fields">
+            <legend>Déplacements imposés à l’appui</legend>
             <FormGrid>
               <Numeric
                 label="Déplacement horizontal"
+                disabled={!s.ux}
                 value={s.dx * 1000}
                 min={-1e6}
                 unit="mm"
@@ -1911,6 +1916,7 @@ function ElementEditor({
               />
               <Numeric
                 label="Tassement vertical"
+                disabled={!s.uy}
                 value={s.dy * 1000}
                 min={-1e6}
                 unit="mm"
@@ -1919,12 +1925,19 @@ function ElementEditor({
             </FormGrid>
             <Numeric
               label="Rotation imposée"
+              disabled={!s.rz}
               value={s.drz * 1000}
               min={-1e6}
               unit="mrad"
               onChange={(drz) => patch({ drz: drz / 1000 })}
             />
-          </ParameterGroup>
+            <Notice>
+              Valeurs positives : vers la droite, tassement vers le bas,
+              rotation horaire. Pour une liaison élastique, le déplacement
+              concerne l’ancrage du ressort. Les directions libres ne reçoivent
+              pas de déplacement imposé.
+            </Notice>
+          </fieldset>
         </div>
       );
     }
@@ -2281,6 +2294,42 @@ function ElementEditor({
             unit="kN/m"
             onChange={(ky) => patch({ ky })}
           />
+        )}
+        {n.s > 0 && (
+          <fieldset className="support-motion-fields">
+            <legend>Déplacements imposés à l’appui</legend>
+            <FormGrid>
+              <Numeric
+                label="Déplacement horizontal"
+                value={(n.dx ?? 0) * 1000}
+                disabled={![1, 2, 4].includes(n.s)}
+                min={-1e6}
+                unit="mm"
+                onChange={(dx) => patch({ dx: dx / 1000 })}
+              />
+              <Numeric
+                label="Déplacement vertical"
+                value={(n.dy ?? 0) * 1000}
+                disabled={![1, 2, 3, 5].includes(n.s)}
+                min={-1e6}
+                unit="mm"
+                onChange={(dy) => patch({ dy: dy / 1000 })}
+              />
+            </FormGrid>
+            <Numeric
+              label="Rotation imposée"
+              value={(n.drz ?? 0) * 1000}
+              disabled={n.s !== 1}
+              min={-1e6}
+              unit="mrad"
+              onChange={(drz) => patch({ drz: drz / 1000 })}
+            />
+            <Notice>
+              Repère global : déplacement positif vers la droite ou vers le
+              haut, rotation positive antihoraire. Pour un ressort, le
+              déplacement vertical concerne son ancrage.
+            </Notice>
+          </fieldset>
         )}
         <Notice>
           Supprimer ce nœud supprime aussi ses barres et ses charges nodales.
@@ -2672,6 +2721,14 @@ function BeamScene({
                     : 3
             }
           />
+          <SupportMotion
+            x={X(s.x)}
+            y={y}
+            dx={s.ux ? s.dx : 0}
+            dy={s.uy ? s.dy : 0}
+            rotation={s.rz ? s.drz : 0}
+            yDown
+          />
           <text
             x={X(s.x)}
             y={y - 13}
@@ -2942,6 +2999,15 @@ function FrameScene({
           role="button"
         >
           {n.s > 0 && <Support x={X(n.x)} y={Y(n.y) + 3} type={n.s} />}
+          {n.s > 0 && (
+            <SupportMotion
+              x={X(n.x)}
+              y={Y(n.y)}
+              dx={[1, 2, 4].includes(n.s) ? (n.dx ?? 0) : 0}
+              dy={[1, 2, 3, 5].includes(n.s) ? (n.dy ?? 0) : 0}
+              rotation={n.s === 1 ? (n.drz ?? 0) : 0}
+            />
+          )}
           <circle
             cx={X(n.x)}
             cy={Y(n.y)}

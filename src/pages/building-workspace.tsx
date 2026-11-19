@@ -27,6 +27,7 @@ import {
   Square,
   Columns3,
   Minus,
+  Focus,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -125,6 +126,8 @@ export function BuildingPage({ project }: { project?: Project }) {
       props: Record<string, unknown>;
     } | null>(null);
   const [parameters, setParameters] = useState(false),
+    [gridOpen, setGridOpen] = useState(false),
+    [focusAnnotations, setFocusAnnotations] = useState(false),
     [details, setDetails] = useState(false),
     [resultsOpen, setResultsOpen] = useState(false),
     [view, setView] = useState<"plan" | "3d">("plan"),
@@ -157,11 +160,20 @@ export function BuildingPage({ project }: { project?: Project }) {
   useEffect(() => {
     setCritical(null);
   }, [model, field]);
+  useEffect(() => {
+    if (selectedKeys.length !== 1) setFocusAnnotations(false);
+  }, [selectedKeys.length]);
   const openParameters = (open: boolean) => {
     setParameters(open);
     studyAction(open ? "parameters:open" : "parameters:close");
   };
+  const openGrid = (open: boolean) => {
+    setGridOpen(open);
+    studyAction(open ? "grid:open" : "grid:close");
+  };
   const clear = () => {
+    setCritical(null);
+    setFocusAnnotations(false);
     setSelection(null);
     setSelectedKeys([]);
     setEditor(null);
@@ -271,6 +283,7 @@ export function BuildingPage({ project }: { project?: Project }) {
       : undefined,
     [type, key] = (selection ?? "").split("|");
   const select = (key: string, additive = false) => {
+    setCritical(null);
     if (!desktop) {
       setSelection(key);
       setSelectedKeys([key]);
@@ -282,6 +295,7 @@ export function BuildingPage({ project }: { project?: Project }) {
     setSelectedKeys(keys);
     setEditor(null);
   };
+  const isolateAnnotations = (enabled: boolean) => setFocusAnnotations(enabled);
   const patchSelected = (patch: Record<string, unknown>, copyAll = false) => {
     // Direct edits change only the edited fields; pasting intentionally copies
     // all properties. Each recipient keeps its own loads and identity otherwise.
@@ -720,7 +734,7 @@ export function BuildingPage({ project }: { project?: Project }) {
       )}
     </>
   );
-  const globalFields = (
+  const gridFields = (
     <>
       <div className="field">
         <Label htmlFor="floor-name">Nom du niveau</Label>
@@ -784,6 +798,11 @@ export function BuildingPage({ project }: { project?: Project }) {
           )}
         </FormGrid>
       </div>
+    </>
+  );
+  const globalFields = (
+    <>
+      {gridFields}
       <Choice
         label="Dégression des charges Q"
         value={model.reduction}
@@ -878,7 +897,7 @@ export function BuildingPage({ project }: { project?: Project }) {
       </div>
     </div>
   );
-  const contextualParameters = desktop ? (
+  const contextualParameters = (
     <div className="desktop-parameter-bar">
       <Numeric
         compact
@@ -890,40 +909,15 @@ export function BuildingPage({ project }: { project?: Project }) {
         max={100}
         onChange={(height) => patchFloor({ ...floor, height })}
       />
-      <div data-tour="building-inputs">
-        <Numeric
-          compact
-          shortLabel="X₁"
-          label="X · travée 1"
-          value={floor.spanX[0]}
-          min={0.1}
-          max={100}
-          unit="m"
-          onChange={(x) =>
-            patchFloor({
-              ...floor,
-              spanX: floor.spanX.map((v, i) => (i === 0 ? x : v)),
-            })
-          }
-        />
-      </div>
-      <Numeric
-        compact
-        shortLabel="Y₁"
-        label="Y · travée 1"
-        value={floor.spanY[0]}
-        min={0.1}
-        max={100}
-        unit="m"
-        onChange={(y) =>
-          patchFloor({
-            ...floor,
-            spanY: floor.spanY.map((v, i) => (i === 0 ? y : v)),
-          })
-        }
-      />
+      <IconButton
+        label="Grille du niveau actif"
+        data-tour="building-grid"
+        onClick={() => openGrid(true)}
+      >
+        <Grid2X2 />
+      </IconButton>
     </div>
-  ) : null;
+  );
   const compactSelection = (
     <div
       className="desktop-parameter-bar selection-summary"
@@ -1178,7 +1172,10 @@ export function BuildingPage({ project }: { project?: Project }) {
             </RibbonGroup>
             <RibbonGroup label="Niveaux">{floorControls}</RibbonGroup>
             {contextualParameters && (
-              <RibbonGroup label="Modèle" className="ribbon-parameters">
+              <RibbonGroup
+                label={`Niveau actif · ${floor.name}`}
+                className="ribbon-parameters active-floor-group"
+              >
                 {contextualParameters}
               </RibbonGroup>
             )}
@@ -1209,6 +1206,10 @@ export function BuildingPage({ project }: { project?: Project }) {
               />
               <BuildingViewMenu
                 annotations={annotations}
+                is3D={view === "3d"}
+                focused={focusAnnotations && !!selection}
+                canFocus={selectedKeys.length === 1}
+                onFocus={isolateAnnotations}
                 onChange={setAnnotations}
                 influence={influence}
                 onInfluence={setInfluence}
@@ -1299,6 +1300,7 @@ export function BuildingPage({ project }: { project?: Project }) {
             view === "plan"
               ? select
               : (key, additive) => {
+                  setCritical(null);
                   const [id, ...parts] = key.split("|");
                   const i = model.floors.findIndex((f) => f.id === id);
                   if (i < 0) return;
@@ -1309,7 +1311,8 @@ export function BuildingPage({ project }: { project?: Project }) {
                   setActive(i);
                   setSelection(parts.join("|"));
                   setSelectedKeys([parts.join("|")]);
-                  if (!desktop) setEditor(structuredClone(model.floors[i]));
+                  if (!desktop && !calculation.fresh)
+                    setEditor(structuredClone(model.floors[i]));
                 }
           }
           onOrbit={
@@ -1441,6 +1444,19 @@ export function BuildingPage({ project }: { project?: Project }) {
                         {type === "node" ? "kN" : "kN/m"}
                       </span>
                     )}
+                  {view === "3d" && (
+                    <IconButton
+                      label={
+                        focusAnnotations
+                          ? "Afficher les autres annotations"
+                          : "Isoler les annotations de cet élément"
+                      }
+                      aria-pressed={focusAnnotations}
+                      onClick={() => isolateAnnotations(!focusAnnotations)}
+                    >
+                      <Focus />
+                    </IconButton>
+                  )}
                   {!desktop && (
                     <Button
                       size="sm"
@@ -1485,6 +1501,11 @@ export function BuildingPage({ project }: { project?: Project }) {
               activeFloor={floor.id}
               annotations={annotations}
               allLevels={allLevels}
+              annotationTarget={
+                focusAnnotations && selection
+                  ? `${floor.id}|${selection}`
+                  : undefined
+              }
               field={field}
               yaw={yaw}
               pitch={pitch}
@@ -1500,6 +1521,19 @@ export function BuildingPage({ project }: { project?: Project }) {
         </Playground>
         <CalculationOverlay busy={calculation.busy} />
       </div>
+      <ParametersContainer
+        open={gridOpen}
+        onOpenChange={openGrid}
+        title={`Grille · ${floor.name}`}
+        description="Toutes les travées et la hauteur du niveau actif. Les changements s’appliquent directement à ce niveau."
+      >
+        <div className="parameters-sheet-content">{gridFields}</div>
+        <EditorFooter>
+          <Button data-tour="grid-done" onClick={() => openGrid(false)}>
+            Revenir au schéma
+          </Button>
+        </EditorFooter>
+      </ParametersContainer>
       <ParametersContainer
         open={parameters}
         onOpenChange={openParameters}

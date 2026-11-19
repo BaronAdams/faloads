@@ -108,26 +108,39 @@ export function frameSolve(S) {
     P[3 * l.n - 2] += l.fy;
     P[3 * l.n - 1] += l.m;
   }
-  const fx = new Set();
+  const fx = new Set(),
+    u = new Array(N3).fill(0),
+    springLoads = new Array(N3).fill(0);
   S.nodes.forEach((nd, i) => {
     const s = nd.s;
-    if (s == 1 || s == 2 || s == 4) fx.add(3 * i);
-    if (s == 1 || s == 2 || s == 3) fx.add(3 * i + 1);
-    if (s == 1) fx.add(3 * i + 2);
-    if (s == 5) K[3 * i + 1][3 * i + 1] += nd.ky ?? 10000;
+    const prescribe = (q, value) => {
+      fx.add(3 * i + q);
+      u[3 * i + q] = value ?? 0;
+    };
+    if (s == 1 || s == 2 || s == 4) prescribe(0, nd.dx);
+    if (s == 1 || s == 2 || s == 3) prescribe(1, nd.dy);
+    if (s == 1) prescribe(2, nd.drz);
+    if (s == 5) {
+      const k = nd.ky ?? 10000;
+      K[3 * i + 1][3 * i + 1] += k;
+      // A moving elastic support acts through its anchor displacement.
+      springLoads[3 * i + 1] = k * (nd.dy ?? 0);
+    }
   });
   const fr = [...Array(N3).keys()].filter((j) => !fx.has(j));
   // Elastic restraints also stabilize rigid-body motion; the stiffness
   // matrix, rather than a count of fixed DOFs, detects mechanisms.
   const sol = gauss(
     fr.map((i) => fr.map((j) => K[i][j])),
-    fr.map((i) => P[i]),
+    fr.map(
+      (i) =>
+        P[i] + springLoads[i] - K[i].reduce((sum, k, j) => sum + k * u[j], 0),
+    ),
   );
   if (!sol)
     return {
       err: "Structure instable (mécanisme) : ajoutez des appuis ou des barres.",
     };
-  const u = new Array(N3).fill(0);
   fr.forEach((j, i) => (u[j] = sol[i]));
   const rea = [];
   S.nodes.forEach((nd, i) => {
@@ -139,7 +152,7 @@ export function frameSolve(S) {
         r[q] = K[3 * i + q].reduce((t, v, j) => t + v * u[j], 0) - P[3 * i + q];
         any = 1;
       }
-    if (nd.s == 5) r[1] = -(nd.ky ?? 10000) * u[3 * i + 1];
+    if (nd.s == 5) r[1] = -(nd.ky ?? 10000) * (u[3 * i + 1] - (nd.dy ?? 0));
     rea.push({ i, r });
   });
   let sx = 0,

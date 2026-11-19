@@ -3,7 +3,6 @@ import {
   type BuildingModel,
   buildingDescent,
   floorCoordinates,
-  nodeName,
 } from "@/domain/building";
 import { levelG, coatingG, elu, els } from "@/domain/engineering";
 import { useCanvasGeometry, useCanvasPointer } from "./playground";
@@ -33,6 +32,7 @@ export function Building3D({
   activeFloor,
   annotations,
   allLevels,
+  annotationTarget,
 }: {
   model: BuildingModel;
   rows?: ReturnType<typeof buildingDescent>;
@@ -43,6 +43,7 @@ export function Building3D({
   activeFloor: string;
   annotations: BuildingAnnotations;
   allLevels: boolean;
+  annotationTarget?: string;
 }) {
   const { height, units } = useCanvasGeometry();
   const corners: number[][] = [];
@@ -76,6 +77,7 @@ export function Building3D({
   const { view } = useCanvasPointer();
   const textSize = units / view.k;
   const labels: BuildingLabel[] = [];
+  let annotationOwner: string | undefined;
   const shapes: { depth: number; key: string; render: ReactNode }[] = [];
   const label = (
     x: number,
@@ -85,6 +87,7 @@ export function Building3D({
   ) => {
     labels.push({
       id: String(labels.length),
+      element: annotationOwner,
       x,
       y,
       text,
@@ -102,20 +105,26 @@ export function Building3D({
     const result = rows?.find((r) => r.id === f.id)?.results;
     const annotated = allLevels || f.id === activeFloor;
     const marker = P(0, 0, z);
+    annotationOwner = `${f.id}|level`;
     shapes.push({
       key: `${f.id}-name`,
       depth: 1e9,
-      render: annotations.levels
-        ? label(
-            marker.x - 30 * units,
-            marker.y - 16 * units,
-            f.name,
-            "var(--muted-foreground)",
-          )
-        : null,
+      render:
+        annotations.levels && !annotationTarget
+          ? label(
+              marker.x - 30 * units,
+              marker.y - 16 * units,
+              f.name,
+              "var(--muted-foreground)",
+            )
+          : null,
     });
     for (const [key, p] of Object.entries(f.panels))
       if (p.exists) {
+        annotationOwner = `${f.id}|panel|${key}`;
+        const visible =
+          annotated &&
+          (!annotationTarget || annotationTarget === annotationOwner);
         const [c, r] = key.split(",").map(Number),
           points = [
             [xs[c], ys[r]],
@@ -138,6 +147,9 @@ export function Building3D({
           render: (
             <g
               data-element={`${f.id}|panel|${key}`}
+              data-floor={f.id}
+              data-active-floor={f.id === activeFloor}
+              opacity={f.id === activeFloor ? 1 : 0.5}
               role="button"
               tabIndex={0}
               className="svg-element"
@@ -149,11 +161,11 @@ export function Building3D({
                 fillOpacity={chosen ? 0.5 : 0.12}
                 stroke="var(--border)"
               />
-              {annotated &&
+              {visible &&
                 annotations.slabs.labels &&
                 label(center.x, center.y, p.label)}
-              {annotated &&
-                annotations.slabs.values &&
+              {visible &&
+                (annotations.slabs.values || !!annotationTarget) &&
                 label(
                   center.x,
                   center.y + 15 * units,
@@ -165,6 +177,10 @@ export function Building3D({
       }
     for (const [key, e] of Object.entries(f.edges))
       if (e.exists) {
+        annotationOwner = `${f.id}|edge|${key}`;
+        const visible =
+          annotated &&
+          (!annotationTarget || annotationTarget === annotationOwner);
         const [axis, l, s] = key.split(":"),
           horizontal = axis === "h",
           line = +l,
@@ -187,6 +203,9 @@ export function Building3D({
           render: (
             <g
               data-element={`${f.id}|edge|${key}`}
+              data-floor={f.id}
+              data-active-floor={f.id === activeFloor}
+              opacity={f.id === activeFloor ? 1 : 0.5}
               role="button"
               tabIndex={0}
               className="svg-element"
@@ -207,16 +226,10 @@ export function Building3D({
                 strokeWidth={chosen ? 6 : e.kind === "wall" ? 5 : 3}
                 vectorEffect="non-scaling-stroke"
               />
-              {annotated &&
-                annotations[e.kind === "wall" ? "walls" : "beams"].labels &&
-                label(
-                  (from.x + to.x) / 2,
-                  (from.y + to.y) / 2,
-                  `${e.kind === "wall" ? "Voile" : "Poutre"} ${horizontal ? nodeName(seg, line) : nodeName(line, seg)}–${horizontal ? nodeName(seg + 1, line) : nodeName(line, seg + 1)}`,
-                )}
               {value &&
-                annotated &&
-                annotations[e.kind === "wall" ? "walls" : "beams"].values &&
+                visible &&
+                (annotations[e.kind === "wall" ? "walls" : "beams"].values ||
+                  !!annotationTarget) &&
                 label(
                   (from.x + to.x) / 2,
                   (from.y + to.y) / 2 - 8 * units,
@@ -229,6 +242,10 @@ export function Building3D({
       }
     for (const [key, n] of Object.entries(f.nodes))
       if (n.exists) {
+        annotationOwner = `${f.id}|node|${key}`;
+        const visible =
+          annotated &&
+          (!annotationTarget || annotationTarget === annotationOwner);
         const [c, r] = key.split(",").map(Number),
           from = P(xs[c], ys[r], base),
           to = P(xs[c], ys[r], z),
@@ -240,6 +257,9 @@ export function Building3D({
           render: (
             <g
               data-element={`${f.id}|node|${key}`}
+              data-floor={f.id}
+              data-active-floor={f.id === activeFloor}
+              opacity={f.id === activeFloor ? 1 : 0.5}
               role="button"
               tabIndex={0}
               className="svg-element"
@@ -255,16 +275,9 @@ export function Building3D({
                 strokeWidth={chosen ? 7 : 4}
                 vectorEffect="non-scaling-stroke"
               />
-              {annotated &&
-                annotations.columns.labels &&
-                label(
-                  (from.x + to.x) / 2,
-                  (from.y + to.y) / 2,
-                  `Poteau ${nodeName(c, r)}`,
-                )}
               {value &&
-                annotated &&
-                annotations.columns.values &&
+                visible &&
+                (annotations.columns.values || !!annotationTarget) &&
                 label(
                   (from.x + to.x) / 2 + 14 * units,
                   (from.y + to.y) / 2,
@@ -276,6 +289,10 @@ export function Building3D({
         });
       }
     for (const o of f.obliques) {
+      annotationOwner = `${f.id}|oblique|${o.id}`;
+      const visible =
+        annotated &&
+        (!annotationTarget || annotationTarget === annotationOwner);
       const from = P(o.x1, o.y1, o.kind === "column" ? base : z),
         to = P(
           o.kind === "column" ? o.x1 : o.x2,
@@ -290,6 +307,9 @@ export function Building3D({
         render: (
           <g
             data-element={`${f.id}|oblique|${o.id}`}
+            data-floor={f.id}
+            data-active-floor={f.id === activeFloor}
+            opacity={f.id === activeFloor ? 1 : 0.5}
             role="button"
             tabIndex={0}
           >
@@ -303,16 +323,10 @@ export function Building3D({
               strokeWidth={chosen ? 7 : 4}
               vectorEffect="non-scaling-stroke"
             />
-            {annotated &&
-              annotations[o.kind === "beam" ? "beams" : "columns"].labels &&
-              label(
-                (from.x + to.x) / 2,
-                (from.y + to.y) / 2,
-                `${o.kind === "beam" ? "Poutre" : "Poteau"} libre`,
-              )}
             {value &&
-              annotated &&
-              annotations[o.kind === "beam" ? "beams" : "columns"].values &&
+              visible &&
+              (annotations[o.kind === "beam" ? "beams" : "columns"].values ||
+                !!annotationTarget) &&
               label(
                 (from.x + to.x) / 2,
                 (from.y + to.y) / 2,
@@ -338,6 +352,7 @@ export function Building3D({
     <g
       className="building-3d"
       data-scale={scale}
+      data-annotation-target={annotationTarget}
       data-testid="building-3d"
       data-yaw={yaw}
       data-pitch={pitch}
@@ -349,7 +364,12 @@ export function Building3D({
         ))}
       <g className="building-annotation-layer" pointerEvents="none">
         {layout.placed.map((l) => (
-          <g key={l.id} data-testid="building-annotation" data-label-id={l.id}>
+          <g
+            key={l.id}
+            data-testid="building-annotation"
+            data-label-id={l.id}
+            data-building-element={l.element}
+          >
             {Math.hypot(l.labelX - l.x, l.labelY - l.y) > 20 * textSize && (
               <line
                 x1={l.x}

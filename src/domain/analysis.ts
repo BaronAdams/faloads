@@ -137,6 +137,9 @@ export const frameSchema = z
           y: n.min(-1000).max(1000),
           s: z.number().int().min(0).max(5),
           ky: n.positive().max(1e12).optional(),
+          dx: n.optional(),
+          dy: n.optional(),
+          drz: n.optional(),
         }),
       )
       .min(2)

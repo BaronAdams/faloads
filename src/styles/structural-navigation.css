@@ -161,6 +161,12 @@
 .workbench-project-header .selection-summary {
   max-width: none;
 }
+.active-floor-group .ribbon-legend {
+  max-width: 210px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--foreground);
+}
 [data-slot="tooltip-content"] {
   pointer-events: none;
 }
@@ -181,4 +187,15 @@
 }
 .probe-compact-reading output span {
   display: block;
+}
+
+.support-motion-fields {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.support-motion-fields legend {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 12px;
 }
