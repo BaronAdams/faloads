@@ -110,6 +110,16 @@ const stepsFor = (type: ProjectType): Step[] => {
     ];
   if (type === "building")
     return [
+      ...(runtime === "desktop"
+        ? [
+            {
+              target: "building-grid",
+              title: "Définissez le niveau actif",
+              text: "Ouvrez sa grille pour retrouver toutes les travées de ce niveau.",
+              action: "grid:open",
+            },
+          ]
+        : []),
       ...(runtime !== "desktop"
         ? [
             {
@@ -123,9 +133,19 @@ const stepsFor = (type: ProjectType): Step[] => {
       {
         target: "building-inputs",
         title: "Adaptez votre trame",
-        text: "Modifiez une portée. Sur Desktop, sélectionnez ensuite les éléments du plan pour modifier leurs propriétés dans la barre supérieure.",
+        text: "Modifiez une portée de la grille du niveau actif.",
         action: "input:edited",
       },
+      ...(runtime === "desktop"
+        ? [
+            {
+              target: "grid-done",
+              title: "Revenez à la structure",
+              text: "Fermez la grille. Sélectionnez ensuite les éléments pour accéder à leurs propriétés dans la barre supérieure.",
+              action: "grid:close",
+            },
+          ]
+        : []),
       ...(runtime !== "desktop"
         ? [
             {

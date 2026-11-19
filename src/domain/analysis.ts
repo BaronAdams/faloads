@@ -1,3 +1,4 @@
+import { profileShapes, profileProperties } from "./section-profile";
 import { z } from "zod";
 import { beamSolve } from "./beam-solver.js";
 import { frameSolve } from "./frame-solver.js";
@@ -7,8 +8,19 @@ const n = z.number().finite(),
   position = n.min(0).max(1000),
   id = z.string().min(1).max(100);
 const restraint = z.union([z.boolean(), n.nonnegative().max(1e12)]);
+const readingOptions = {
+  probeUnit: z.enum(["m", "cm", "mm"]).optional(),
+  deflectionLimit: z
+    .object({
+      mode: z.enum(["ratio", "absolute"]),
+      ratio: n.min(1).max(100000),
+      mm: n.positive().max(100000),
+    })
+    .optional(),
+};
 export const beamSchema = z
   .object({
+    ...readingOptions,
     kind: z.literal("beam"),
     sectionTypes: sectionTypesSchema,
     L: n.positive().max(1000),
@@ -25,7 +37,9 @@ export const beamSchema = z
           id,
           x1: position,
           x2: position,
-          shape: z.enum(["rect", "custom"]),
+          shape: z.enum(profileShapes),
+          tw: n.positive().optional(),
+          tf: n.positive().optional(),
           b: n.positive(),
           h: n.positive(),
           A: n.positive(),
@@ -68,6 +82,13 @@ export const beamSchema = z
     hinges: z.array(z.object({ id, x: position })).max(20),
   })
   .superRefine((m, ctx) => {
+    for (const section of m.sections) {
+      try {
+        profileProperties(section);
+      } catch (e) {
+        ctx.addIssue({ code: "custom", message: (e as Error).message });
+      }
+    }
     const sorted = [...m.sections].sort((a, b) => a.x1 - b.x1);
     if (
       Math.abs(sorted[0].x1) > 1e-7 ||
@@ -100,6 +121,7 @@ export type BeamSupport = BeamModel["supports"][number];
 export type BeamLoad = BeamModel["loads"][number];
 export const frameSchema = z
   .object({
+    ...readingOptions,
     kind: z.literal("frame"),
     sectionTypes: sectionTypesSchema,
     pl: z
@@ -115,6 +137,9 @@ export const frameSchema = z
           y: n.min(-1000).max(1000),
           s: z.number().int().min(0).max(5),
           ky: n.positive().max(1e12).optional(),
+          dx: n.optional(),
+          dy: n.optional(),
+          drz: n.optional(),
         }),
       )
       .min(2)
@@ -129,6 +154,15 @@ export const frameSchema = z
           h: n.positive().max(1000),
           w: n,
           q: n,
+          shape: z.enum(profileShapes).optional(),
+          tw: n.positive().optional(),
+          tf: n.positive().optional(),
+          A: n.positive().optional(),
+          I: n.positive().optional(),
+          w2: n.optional(),
+          q2: n.optional(),
+          loadStart: n.min(0).max(1).optional(),
+          loadEnd: n.min(0).max(1).optional(),
         }),
       )
       .min(1)
@@ -140,6 +174,18 @@ export const frameSchema = z
       .max(160),
   })
   .superRefine((m, ctx) => {
+    for (const member of m.mem) {
+      if ((member.loadStart ?? 0) >= (member.loadEnd ?? 1))
+        ctx.addIssue({
+          code: "custom",
+          message: "La fin de la charge doit suivre son début.",
+        });
+      try {
+        profileProperties({ ...member, b: member.bw });
+      } catch (e) {
+        ctx.addIssue({ code: "custom", message: (e as Error).message });
+      }
+    }
     if (
       m.mem.some(
         (b) => !m.nodes[b.a - 1] || !m.nodes[b.b - 1] || b.a === b.b,
@@ -247,14 +293,22 @@ const frameResultSchema = z.object({
       }),
       ul: vector,
       fe: vector,
-      pts: z.array(z.object({ x: n, N: n, V: n, M: n, v: n, theta: n })),
+      pts: z.array(
+        z.object({ x: n, N: n, V: n, M: n, v: n, theta: n, u: n.optional() }),
+      ),
     }),
   ),
   sx: n,
   sy: n,
 });
 export function solveBeam(model: BeamModel): BeamResult {
-  return beamResultSchema.parse(beamSolve(beamSchema.parse(model), 180));
+  const parsed = beamSchema.parse(model);
+  parsed.sections = parsed.sections.map((s) => {
+    if (s.shape === "custom") return s;
+    const properties = profileProperties(s);
+    return { ...s, ...properties, As: parsed.kappa * properties.A };
+  });
+  return beamResultSchema.parse(beamSolve(parsed, 180));
 }
 export function solveFrame(model: z.input<typeof frameSchema>): FrameResult {
   const parsed = frameSchema.parse(model);
@@ -268,9 +322,11 @@ export function solveFrame(model: z.input<typeof frameSchema>): FrameResult {
       b = parsed.nodes[member.b - 1];
     const length = Math.hypot(b.x - a.x, b.y - a.y);
     const loads = parsed.pl.filter((l) => l.member === member.id);
-    const stations = [...new Set([0, ...loads.map((l) => l.t), 1])].sort(
-      (a, b) => a - b,
-    );
+    const start = member.loadStart ?? 0,
+      end = member.loadEnd ?? 1;
+    const stations = [
+      ...new Set([0, start, end, ...loads.map((l) => l.t), 1]),
+    ].sort((a, b) => a - b);
     const nodes = stations.map((t) => {
       if (t === 0) return member.a;
       if (t === 1) return member.b;
@@ -295,8 +351,30 @@ export function solveFrame(model: z.input<typeof frameSchema>): FrameResult {
       offsets: stations.slice(0, -1).map((t) => t * length),
       length,
     });
-    for (let i = 0; i < nodes.length - 1; i++)
-      expanded.mem.push({ ...member, a: nodes[i], b: nodes[i + 1] });
+    const properties = profileProperties({
+      ...member,
+      b: member.bw / 100,
+      h: member.h / 100,
+      tw: member.tw === undefined ? undefined : member.tw / 100,
+      tf: member.tf === undefined ? undefined : member.tf / 100,
+    });
+    for (let i = 0; i < nodes.length - 1; i++) {
+      const t0 = stations[i],
+        t1 = stations[i + 1],
+        inside = (t0 + t1) / 2 > start && (t0 + t1) / 2 < end;
+      const interpolate = (first: number, last: number, t: number) =>
+        first + ((last - first) * (t - start)) / (end - start);
+      expanded.mem.push({
+        ...member,
+        ...properties,
+        a: nodes[i],
+        b: nodes[i + 1],
+        w: inside ? interpolate(member.w, member.w2 ?? member.w, t0) : 0,
+        w2: inside ? interpolate(member.w, member.w2 ?? member.w, t1) : 0,
+        q: inside ? interpolate(member.q, member.q2 ?? member.q, t0) : 0,
+        q2: inside ? interpolate(member.q, member.q2 ?? member.q, t1) : 0,
+      });
+    }
   }
   const raw = frameSolve(expanded);
   const error = z.object({ err: z.string() }).safeParse(raw);
@@ -318,7 +396,7 @@ export function solveFrame(model: z.input<typeof frameSchema>): FrameResult {
         pts: pieces.flatMap((p, i) =>
           p.pts.map((v) => ({
             ...v,
-            u: p.ul[0] * (1 - v.x / p.g.L) + (p.ul[3] * v.x) / p.g.L,
+            u: v.u ?? p.ul[0] * (1 - v.x / p.g.L) + (p.ul[3] * v.x) / p.g.L,
             x: v.x + offsets[i],
           })),
         ),

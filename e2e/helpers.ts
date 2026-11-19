@@ -20,6 +20,14 @@ export async function parameters(page: Page) {
     .getByRole("button", { name: "Ouvrir les paramètres", exact: true })
     .click();
 }
+export async function duplicateLevel(page: Page) {
+  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Dupliquer un étage" });
+  await dialog
+    .getByRole("button", { name: "Dupliquer le niveau", exact: true })
+    .click();
+  await expect(dialog).toHaveCount(0);
+}
 export async function calculate(page: Page, results = false) {
   // Observe the progress state before clicking: a fast native fallback can
   // complete before a touch click round-trip returns to the test runner.

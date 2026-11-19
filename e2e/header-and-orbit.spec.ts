@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { createStudy } from "./helpers";
+import { duplicateLevel, createStudy } from "./helpers";
 
 async function native(page: Page, phone: boolean) {
   await page.addInitScript((mobile) => {
@@ -98,7 +98,7 @@ for (const type of ["beam", "frame", "building"] as const) {
     ).toBe(true);
   });
 }
-test("the system menu leaves no empty web row and keeps the status bar below the drawing", async ({
+test("the macOS system menu leaves no empty web row and keeps the status bar below the drawing", async ({
   page,
 }, info) => {
   test.skip(info.project.name !== "desktop", "Native menu layout");
@@ -177,7 +177,7 @@ test("a narrow desktop scrolls long parameter groups without resizing the header
   page,
 }, info) => {
   test.skip(info.project.name !== "desktop", "Desktop ribbon");
-  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.setViewportSize({ width: 800, height: 768 });
   await page.goto("/#/new/beam");
   await createStudy(
     page,
@@ -186,20 +186,19 @@ test("a narrow desktop scrolls long parameter groups without resizing the header
   const header = page.getByTestId("project-workbench-header"),
     canvas = page.getByTestId("playground");
   const y = (await canvas.boundingBox())!.y;
-  const load = canvas
-    .locator('[data-element^="load:"]')
-    .first()
-    .locator("rect")
-    .first();
+  const load = canvas.locator(".distributed-load").first();
   await load.click();
   await header.getByLabel("Intensité q₂", { exact: true }).fill("18");
-  expect((await header.boundingBox())!.height).toBe(104);
+  expect((await header.boundingBox())!.height).toBe(128);
   expect((await canvas.boundingBox())!.y).toBe(y);
   expect(
     await header
       .locator(".project-header-toolbar")
       .evaluate((el) => el.scrollWidth > el.clientWidth),
   ).toBe(true);
+  await header
+    .getByRole("button", { name: "Enregistrer", exact: true })
+    .scrollIntoViewIfNeeded();
   await expect(
     header.getByRole("button", { name: "Enregistrer", exact: true }),
   ).toBeInViewport();
@@ -214,17 +213,25 @@ test("a narrow desktop scrolls long parameter groups without resizing the header
     .locator("rect")
     .click();
   await header
+    .getByRole("button", { name: "Modifier la sélection", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
     .getByRole("combobox", { name: "Type d’appui", exact: true })
     .click();
   await page
     .getByRole("option", { name: "Ressort vertical", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Appliquer", exact: true })
     .click();
   const stiffness = header.getByLabel("Raideur verticale kᵧ", { exact: true });
   await expect(stiffness).toBeVisible();
   const field = (await stiffness.boundingBox())!,
     bounds = (await header.boundingBox())!;
   expect(field.y + field.height).toBeLessThanOrEqual(bounds.y + bounds.height);
-  expect(bounds.height).toBe(104);
+  expect(bounds.height).toBe(128);
 });
 test("the compact project menu opens project dimensions on a phone", async ({
   page,
@@ -253,7 +260,7 @@ test("3D mouse rotation stays independent from pan, zoom, selection and saved mo
 }, info) => {
   await page.goto("/#/new/building");
   await createStudy(page);
-  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
+  await duplicateLevel(page);
   await page
     .getByTestId("project-workbench-header")
     .getByRole("button", { name: "3D", exact: true })
@@ -273,6 +280,13 @@ test("3D mouse rotation stays independent from pan, zoom, selection and saved mo
   await page.mouse.move(x + 70, y + 30, { steps: 10 });
   await page.mouse.up();
   await expect(scene).not.toHaveAttribute("data-yaw", "35");
+  await expect(scene).toHaveAttribute("data-pitch", "28");
+  const yawAfterHorizontal = await scene.getAttribute("data-yaw");
+  await page.mouse.move(x + 70, y + 30);
+  await page.mouse.down();
+  await page.mouse.move(x + 72, y + 90, { steps: 10 });
+  await page.mouse.up();
+  await expect(scene).toHaveAttribute("data-yaw", yawAfterHorizontal!);
   await expect(scene).not.toHaveAttribute("data-pitch", "28");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const angle = await scene.getAttribute("data-yaw"),

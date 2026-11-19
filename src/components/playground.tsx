@@ -17,6 +17,7 @@ import {
   Plus,
 } from "lucide-react";
 import { useDesktopCommands } from "@/lib/desktop-commands";
+import { useCompactViewport } from "@/lib/runtime";
 import { Button } from "./ui/button";
 import { IconButton } from "./common";
 interface View {
@@ -26,6 +27,28 @@ interface View {
 }
 const CanvasGeometry = createContext({ units: 1, height: 420 });
 export const useCanvasGeometry = () => useContext(CanvasGeometry);
+const CanvasPointer = createContext<{
+  pointer: { x: number; y: number } | null;
+  pointerToken: object | null;
+  view: View;
+  height: number;
+  units: number;
+  inspecting: boolean;
+  portal: HTMLDivElement | null;
+  closeInspection: () => void;
+  revealPoint: (point: { x: number; y: number }) => void;
+}>({
+  pointer: null,
+  pointerToken: null,
+  view: { k: 1, x: 0, y: 0 },
+  height: 420,
+  units: 1,
+  inspecting: false,
+  portal: null,
+  closeInspection: () => {},
+  revealPoint: () => {},
+});
+export const useCanvasPointer = () => useContext(CanvasPointer);
 export function Playground({
   children,
   onSelect,
@@ -40,8 +63,12 @@ export function Playground({
   onElementDrag,
   onOrbit,
   onReset,
+  probe = false,
+  orbitAxis = "auto",
 }: {
   children: ReactNode;
+  probe?: boolean;
+  orbitAxis?: "auto" | "vertical" | "horizontal";
   onOrbit?: (delta: { x: number; y: number }) => void;
   onReset?: () => void;
   onSelect?: (key: string, additive?: boolean) => void;
@@ -51,6 +78,7 @@ export function Playground({
     key: string,
     delta: { x: number; y: number },
     phase: "start" | "move" | "end" | "cancel",
+    handle?: "start" | "end",
   ) => boolean | void;
   height?: number;
   label?: string;
@@ -61,6 +89,9 @@ export function Playground({
 }) {
   const svg = useRef<SVGSVGElement>(null),
     content = useRef<SVGGElement>(null),
+    [cursor, setCursor] = useState<{ x: number; y: number } | null>(null),
+    [inspecting, setInspecting] = useState(false),
+    [probePortal, setProbePortal] = useState<HTMLDivElement | null>(null),
     [geometry, setGeometry] = useState({ units: 1, height: 420 }),
     [selectionBoxes, setSelectionBoxes] = useState<
       {
@@ -83,10 +114,13 @@ export function Playground({
       right: boolean;
       shift: boolean;
       element: boolean;
+      handle?: "start" | "end";
+      orbitAxis?: "vertical" | "horizontal";
     } | null>(null),
     holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null),
     pinch = useRef(false),
     pattern = useId().replace(/:/g, "");
+  const compact = useCompactViewport();
   const apply = (next: View) => {
     v.current = next;
     setView(next);
@@ -224,6 +258,22 @@ export function Playground({
         </div>
       </div>
       {controls && <div className="playground-overlays">{controls}</div>}
+      {probe && (
+        <>
+          {compact && !inspecting && (
+            <Button
+              className="probe-mobile-toggle"
+              size="sm"
+              variant="secondary"
+              aria-pressed={inspecting}
+              onClick={() => setInspecting((v) => !v)}
+            >
+              Lire une position
+            </Button>
+          )}
+          <div className="probe-controls-target" ref={setProbePortal} />
+        </>
+      )}
       <svg
         ref={svg}
         data-testid="playground"
@@ -241,6 +291,17 @@ export function Playground({
         role="application"
         aria-label="Schéma zoomable et déplaçable"
         onKeyDown={(e) => {
+          // A station entry owns numeric keys while a structural reading is visible.
+          // In particular, 0 and minus must not reset/zoom the camera before Enter.
+          if (
+            probe &&
+            !e.ctrlKey &&
+            !e.metaKey &&
+            !e.altKey &&
+            /^[0-9.,-]$/.test(e.key) &&
+            content.current?.querySelector('[data-testid="structure-probe"]')
+          )
+            return;
           const key = (e.target as Element)
             .closest("[data-element]")
             ?.getAttribute("data-element");
@@ -252,6 +313,7 @@ export function Playground({
           if (e.code === "Space") {
             e.preventDefault();
             space.current = true;
+            setCursor(null);
           }
           if (e.key === "+") zoom(1.2);
           if (e.key === "-") zoom(1 / 1.2);
@@ -274,6 +336,7 @@ export function Playground({
           space.current = false;
         }}
         onPointerDown={(e) => {
+          if (!inspecting) setCursor(null);
           const p = local(e.clientX, e.clientY);
           points.current.set(e.pointerId, p);
           svg.current!.setPointerCapture(e.pointerId);
@@ -298,6 +361,9 @@ export function Playground({
             right: e.button === 2,
             shift: e.shiftKey,
             element: false,
+            handle: (e.target as Element)
+              .closest("[data-drag-handle]")
+              ?.getAttribute("data-drag-handle") as "start" | "end" | undefined,
           };
           drag.current = d;
           if (d.right) {
@@ -311,21 +377,33 @@ export function Playground({
             !hand &&
             !space.current &&
             !onOrbit &&
+            !inspecting &&
             !e.shiftKey
           ) {
             const begin = () => {
               holdTimer.current = null;
               if (drag.current === d && !d.moved && !pinch.current)
                 d.element =
-                  onElementDrag(key, { x: 0, y: 0 }, "start") === true;
+                  onElementDrag(key, { x: 0, y: 0 }, "start", d.handle) ===
+                  true;
             };
             // A touch swipe pans. Holding an element briefly enables precise editing.
-            if (e.pointerType === "touch")
+            if (e.pointerType === "touch" && !d.handle)
               holdTimer.current = setTimeout(begin, 350);
             else begin();
           }
         }}
         onPointerMove={(e) => {
+          if (
+            probe &&
+            !inspecting &&
+            e.pointerType !== "touch" &&
+            !e.buttons &&
+            !hand &&
+            !space.current
+          ) {
+            setCursor(local(e.clientX, e.clientY));
+          }
           if (!points.current.has(e.pointerId)) return;
           const d = drag.current;
           const current = local(e.clientX, e.clientY);
@@ -345,6 +423,7 @@ export function Playground({
                   y: (current.y - d.y) / v.current.k,
                 },
                 "move",
+                d.handle,
               );
             points.current.set(e.pointerId, current);
             return;
@@ -389,9 +468,22 @@ export function Playground({
                   4 * geometry.units)
             ) {
               drag.current.moved = true;
+              drag.current.orbitAxis ??=
+                orbitAxis === "auto"
+                  ? Math.abs(p.x - drag.current.x) >=
+                    Math.abs(p.y - drag.current.y)
+                    ? "vertical"
+                    : "horizontal"
+                  : orbitAxis;
               onOrbit({
-                x: (p.x - old.x) / geometry.units,
-                y: (p.y - old.y) / geometry.units,
+                x:
+                  drag.current.orbitAxis === "vertical"
+                    ? (p.x - old.x) / geometry.units
+                    : 0,
+                y:
+                  drag.current.orbitAxis === "horizontal"
+                    ? (p.y - old.y) / geometry.units
+                    : 0,
               });
             }
           } else if (
@@ -422,6 +514,10 @@ export function Playground({
           if (!points.current.size) pinch.current = false;
           drag.current = null;
           if (!d) return;
+          if (probe && inspecting && !d.moved && !d.right) {
+            setCursor(local(e.clientX, e.clientY));
+            return;
+          }
           if (d.right) {
             if (d.key && !d.moved && onElementContext) {
               const target = [
@@ -441,6 +537,7 @@ export function Playground({
               d.key,
               { x: (p.x - d.x) / v.current.k, y: (p.y - d.y) / v.current.k },
               d.moved ? "end" : "cancel",
+              d.handle,
             );
             if (d.moved) return;
           }
@@ -451,6 +548,9 @@ export function Playground({
         }}
         onContextMenu={(e) => {
           if (onElementDrag || onElementContext || onOrbit) e.preventDefault();
+        }}
+        onPointerLeave={() => {
+          if (!inspecting) setCursor(null);
         }}
         onPointerCancel={(e) => {
           stopHold();
@@ -492,7 +592,40 @@ export function Playground({
           transform={`translate(${view.x} ${view.y}) scale(${view.k})`}
         >
           <CanvasGeometry.Provider value={geometry}>
-            {children}
+            <CanvasPointer.Provider
+              value={{
+                pointer:
+                  cursor && !hand && !space.current
+                    ? {
+                        x: (cursor.x - view.x) / view.k,
+                        y: (cursor.y - view.y) / view.k,
+                      }
+                    : null,
+                pointerToken: cursor,
+                view,
+                ...geometry,
+                inspecting,
+                portal: probePortal,
+                closeInspection: () => setInspecting(false),
+                revealPoint: (point) => {
+                  const old = v.current,
+                    pad = 42 * geometry.units;
+                  const sx = point.x * old.k + old.x,
+                    sy = point.y * old.k + old.y;
+                  const dx =
+                    sx < pad ? pad - sx : sx > 1000 - pad ? 1000 - pad - sx : 0;
+                  const dy =
+                    sy < pad
+                      ? pad - sy
+                      : sy > geometry.height - pad
+                        ? geometry.height - pad - sy
+                        : 0;
+                  if (dx || dy) apply({ ...old, x: old.x + dx, y: old.y + dy });
+                },
+              }}
+            >
+              {children}
+            </CanvasPointer.Provider>
           </CanvasGeometry.Provider>
           {selectionBoxes.map((selectionBox, index) => (
             <rect
@@ -540,7 +673,7 @@ export function Arrow({
   dx?: number;
   dy?: number;
   color?: string;
-  label?: string;
+  label?: ReactNode;
 }) {
   const { units } = useCanvasGeometry();
   const len = Math.hypot(dx, dy) || 1,

@@ -80,8 +80,8 @@ html[data-runtime="desktop"] .copyable-value {
   color: var(--foreground);
 }
 .desktop-detail-dialog {
-  width: min(900px, calc(100vw - 40px));
-  max-width: 900px !important;
+  width: min(600px, calc(100vw - 40px));
+  max-width: 600px !important;
   max-height: 85dvh;
   overflow-y: auto;
 }

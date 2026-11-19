@@ -47,6 +47,30 @@ mod application {
     }
 
     #[tauri::command]
+    pub fn desktop_window_action(
+        window: tauri::WebviewWindow,
+        action: String,
+    ) -> Result<(), String> {
+        #[cfg(desktop)]
+        {
+            return match action.as_str() {
+                "minimize" => window.minimize(),
+                "fullscreen" => window
+                    .is_fullscreen()
+                    .and_then(|full| window.set_fullscreen(!full)),
+                "close" => window.close(),
+                _ => return Err("Action de fenêtre inconnue".into()),
+            }
+            .map_err(|error| error.to_string());
+        }
+        #[cfg(mobile)]
+        {
+            let _ = (window, action);
+            Err("Les commandes de fenêtre sont réservées au Desktop".into())
+        }
+    }
+
+    #[tauri::command]
     pub fn desktop_menu_ready(app: tauri::AppHandle) -> bool {
         #[cfg(desktop)]
         {
@@ -128,6 +152,7 @@ mod application {
                 write_workspace,
                 diagnostic,
                 desktop_menu_ready,
+                desktop_window_action,
                 set_menu_context
             ])
             .run(tauri::generate_context!())

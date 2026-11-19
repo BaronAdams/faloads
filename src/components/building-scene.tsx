@@ -52,7 +52,7 @@ export function BuildingScene({
   return (
     <>
       {xs.map((x, c) => (
-        <g key={c}>
+        <g key={c} data-building-annotation="axes">
           <line
             x1={X(x)}
             x2={X(x)}
@@ -80,7 +80,7 @@ export function BuildingScene({
         </g>
       ))}
       {ys.map((y, r) => (
-        <g key={r}>
+        <g key={r} data-building-annotation="axes">
           <line
             x1={ox - 24 * units}
             x2={X(xs[xs.length - 1]) + 24 * units}
@@ -195,6 +195,7 @@ export function BuildingScene({
                 );
               })()}
             <text
+              data-building-annotation="slabs-labels"
               x={x + w / 2}
               y={y + h / 2 - 6 * units}
               textAnchor="middle"
@@ -205,6 +206,7 @@ export function BuildingScene({
             </text>
             {p.exists && (
               <text
+                data-building-annotation="slabs-values"
                 x={x + w / 2}
                 y={y + h / 2 + 12 * units}
                 textAnchor="middle"
@@ -273,9 +275,21 @@ export function BuildingScene({
                 className="numeric"
                 style={{ fontSize: `${10 * units}px` }}
               >
-                {showResults
-                  ? `${fmt(caseValue(results.edges.find((item) => item.key === key)?.g ?? 0, results.edges.find((item) => item.key === key)?.q ?? 0, field), 1)} kN/m`
-                  : `${fmt(e.b, 0)}×${fmt(e.h, 0)}`}
+                <tspan
+                  data-building-annotation={`${e.kind === "wall" ? "walls" : "beams"}-labels`}
+                >
+                  {e.kind === "wall" ? "V" : "P"}
+                  {horizontal
+                    ? `${nodeName(segment, line)}–${nodeName(segment + 1, line)}`
+                    : `${nodeName(line, segment)}–${nodeName(line, segment + 1)}`}{" "}
+                </tspan>
+                <tspan
+                  data-building-annotation={`${e.kind === "wall" ? "walls" : "beams"}-values`}
+                >
+                  {showResults
+                    ? `${fmt(caseValue(results.edges.find((item) => item.key === key)?.g ?? 0, results.edges.find((item) => item.key === key)?.q ?? 0, field), 1)} kN/m`
+                    : `${fmt(e.b, 0)}×${fmt(e.h, 0)}`}
+                </tspan>
               </text>
             )}
             <line
@@ -321,10 +335,23 @@ export function BuildingScene({
               y={Y(ys[r]) + 17 * units}
               className="numeric"
             >
-              {nodeName(c, r)}
-              {showResults
-                ? ` · ${fmt(caseValue(results.columns.find((n) => n.key === key)?.g ?? 0, results.columns.find((n) => n.key === key)?.q ?? 0, field))} kN`
-                : ""}
+              <tspan data-building-annotation="columns-labels">
+                {nodeName(c, r)}
+              </tspan>
+              {showResults && (
+                <tspan data-building-annotation="columns-values">
+                  {" "}
+                  ·{" "}
+                  {fmt(
+                    caseValue(
+                      results.columns.find((n) => n.key === key)?.g ?? 0,
+                      results.columns.find((n) => n.key === key)?.q ?? 0,
+                      field,
+                    ),
+                  )}{" "}
+                  kN
+                </tspan>
+              )}
             </text>
           </g>
         );
@@ -388,7 +415,7 @@ export function BuildingScene({
           fill="var(--muted-foreground)"
           className="numeric"
         >
-          {fmt(v)} m
+          <tspan data-building-annotation="axes">{fmt(v)} m</tspan>
         </text>
       ))}
       {floor.spanY.map((v, i) => (
@@ -400,7 +427,7 @@ export function BuildingScene({
           fill="var(--muted-foreground)"
           className="numeric"
         >
-          {fmt(v)} m
+          <tspan data-building-annotation="axes">{fmt(v)} m</tspan>
         </text>
       ))}
     </>

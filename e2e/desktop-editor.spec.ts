@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { createStudy } from "./helpers";
+import { duplicateLevel, createStudy } from "./helpers";
 async function native(page: Page) {
   await page.addInitScript(() =>
     Object.assign(window, {
@@ -114,9 +114,11 @@ test("edits a beam in the header, opens a professional context menu, and drags i
     .first();
   await force.click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".desktop-parameter-bar")).toContainText(
-    "Force verticale Fy",
-  );
+  await expect(
+    page
+      .getByTestId("project-workbench-header")
+      .getByLabel("Force verticale Fy", { exact: true }),
+  ).toBeVisible();
   expect(
     (await page.getByTestId("project-workbench-header").boundingBox())!.height,
   ).toBeLessThan(150);
@@ -219,8 +221,8 @@ test("cumulates from roof to ground, displays 3D load cases and selects the crit
 }) => {
   await page.goto("/#/new/building");
   await createStudy(page);
-  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
-  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
+  await duplicateLevel(page);
+  await duplicateLevel(page);
   await page
     .getByRole("button", { name: "Calculer le bâtiment", exact: true })
     .click();
@@ -275,9 +277,9 @@ test("keeps section libraries inside each study and supports point forces on fra
   await page
     .getByRole("menuitem", { name: "Force sur une barre", exact: true })
     .click();
-  await expect(page.locator(".desktop-parameter-bar")).toContainText(
-    "Position sur la barre",
-  );
+  await expect(
+    page.getByLabel("Position sur la barre", { exact: true }),
+  ).toBeVisible();
   await page.getByLabel("Position sur la barre", { exact: true }).fill("30");
   const loadHandle = page
     .locator('[data-element^="member-load:"]')
@@ -334,10 +336,24 @@ test("changes slab thickness in bulk without overwriting individual live loads",
   const slab = (key: string) =>
     page.locator(`[data-element="panel|${key}"]`).locator("rect").first();
   await slab("0,0").click();
+  await expect(
+    page
+      .getByTestId("project-workbench-header")
+      .getByLabel("Épaisseur", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel("Type de plancher actuel")).toHaveText("16+4");
   await page.getByLabel("Exploitation Q", { exact: true }).fill("4");
   await slab("1,0").click();
-  await page.getByRole("combobox", { name: "Plancher", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Modifier la sélection", exact: true })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Type de plancher", exact: true })
+    .click();
   await page.getByRole("option", { name: "Dalle pleine", exact: true }).click();
+  await expect(page.locator('[role="listbox"]')).toHaveCount(0);
+  await page.locator('[role="dialog"]').press("Escape");
+  await expect(page.locator('[role="dialog"]')).toHaveCount(0);
   await canvasFocus(page);
   await page.keyboard.press("Control+a");
   await expect(page.getByTestId("selection-highlight")).toHaveCount(6);

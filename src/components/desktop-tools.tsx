@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  Pencil,
   Copy,
   ClipboardPaste,
   Trash2,
@@ -40,6 +41,7 @@ export type EditorActions = {
   undo: (redo?: boolean) => void;
   add: () => void;
   duplicate?: () => void;
+  modify?: () => void;
 };
 export function useEditorKeys(
   actions: EditorActions,
@@ -63,6 +65,7 @@ export function useEditorKeys(
   useEffect(() => {
     if (!enabled) return;
     const handle = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (
         (e.target as Element).closest(
           "input, textarea, [contenteditable=true], [role=combobox], [role=dialog], [role=menu]",
@@ -140,11 +143,19 @@ export function SceneMenu({
         side="bottom"
         onCloseAutoFocus={(e) => {
           e.preventDefault();
+          if (document.querySelector('[role="dialog"][data-state="open"]'))
+            return;
           document
             .querySelector<SVGSVGElement>(".playground svg[tabindex]")
             ?.focus();
         }}
       >
+        {actions.modify && (
+          <DropdownMenuItem onSelect={actions.modify}>
+            <Pencil />
+            Modifier
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onSelect={actions.copy}>
           <Copy />
           Copier les propriétés<kbd>Ctrl C</kbd>
@@ -155,7 +166,7 @@ export function SceneMenu({
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={actions.all}>
           <ListChecks />
-          Tout sélectionner du même type<kbd>Ctrl A</kbd>
+          Tout sélectionner<kbd>Ctrl A</kbd>
         </DropdownMenuItem>
         {actions.duplicate && (
           <DropdownMenuItem onSelect={actions.duplicate}>
@@ -183,20 +194,29 @@ export function DetailDialog({
   onOpenChange,
   title,
   children,
+  description,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   title: string;
   children: ReactNode;
+  description?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="desktop-detail-dialog">
+      <DialogContent
+        className="desktop-detail-dialog"
+        onEscapeKeyDown={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onOpenChange(false);
+        }}
+      >
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Paramètres du projet courant. Les changements mettent le calcul en
-            attente d’actualisation.
+            {description ??
+              "Paramètres du projet courant. Les changements mettent le calcul en attente d’actualisation."}
           </DialogDescription>
         </DialogHeader>
         {children}
@@ -354,7 +374,10 @@ export function ShortcutHelp() {
               "Clic gauche maintenu + glisser",
               "Déplacer appuis / charges sur leur support",
             ],
-            ["Ctrl / Cmd A", "Sélectionner le même type"],
+            [
+              "Ctrl / Cmd A",
+              "Tout sélectionner ; avec présélection, sélectionner le même type",
+            ],
             ["Ctrl / Cmd C · V", "Copier / appliquer les propriétés"],
             ["Suppr", "Supprimer la sélection"],
             ["Inser / Ctrl N", "Ajouter un élément"],
