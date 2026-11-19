@@ -294,6 +294,9 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await grid
         .getByRole("button", { name: "Revenir au schéma", exact: true })
         .click();
+      // Closing Radix overlays still intercept pointers during their exit animation.
+      // Wait for removal before sending the real mouse gesture to WebView2.
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
       const yaw = await scene.getAttribute("data-yaw");
       const canvas = await page.getByTestId("playground").boundingBox();
       await page.mouse.move(
