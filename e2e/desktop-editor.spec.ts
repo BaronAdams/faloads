@@ -336,6 +336,12 @@ test("changes slab thickness in bulk without overwriting individual live loads",
   const slab = (key: string) =>
     page.locator(`[data-element="panel|${key}"]`).locator("rect").first();
   await slab("0,0").click();
+  await expect(
+    page
+      .getByTestId("project-workbench-header")
+      .getByLabel("Épaisseur", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel("Type de plancher actuel")).toHaveText("16+4");
   await page.getByLabel("Exploitation Q", { exact: true }).fill("4");
   await slab("1,0").click();
   await page

@@ -948,42 +948,63 @@ export function BuildingPage({ project }: { project?: Project }) {
             <div className="ribbon-field-pair">
               <Numeric
                 compact
-                shortLabel="b"
-                label="Largeur b"
+                shortLabel={
+                  type === "edge" && slot?.kind === "wall" ? "e" : "b"
+                }
+                label={
+                  type === "edge" && slot?.kind === "wall"
+                    ? "Épaisseur"
+                    : "Largeur b"
+                }
                 value={(slot ?? free)!.b}
                 unit="cm"
                 min={1}
                 max={1000}
                 onChange={(b) => patchSelected({ b })}
               />
-              <Numeric
-                compact
-                shortLabel="h"
-                label="Hauteur h"
-                value={(slot ?? free)!.h}
-                unit="cm"
-                min={1}
-                max={1000}
-                onChange={(h) => patchSelected({ h })}
-              />
+              {!(type === "edge" && slot?.kind === "wall") && (
+                <Numeric
+                  compact
+                  shortLabel="h"
+                  label="Hauteur h"
+                  value={(slot ?? free)!.h}
+                  unit="cm"
+                  min={1}
+                  max={1000}
+                  onChange={(h) => patchSelected({ h })}
+                />
+              )}
             </div>
           )}
           {desktop && panel && (
             <>
-              <Numeric
-                compact
-                shortLabel="e"
-                label="Épaisseur"
-                value={panel.level.thickness * 100}
-                unit="cm"
-                min={1}
-                max={1000}
-                onChange={(h) =>
-                  patchSelected({
-                    level: { ...panel.level, thickness: h / 100 },
-                  })
-                }
-              />
+              {panel.level.slab === "dp" ? (
+                <Numeric
+                  compact
+                  shortLabel="e"
+                  label="Épaisseur"
+                  value={panel.level.thickness * 100}
+                  unit="cm"
+                  min={1}
+                  max={1000}
+                  onChange={(h) =>
+                    patchSelected({
+                      level: { ...panel.level, thickness: h / 100 },
+                    })
+                  }
+                />
+              ) : (
+                <span
+                  className="selection-kind"
+                  aria-label="Type de plancher actuel"
+                >
+                  {
+                    ({ cc12: "12+4", cc16: "16+4", cc20: "20+5" } as const)[
+                      panel.level.slab
+                    ]
+                  }
+                </span>
+              )}
               <Numeric
                 compact
                 shortLabel="Q"
