@@ -345,8 +345,9 @@ test("changes slab thickness in bulk without overwriting individual live loads",
     .getByRole("combobox", { name: "Type de plancher", exact: true })
     .click();
   await page.getByRole("option", { name: "Dalle pleine", exact: true }).click();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator('[role="listbox"]')).toHaveCount(0);
+  await page.locator('[role="dialog"]').press("Escape");
+  await expect(page.locator('[role="dialog"]')).toHaveCount(0);
   await canvasFocus(page);
   await page.keyboard.press("Control+a");
   await expect(page.getByTestId("selection-highlight")).toHaveCount(6);

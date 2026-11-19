@@ -78,6 +78,27 @@ test("Desktop station input freezes the guide until Enter, validates bounds and 
   await expect(
     page.getByRole("form", { name: "Lecture précise de position" }),
   ).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Augmenter le zoom", exact: true })
+    .click();
+  await focusCanvas(page);
+  const zoomedAxis = (await page.getByTestId("diagram-axis").boundingBox())!;
+  await page.mouse.move(
+    zoomedAxis.x + zoomedAxis.width * 0.4,
+    zoomedAxis.y - 40,
+  );
+  const camera = await page.getByTestId("camera").getAttribute("transform"),
+    beforeZero = await probe.getAttribute("data-station");
+  await page.keyboard.press("0");
+  await expect(page.getByLabel("Position · m", { exact: true })).toBeFocused();
+  await expect(page.getByTestId("camera")).toHaveAttribute(
+    "transform",
+    camera!,
+  );
+  await expect(probe).toHaveAttribute("data-station", beforeZero!);
+  await page.keyboard.press("Enter");
+  await expect(probe).toHaveAttribute("data-station", "0");
+  await expect(page.getByTestId("zoom-level")).toHaveText("120 %");
 });
 test("Mobile reads a chosen frame member with a decimal keyboard and keeps editing separate", async ({
   page,

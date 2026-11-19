@@ -36,6 +36,7 @@ const CanvasPointer = createContext<{
   inspecting: boolean;
   portal: HTMLDivElement | null;
   closeInspection: () => void;
+  revealPoint: (point: { x: number; y: number }) => void;
 }>({
   pointer: null,
   pointerToken: null,
@@ -45,6 +46,7 @@ const CanvasPointer = createContext<{
   inspecting: false,
   portal: null,
   closeInspection: () => {},
+  revealPoint: () => {},
 });
 export const useCanvasPointer = () => useContext(CanvasPointer);
 export function Playground({
@@ -289,6 +291,17 @@ export function Playground({
         role="application"
         aria-label="Schéma zoomable et déplaçable"
         onKeyDown={(e) => {
+          // A station entry owns numeric keys while a structural reading is visible.
+          // In particular, 0 and minus must not reset/zoom the camera before Enter.
+          if (
+            probe &&
+            !e.ctrlKey &&
+            !e.metaKey &&
+            !e.altKey &&
+            /^[0-9.,-]$/.test(e.key) &&
+            content.current?.querySelector('[data-testid="structure-probe"]')
+          )
+            return;
           const key = (e.target as Element)
             .closest("[data-element]")
             ?.getAttribute("data-element");
@@ -594,6 +607,21 @@ export function Playground({
                 inspecting,
                 portal: probePortal,
                 closeInspection: () => setInspecting(false),
+                revealPoint: (point) => {
+                  const old = v.current,
+                    pad = 42 * geometry.units;
+                  const sx = point.x * old.k + old.x,
+                    sy = point.y * old.k + old.y;
+                  const dx =
+                    sx < pad ? pad - sx : sx > 1000 - pad ? 1000 - pad - sx : 0;
+                  const dy =
+                    sy < pad
+                      ? pad - sy
+                      : sy > geometry.height - pad
+                        ? geometry.height - pad - sy
+                        : 0;
+                  if (dx || dy) apply({ ...old, x: old.x + dx, y: old.y + dy });
+                },
               }}
             >
               {children}

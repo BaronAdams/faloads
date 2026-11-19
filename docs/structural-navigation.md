@@ -6,7 +6,7 @@ Les polices et les icônes de projets existantes sont conservées. Les captures 
 
 Sur Desktop, survolez une poutre ou une barre, puis commencez à taper une distance. La saisie remplace la position affichée sans déplacer le trait blanc. **Entrée** valide la distance et déplace le repère ; les valeurs du diagramme suivent la nouvelle position. Le repère reste fixé pendant la lecture précise. Fermez le petit panneau, ou utilisez **Échap**, pour reprendre le survol.
 
-Les virgules et les points décimaux sont acceptés, dans l’unité de lecture du projet. Une valeur incorrecte, négative ou dépassant la longueur disponible affiche une erreur et laisse le repère à sa dernière position valide. Les extrémités 0 et L sont accessibles.
+Les virgules et les points décimaux sont acceptés, dans l’unité de lecture du projet. Une valeur incorrecte, négative ou dépassant la longueur disponible affiche une erreur et laisse le repère à sa dernière position valide. Les extrémités 0 et L sont accessibles. Si la position validée est hors champ, la vue se déplace juste assez pour la montrer, sans changer le zoom. Pendant la saisie, 0 et le signe moins ne déclenchent pas les raccourcis de la caméra.
 
 ![Position saisie sur Desktop](structural-navigation-preview/position-desktop.png)
 

@@ -41,6 +41,7 @@ export function StructureProbe({
     inspecting,
     portal,
     closeInspection,
+    revealPoint,
   } = useCanvasPointer();
   const [locked, setLocked] = useState<{ id: string; station: number } | null>(
       null,
@@ -251,6 +252,7 @@ export function StructureProbe({
                 return;
               }
               setLocked({ id: member.id, station: parsed.station! });
+              revealPoint(memberAt(member, parsed.station!).point);
               setDraft(null);
               setError(undefined);
               if (mobile) {
