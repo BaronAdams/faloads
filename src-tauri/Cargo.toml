@@ -1,5 +1,6 @@
 [package]
-name = "structcalc"
+name = "kalisigma"
+default-run = "kalisigma"
 version = "0.2.0"
 description = "KaliSigma — calcul de structures"
 authors = ["BaronAdams"]
