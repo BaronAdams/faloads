@@ -54,8 +54,13 @@ export function Onboarding() {
     <main className="onboarding">
       <header>
         <div className="brand">
-          <span className="brand-mark">σ</span>
-          <strong>StructCalc</strong>
+          <img
+            className="brand-mark"
+            src="/app-icon.svg"
+            alt=""
+            draggable={false}
+          />
+          <strong>KaliSigma</strong>
         </div>
         <Button
           variant="ghost"
@@ -257,7 +262,7 @@ function OnboardingPreview({ step }: { step: number }) {
             </dl>
             <div className="export-file">
               <FileJson size={22} />
-              <span className="mono">StructCalc-projet.json</span>
+              <span className="mono">KaliSigma-projet.json</span>
             </div>
           </div>
           <p className="export-explanation">

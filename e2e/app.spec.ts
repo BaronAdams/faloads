@@ -349,7 +349,7 @@ test("onboarding demonstrates a real calculation and retains it between steps", 
   await expect(page.getByTestId("onboarding-moment")).toContainText("33,60");
   await page.getByRole("button", { name: "Continuer", exact: true }).click();
   await expect(
-    page.getByText("StructCalc-projet.json", { exact: true }),
+    page.getByText("KaliSigma-projet.json", { exact: true }),
   ).toBeVisible();
   await expect(page.locator(".export-document-title")).toContainText("4,00 m");
   await page.getByRole("button", { name: "Retour", exact: true }).click();

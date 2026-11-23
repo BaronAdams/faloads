@@ -52,7 +52,7 @@ export async function importProjects(
     const parsed = workspaceSchema.safeParse(source);
     if (!parsed.success)
       throw Error(
-        "Choisissez un fichier de projet ou une sauvegarde StructCalc 0.2.",
+        "Choisissez un fichier de projet ou une sauvegarde KaliSigma 0.2.",
       );
     incoming = parsed.data.projects.map(validateProject);
   } else incoming = [validateProject(source)];

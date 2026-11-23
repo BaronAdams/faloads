@@ -68,7 +68,7 @@ const menus = [
     [
       ["help:guide", "Guide de prise en main"],
       ["help:shortcuts", "Raccourcis clavier…"],
-      ["app:about", "À propos de StructCalc"],
+      ["app:about", "À propos de KaliSigma"],
     ],
   ],
 ] as const;
@@ -187,7 +187,7 @@ export function DesktopMenu({
       ]),
     ),
     "app:about": () =>
-      toast.info("StructCalc · Atelier de structure · Version 0.2.0"),
+      toast.info("KaliSigma · Atelier de structure · Version 0.2.0"),
   });
   return (
     <>

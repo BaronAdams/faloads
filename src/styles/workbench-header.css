@@ -1,4 +1,9 @@
 /* One fixed ribbon; section controls read top to bottom, then left to right. */
+.project-header-tooltip {
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 16px;
+}
 .project-workbench-shell .project-page.analysis-page {
   padding: 0;
   max-width: none;

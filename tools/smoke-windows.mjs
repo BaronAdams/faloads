@@ -104,6 +104,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
     expect(await page.evaluate(() => Boolean(window.__TAURI_INTERNALS__))).toBe(
       true,
     );
+    await expect(page).toHaveTitle("KaliSigma");
     expect(
       await page.evaluate(() =>
         window.__TAURI_INTERNALS__.invoke("desktop_menu_ready"),
@@ -133,6 +134,38 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await expect(page.locator(".desktop-menubar")).toBeVisible();
       layout = await checkWorkbenchLayout(page);
       const analysisHeader = page.getByTestId("project-workbench-header");
+      await expect(
+        analysisHeader
+          .getByRole("button", { name: "Ouvrir les résultats", exact: true })
+          .locator("svg.lucide-file-chart-column"),
+      ).toHaveCount(1);
+      for (const [name, side] of [
+        ["Calculer", "top"],
+        ["Ouvrir les résultats", "bottom"],
+      ]) {
+        const button = analysisHeader.getByRole("button", {
+          name,
+          exact: true,
+        });
+        await button.hover();
+        const tooltip = page.locator('[data-slot="tooltip-content"]');
+        await expect(tooltip).toBeVisible();
+        await expect(tooltip).toHaveAttribute("data-side", side);
+        await tooltip.evaluate((el) =>
+          Promise.all(el.getAnimations().map((a) => a.finished)),
+        );
+        const box = await tooltip.boundingBox(),
+          target = await button.boundingBox();
+        if (side === "top")
+          expect(box.y + box.height).toBeLessThanOrEqual(target.y - 2);
+        else expect(box.y).toBeGreaterThanOrEqual(target.y + target.height + 2);
+        await page.screenshot({
+          path: `native-test-results/windows-tooltip-${side}.png`,
+          fullPage: true,
+        });
+        await page.mouse.move(2, 600);
+        await expect(tooltip).toHaveCount(0);
+      }
       await expect(
         analysisHeader.getByRole("button", {
           name: "Retour aux calculs",
@@ -484,7 +517,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           "-NoProfile",
           "-NonInteractive",
           "-Command",
-          "Get-Process StructCalc,msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Json",
+          "Get-Process KaliSigma,msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Json",
         ],
         { encoding: "utf8", timeout: 10000 },
       );

@@ -199,23 +199,15 @@ p {
   margin-top: 3px;
 }
 .brand-mark {
-  display: grid;
-  place-items: center;
+  display: block;
   width: 42px;
   height: 42px;
-  border: 1px solid #5b8def33;
-  background: #5b8def14;
-  color: var(--primary);
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 34px;
-  line-height: 1;
+  flex: none;
+  object-fit: contain;
 }
 .brand-mark.small {
   width: 32px;
   height: 32px;
-  border-radius: 9px;
-  font-size: 26px;
 }
 .app-shell {
   display: grid;

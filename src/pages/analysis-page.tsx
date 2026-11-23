@@ -61,6 +61,7 @@ import {
   Calculator,
   Settings,
   ChartNoAxesCombined,
+  FileChartColumn,
   ArrowDown,
   ArrowDownWideNarrow,
   RotateCw,
@@ -846,7 +847,7 @@ export function AnalysisPage({
         data-tour="results"
         onClick={() => closeResults(true)}
       >
-        <ChartNoAxesCombined />
+        <FileChartColumn />
       </IconButton>
     </RibbonGroup>
   );

@@ -28,18 +28,18 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     #[cfg(target_os = "macos")]
     menu.append(&Submenu::with_items(
         app,
-        "StructCalc",
+        "KaliSigma",
         true,
         &[
-            &PredefinedMenuItem::about(app, Some("À propos de StructCalc"), None)?,
+            &PredefinedMenuItem::about(app, Some("À propos de KaliSigma"), None)?,
             &item(app, "app:settings", "Réglages…", Some("Cmd+,"))?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::services(app, Some("Services"))?,
-            &PredefinedMenuItem::hide(app, Some("Masquer StructCalc"))?,
+            &PredefinedMenuItem::hide(app, Some("Masquer KaliSigma"))?,
             &PredefinedMenuItem::hide_others(app, Some("Masquer les autres"))?,
             &PredefinedMenuItem::show_all(app, Some("Tout afficher"))?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, Some("Quitter StructCalc"))?,
+            &PredefinedMenuItem::quit(app, Some("Quitter KaliSigma"))?,
         ],
     )?)?;
     let file = Submenu::with_items(
@@ -136,7 +136,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     #[cfg(not(target_os = "macos"))]
     help.append(&PredefinedMenuItem::about(
         app,
-        Some("À propos de StructCalc"),
+        Some("À propos de KaliSigma"),
         None,
     )?)?;
     menu.append(&help)?;

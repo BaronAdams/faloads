@@ -55,14 +55,14 @@ jobs:
           workspaces: src-tauri -> target
           key: android-arm64
       - run: npm ci
-      - run: npm run icons
       - run: npm run android:init
+      - run: npm run icons
       - run: npm run tauri android build -- --ci --target aarch64 --apk
       - name: Sign installable APK
         run: bash tools/sign-android.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: structcalc-tauri-android-arm64
+          name: kalisigma-tauri-android-arm64
           path: artifacts/android/
           if-no-files-found: error
           retention-days: 14
@@ -108,8 +108,8 @@ jobs:
           key: ios-simulator
           cache-on-failure: true
       - run: npm ci
-      - run: npm run icons
       - run: npm run tauri ios init -- --ci --skip-targets-install
+      - run: npm run icons
       - name: Restrict the generated Xcode project to the simulator
         run: |
           # Archive destination discovery can pick iPhone despite --target.
@@ -134,15 +134,17 @@ jobs:
           APP_PATH=$(find src-tauri/gen/apple -type d -name '*.app' -path '*/build/*' -print -quit)
           test -n "$APP_PATH"
           APP_EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Info.plist")
+          APP_DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP_PATH/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$APP_PATH/Info.plist")
+          test "$APP_DISPLAY_NAME" = 'KaliSigma'
           xcrun lipo "$APP_PATH/$APP_EXECUTABLE" -verify_arch "$IOS_ARCH"
           file "$APP_PATH/$APP_EXECUTABLE"
           xcrun vtool -show-build "$APP_PATH/$APP_EXECUTABLE" > ios-simulator-build.txt
           cat ios-simulator-build.txt
           grep -Eq 'platform[[:space:]]+IOSSIMULATOR' ios-simulator-build.txt
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "structcalc-ios-simulator-$IOS_ARCH.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "kalisigma-ios-simulator-$IOS_ARCH.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: structcalc-tauri-ios-simulator-${{ env.IOS_ARCH }}
-          path: structcalc-ios-simulator-*.zip
+          name: kalisigma-tauri-ios-simulator-${{ env.IOS_ARCH }}
+          path: kalisigma-ios-simulator-*.zip
           if-no-files-found: error
           retention-days: 14

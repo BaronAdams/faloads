@@ -18,7 +18,7 @@ import {
   Trash2,
   Settings,
   Pencil,
-  ChartNoAxesCombined,
+  FileChartColumn,
   Calculator,
   X,
   Grid2X2,
@@ -1060,7 +1060,7 @@ export function BuildingPage({ project }: { project?: Project }) {
           studyAction("results:open");
         }}
       >
-        <ChartNoAxesCombined />
+        <FileChartColumn />
       </IconButton>
     </RibbonGroup>
   );

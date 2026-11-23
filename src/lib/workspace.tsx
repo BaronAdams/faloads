@@ -105,7 +105,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         <h1>
           {error
             ? "Vos données n’ont pas pu être ouvertes"
-            : "Ouverture de StructCalc"}
+            : "Ouverture de KaliSigma"}
         </h1>
         {error ? (
           <>

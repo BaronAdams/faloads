@@ -66,6 +66,32 @@ export function IconButton({
 }: { label: string; children: ReactNode } & React.ComponentProps<
   typeof Button
 >) {
+  const [placement, setPlacement] = useState<{
+    project: boolean;
+    side: "top" | "bottom";
+    align: "start" | "center" | "end";
+    maxWidth?: number;
+  }>({ project: false, side: "top", align: "center" });
+  const positionTooltip = (button: HTMLButtonElement) => {
+    if (!button.closest(".project-header")) return;
+    const box = button.getBoundingClientRect(),
+      grid = button
+        .closest(".ribbon-fields, .project-actions")
+        ?.getBoundingClientRect(),
+      start = box.left + box.width / 2 < window.innerWidth / 2;
+    setPlacement({
+      project: true,
+      side:
+        grid && box.top + box.height / 2 > grid.top + grid.height / 2 + 1
+          ? "bottom"
+          : "top",
+      align: start ? "start" : "end",
+      maxWidth: Math.max(
+        48,
+        start ? window.innerWidth - box.left - 8 : box.right - 8,
+      ),
+    });
+  };
   return (
     <Tooltip delayDuration={350} disableHoverableContent>
       <TooltipTrigger asChild>
@@ -75,11 +101,29 @@ export function IconButton({
           variant="ghost"
           aria-label={label}
           {...props}
+          onPointerEnter={(event) => {
+            positionTooltip(event.currentTarget);
+            props.onPointerEnter?.(event);
+          }}
+          onFocus={(event) => {
+            positionTooltip(event.currentTarget);
+            props.onFocus?.(event);
+          }}
         >
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent
+        side={placement.side}
+        align={placement.align}
+        sideOffset={placement.project ? 4 : 0}
+        avoidCollisions={!placement.project}
+        hideArrow={placement.project}
+        className={placement.project ? "project-header-tooltip" : undefined}
+        style={placement.project ? { maxWidth: placement.maxWidth } : undefined}
+      >
+        {label}
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -412,7 +456,7 @@ export function ProjectHeader({
     }
   };
   const exportStudy = () =>
-    void exportJson(`${name || type}.structcalc.json`, {
+    void exportJson(`${name || type}.kalisigma.json`, {
       format: "structcalc-project",
       version: 1,
       project: {
@@ -520,7 +564,7 @@ export function ProjectHeader({
             <IconButton
               label="Exporter le projet"
               onClick={() =>
-                void exportJson(`${name || type}.structcalc.json`, {
+                void exportJson(`${name || type}.kalisigma.json`, {
                   format: "structcalc-project",
                   version: 1,
                   project: {

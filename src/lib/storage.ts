@@ -89,7 +89,7 @@ export async function exportJson(name: string, value: unknown) {
     ]);
     const path = await save({
       defaultPath: name,
-      filters: [{ name: "StructCalc JSON", extensions: ["json"] }],
+      filters: [{ name: "KaliSigma JSON", extensions: ["json"] }],
     });
     if (!path) return false;
     await writeTextFile(path, text);
@@ -106,7 +106,7 @@ export async function importJson(): Promise<unknown | null> {
     ]);
     const path = await open({
       multiple: false,
-      filters: [{ name: "StructCalc JSON", extensions: ["json"] }],
+      filters: [{ name: "KaliSigma JSON", extensions: ["json"] }],
     });
     if (!path) return null;
     const text = await readTextFile(path);

@@ -70,17 +70,18 @@ jobs:
           $metadata = cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --no-deps | ConvertFrom-Json
           $targetRoot = $metadata.target_directory
           Write-Host "Collecting native packages from $targetRoot"
-          $binaries = @(Get-ChildItem -Path $targetRoot -Recurse -File -Filter '*.exe' | Where-Object { $_.Directory.Name -eq 'release' })
-          $installers = @(Get-ChildItem -Path $targetRoot -Recurse -File -Filter '*-setup.exe')
-          if ($binaries.Count -ne 1) { throw "Expected one release executable; found $($binaries.Count): $($binaries.FullName -join ', ')" }
+          $releaseRoot = Join-Path $targetRoot '${{ matrix.target }}/release'
+          $binary = Join-Path $releaseRoot 'kalisigma.exe'
+          $installers = @(Get-ChildItem -Path (Join-Path $releaseRoot 'bundle/nsis') -File -Filter 'KaliSigma*-setup.exe')
+          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw "Missing KaliSigma release executable: $binary" }
           if ($installers.Count -eq 0) { throw 'NSIS installer was not generated' }
-          Copy-Item $binaries[0].FullName artifacts/windows/StructCalc.exe
+          Copy-Item $binary artifacts/windows/KaliSigma.exe
           $installers | ForEach-Object { Copy-Item $_.FullName artifacts/windows/ }
           Copy-Item tools/windows/* artifacts/windows/
       - name: Verify Windows WebView2 release and Rust persistence
         if: runner.os == 'Windows'
         shell: pwsh
-        run: node tools/smoke-windows.mjs artifacts/windows/StructCalc.exe
+        run: node tools/smoke-windows.mjs artifacts/windows/KaliSigma.exe
       - name: Upload Windows diagnostics
         if: runner.os == 'Windows' && always()
         uses: actions/upload-artifact@v4
@@ -91,7 +92,7 @@ jobs:
       - name: Upload desktop application
         uses: actions/upload-artifact@v4
         with:
-          name: structcalc-tauri-${{ matrix.platform }}
+          name: kalisigma-tauri-${{ matrix.platform }}
           path: |
             artifacts/windows/
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg

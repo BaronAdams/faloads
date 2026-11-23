@@ -156,7 +156,7 @@ mod application {
                 set_menu_context
             ])
             .run(tauri::generate_context!())
-            .expect("StructCalc could not initialize the native runtime");
+            .expect("KaliSigma could not initialize the native runtime");
     }
 }
 
