@@ -2,6 +2,16 @@ import type { FrameResult } from "./analysis";
 export type DiagramField = "M" | "V" | "N" | "v" | "theta";
 export const isForceDiagram = (field: DiagramField) =>
   field === "M" || field === "V" || field === "N";
+/** Local +y is +90° from A→B in the physical plane (SVG has downward +y). */
+export function diagramNormal(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+) {
+  const dx = b.x - a.x,
+    dy = b.y - a.y,
+    length = Math.hypot(dx, dy) || 1;
+  return { x: dy / length, y: -dx / length };
+}
 export const diagramUnit = (field: DiagramField) =>
   field === "M"
     ? "kN·m"

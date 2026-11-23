@@ -1,5 +1,6 @@
 export const buildingAnnotationNames = {
   slabs: "Planchers",
+  roof: "Toiture",
   beams: "Poutres",
   columns: "Poteaux",
   walls: "Voiles",
@@ -11,6 +12,7 @@ export type BuildingAnnotations = Record<
 > & { levels: boolean; axes: boolean };
 export const defaultBuildingAnnotations: BuildingAnnotations = {
   slabs: { labels: true, values: true },
+  roof: { labels: false, values: true },
   beams: { labels: true, values: false },
   columns: { labels: true, values: false },
   walls: { labels: true, values: false },

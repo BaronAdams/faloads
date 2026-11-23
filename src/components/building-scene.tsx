@@ -1,3 +1,4 @@
+import { roofAnalysis, roofGeometry, type Roof } from "@/domain/roof";
 import { caseValue, type LoadCase } from "@/components/building-3d";
 import { useCanvasGeometry } from "@/components/playground";
 import {
@@ -30,6 +31,7 @@ export function buildingPlanGeometry(
 }
 export function BuildingScene({
   floor,
+  roof,
   showInfluence,
   selected,
   results,
@@ -37,6 +39,7 @@ export function BuildingScene({
   field = "ELU",
 }: {
   floor: Floor;
+  roof?: Roof;
   showInfluence: boolean;
   selected: string | null;
   results: ReturnType<typeof buildingResults>;
@@ -49,6 +52,9 @@ export function BuildingScene({
     units,
     height,
   );
+  const roofData = roof?.enabled
+    ? { ...roofGeometry(floor, roof), ...roofAnalysis(floor, roof) }
+    : undefined;
   return (
     <>
       {xs.map((x, c) => (
@@ -100,6 +106,7 @@ export function BuildingScene({
         </g>
       ))}
       {Object.entries(floor.panels).map(([key, p]) => {
+        if (roof?.enabled && !roof.keepSlab) return null;
         const [c, r] = key.split(",").map(Number),
           x = X(xs[c]),
           y = Y(ys[r]),
@@ -430,6 +437,43 @@ export function BuildingScene({
           <tspan data-building-annotation="axes">{fmt(v)} m</tspan>
         </text>
       ))}
+      {roofData && (
+        <g data-testid="roof-plan" pointerEvents="none">
+          {roofData.facets.map((f) => (
+            <polygon
+              key={f.id}
+              points={f.points
+                .map((p) => {
+                  const q = roofData.toPlan(p);
+                  return `${X(q.x)},${Y(q.y)}`;
+                })
+                .join(" ")}
+              fill="var(--purple)"
+              fillOpacity=".04"
+              stroke="var(--purple)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {roofData.frames.map((u, i) => {
+            const a = roofData.toPlan({ u, v: 0 }),
+              b = roofData.toPlan({ u, v: roofData.D });
+            return (
+              <line
+                key={i}
+                x1={X(a.x)}
+                y1={Y(a.y)}
+                x2={X(b.x)}
+                y2={Y(b.y)}
+                stroke="var(--purple)"
+                strokeDasharray="5 6"
+                strokeOpacity=".6"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+        </g>
+      )}
     </>
   );
 }

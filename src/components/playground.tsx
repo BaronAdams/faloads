@@ -49,6 +49,12 @@ const CanvasPointer = createContext<{
   revealPoint: () => {},
 });
 export const useCanvasPointer = () => useContext(CanvasPointer);
+export type WorkspacePointer = {
+  x: number;
+  y: number;
+  units: number;
+  height: number;
+};
 export function Playground({
   children,
   onSelect,
@@ -65,9 +71,11 @@ export function Playground({
   onReset,
   probe = false,
   orbitAxis = "auto",
+  onPointerPosition,
 }: {
   children: ReactNode;
   probe?: boolean;
+  onPointerPosition?: (point: WorkspacePointer) => void;
   orbitAxis?: "auto" | "vertical" | "horizontal";
   onOrbit?: (delta: { x: number; y: number }) => void;
   onReset?: () => void;
@@ -121,6 +129,35 @@ export function Playground({
     pinch = useRef(false),
     pattern = useId().replace(/:/g, "");
   const compact = useCompactViewport();
+  const latestPointer = useRef(onPointerPosition);
+  latestPointer.current = onPointerPosition;
+  useEffect(() => {
+    if (!onPointerPosition) return;
+    const move = (event: PointerEvent) => {
+      const el = svg.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (
+        event.clientX < rect.left ||
+        event.clientX > rect.right ||
+        event.clientY < rect.top ||
+        event.clientY > rect.bottom
+      )
+        return;
+      const matrix = el.getScreenCTM();
+      if (!matrix) return;
+      const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(
+        matrix.inverse(),
+      );
+      latestPointer.current?.({
+        x: (point.x - v.current.x) / v.current.k,
+        y: (point.y - v.current.y) / v.current.k,
+        ...geometry,
+      });
+    };
+    document.addEventListener("pointermove", move);
+    return () => document.removeEventListener("pointermove", move);
+  }, [!!onPointerPosition, geometry]);
   const apply = (next: View) => {
     v.current = next;
     setView(next);

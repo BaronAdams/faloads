@@ -116,11 +116,13 @@ export function SceneMenu({
   onClose,
   actions,
   canPaste,
+  canDuplicate = true,
 }: {
   point: MenuPoint;
   onClose: () => void;
   actions: EditorActions;
   canPaste: boolean;
+  canDuplicate?: boolean;
 }) {
   return (
     <DropdownMenu
@@ -169,7 +171,10 @@ export function SceneMenu({
           Tout sélectionner<kbd>Ctrl A</kbd>
         </DropdownMenuItem>
         {actions.duplicate && (
-          <DropdownMenuItem onSelect={actions.duplicate}>
+          <DropdownMenuItem
+            onSelect={actions.duplicate}
+            disabled={!canDuplicate}
+          >
             <Copy />
             Dupliquer<kbd>Ctrl D</kbd>
           </DropdownMenuItem>

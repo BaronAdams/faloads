@@ -71,11 +71,11 @@ export function BuildingViewMenu({
       label: "Annotations",
       children: [
         ...Object.entries(buildingAnnotationNames).map(([key, label]) => ({
-          label,
+          label: key === "roof" && !is3D ? `${label} · vue 3D` : label,
           children: (["labels", "values"] as const).map((flag) => ({
             label:
               flag === "labels"
-                ? is3D && key !== "slabs"
+                ? is3D && !["slabs", "roof"].includes(key)
                   ? "Repères en plan"
                   : "Repères"
                 : "Valeurs",

@@ -1,3 +1,4 @@
+import { RoofEditor, RoofResults } from "@/components/roof-editor";
 import { BuildingViewMenu } from "@/components/building-view-menu";
 import { BuildingCriticalIcon } from "@/components/building-critical-icon";
 import { BuildingDuplication } from "@/components/building-duplication";
@@ -28,6 +29,7 @@ import {
   Columns3,
   Minus,
   Focus,
+  House,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -127,6 +129,7 @@ export function BuildingPage({ project }: { project?: Project }) {
     } | null>(null);
   const [parameters, setParameters] = useState(false),
     [gridOpen, setGridOpen] = useState(false),
+    [roofOpen, setRoofOpen] = useState(false),
     [focusAnnotations, setFocusAnnotations] = useState(false),
     [details, setDetails] = useState(false),
     [resultsOpen, setResultsOpen] = useState(false),
@@ -152,7 +155,9 @@ export function BuildingPage({ project }: { project?: Project }) {
   const current = calculation.fresh
     ? calculation.result?.find((r) => r.id === floor.id)
     : undefined;
-  const preview = buildingResults(floor),
+  const activeRoof =
+    floor.id === model.floors.at(-1)!.id ? model.roof : undefined;
+  const preview = buildingResults(floor, activeRoof),
     results = current?.results ?? preview;
   useEffect(() => {
     drafts.set(draftKey, model);
@@ -275,7 +280,14 @@ export function BuildingPage({ project }: { project?: Project }) {
     clear();
     setActive(0);
   };
-  const elements = buildingElements(floor),
+  const elements = buildingElements(floor).filter(
+      (e) =>
+        !(
+          activeRoof?.enabled &&
+          !activeRoof.keepSlab &&
+          e.key.startsWith("panel|")
+        ),
+    ),
     mixedSelection =
       selectedKeys.length > 1 && !selectionFamily(elements, selectedKeys),
     selected = !mixedSelection
@@ -1179,6 +1191,14 @@ export function BuildingPage({ project }: { project?: Project }) {
                 {contextualParameters}
               </RibbonGroup>
             )}
+            <RibbonGroup label="Toiture">
+              <IconButton
+                label="Configurer la toiture"
+                onClick={() => setRoofOpen(true)}
+              >
+                <House />
+              </IconButton>
+            </RibbonGroup>
             <RibbonGroup label="Vue">
               <Button
                 size="sm"
@@ -1488,6 +1508,7 @@ export function BuildingPage({ project }: { project?: Project }) {
           {view === "plan" ? (
             <BuildingScene
               floor={floor}
+              roof={activeRoof}
               showInfluence={influence}
               selected={selection}
               results={results}
@@ -1521,6 +1542,19 @@ export function BuildingPage({ project }: { project?: Project }) {
         </Playground>
         <CalculationOverlay busy={calculation.busy} />
       </div>
+      <RoofEditor
+        open={roofOpen}
+        onOpenChange={setRoofOpen}
+        value={model.roof}
+        floor={model.floors.at(-1)!}
+        onApply={(roof) => {
+          if (!commit({ ...model, roof })) return false;
+          clear();
+          setActive(model.floors.length - 1);
+          if (roof.enabled) setView("3d");
+          return true;
+        }}
+      />
       <ParametersContainer
         open={gridOpen}
         onOpenChange={openGrid}
@@ -1610,6 +1644,9 @@ export function BuildingPage({ project }: { project?: Project }) {
           />
           {calculation.fresh && calculation.result ? (
             <>
+              {calculation.result[0].local.roof && (
+                <RoofResults roof={calculation.result[0].local.roof} />
+              )}
               <Panel title="Cumul du haut vers le bas">
                 <div className="table-wrap">
                   <table data-testid="building-cumulative">

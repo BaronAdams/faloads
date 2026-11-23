@@ -1,3 +1,4 @@
+import { roofAnalysis, roofGeometry } from "@/domain/roof";
 import { type ReactNode } from "react";
 import {
   type BuildingModel,
@@ -60,6 +61,18 @@ export function Building3D({
     }
     return { f, i, xs, ys, base, z: elevation };
   });
+  const roofData = model.roof?.enabled
+    ? {
+        ...roofGeometry(model.floors.at(-1)!, model.roof),
+        ...roofAnalysis(model.floors.at(-1)!, model.roof),
+      }
+    : undefined;
+  if (roofData)
+    for (const facet of roofData.facets)
+      for (const p of facet.points) {
+        const q = roofData.toPlan(p);
+        corners.push([q.x, q.y, elevation + p.z]);
+      }
   const minX = Math.min(...corners.map((p) => p[0])),
     minY = Math.min(...corners.map((p) => p[1]));
   const extentX = Math.max(...corners.map((p) => p[0])) - minX,
@@ -67,7 +80,7 @@ export function Building3D({
   const { project, scale } = buildingProjection(
     extentX,
     extentY,
-    elevation,
+    elevation + (model.roof?.enabled ? model.roof.rise : 0),
     yaw,
     pitch,
     height,
@@ -120,7 +133,14 @@ export function Building3D({
           : null,
     });
     for (const [key, p] of Object.entries(f.panels))
-      if (p.exists) {
+      if (
+        p.exists &&
+        !(
+          f.id === model.floors.at(-1)!.id &&
+          model.roof?.enabled &&
+          !model.roof.keepSlab
+        )
+      ) {
         annotationOwner = `${f.id}|panel|${key}`;
         const visible =
           annotated &&
@@ -334,6 +354,146 @@ export function Building3D({
                 chosen ? "var(--orange)" : "var(--foreground)",
               )}
           </g>
+        ),
+      });
+    }
+  }
+  if (roofData && model.roof) {
+    const r = model.roof,
+      active = activeFloor === model.floors.at(-1)!.id;
+    const R = (u: number, v: number, z: number) => {
+      const q = roofData.toPlan({ u, v });
+      return P(q.x, q.y, elevation + z);
+    };
+    for (const facet of roofData.facets) {
+      const points = facet.points.map((p) => R(p.u, p.v, p.z));
+      const center = {
+        x: points.reduce((s, p) => s + p.x, 0) / points.length,
+        y: points.reduce((s, p) => s + p.y, 0) / points.length,
+      };
+      annotationOwner = `roof|face|${facet.id}`;
+      if (!annotationTarget && (allLevels || active)) {
+        if (annotations.roof.labels)
+          label(center.x, center.y, `Pan ${facet.id}`);
+        if (annotations.roof.values)
+          label(
+            center.x,
+            center.y + 14 * textSize,
+            `${field} ${fmt(caseValue(facet.g, facet.q, field))} kN/m² (plan)`,
+          );
+      }
+      shapes.push({
+        key: `roof-face-${facet.id}`,
+        depth: points.reduce((s, p) => s + p.depth, 0) / points.length,
+        render: (
+          <polygon
+            data-testid="roof-facet"
+            data-roof-face={facet.id}
+            points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill="var(--purple)"
+            fillOpacity={active ? 0.12 : 0.05}
+            stroke="var(--purple)"
+            strokeOpacity={active ? 0.8 : 0.4}
+            strokeWidth="1.1"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+        ),
+      });
+    }
+    for (const [i, u] of roofData.frames.entries()) {
+      const vs =
+          r.shape === "mono"
+            ? [0, roofData.D]
+            : [0, roofData.D / 2, roofData.D],
+        top = vs.map((v) => R(u, v, roofData.height(u, v))),
+        a = R(u, 0, 0),
+        b = R(u, roofData.D, 0);
+      shapes.push({
+        key: `roof-frame-${i}`,
+        depth: (a.depth + b.depth) / 2 + 0.01,
+        render: (
+          <g
+            data-testid="roof-truss"
+            pointerEvents="none"
+            stroke="var(--purple)"
+            strokeWidth="1.7"
+            fill="none"
+            opacity={active ? 1 : 0.5}
+          >
+            <polyline
+              points={top.map((p) => `${p.x},${p.y}`).join(" ")}
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={a.x}
+              y1={a.y}
+              x2={b.x}
+              y2={b.y}
+              vectorEffect="non-scaling-stroke"
+            />
+            {r.shape === "mono" && (
+              <line
+                x1={b.x}
+                y1={b.y}
+                x2={top.at(-1)!.x}
+                y2={top.at(-1)!.y}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            {[1, 2, 3].map((j) => {
+              const base = R(u, (roofData.D * j) / 4, 0),
+                end = R(
+                  u,
+                  (roofData.D * (j % 2 === 0 ? j - 1 : j + 1)) / 4,
+                  roofData.height(
+                    u,
+                    (roofData.D * (j % 2 === 0 ? j - 1 : j + 1)) / 4,
+                  ),
+                );
+              return (
+                <line
+                  key={j}
+                  x1={base.x}
+                  y1={base.y}
+                  x2={end.x}
+                  y2={end.y}
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+          </g>
+        ),
+      });
+    }
+    const n = Math.min(100, Math.ceil(roofData.D / r.purlinSpacing));
+    for (let i = 0; i <= n; i++) {
+      const v = (roofData.D * i) / n,
+        limit =
+          (Math.min(roofData.L, roofData.D) / 2) *
+          Math.min(
+            1,
+            (2 * v) / roofData.D,
+            (2 * (roofData.D - v)) / roofData.D,
+          );
+      const us = [
+          ...new Set([...roofData.frames, limit, roofData.L - limit]),
+        ].sort((a, b) => a - b),
+        points = us.map((u) => R(u, v, roofData.height(u, v)));
+      shapes.push({
+        key: `roof-purlin-${i}`,
+        depth: points.reduce((s, p) => s + p.depth, 0) / points.length + 0.02,
+        render: (
+          <polyline
+            points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill="none"
+            stroke="var(--primary)"
+            strokeOpacity=".65"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
         ),
       });
     }

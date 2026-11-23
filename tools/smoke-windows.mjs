@@ -185,6 +185,21 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .getByRole("button", { name: "Fermer le panneau", exact: true })
         .click();
       await page.getByRole("button", { name: "Moment M", exact: true }).click();
+      const positiveOrdinates = await page
+        .getByTestId("playground")
+        .evaluate((el) => {
+          const axis = el.querySelector('[data-testid="diagram-axis"]');
+          return [...el.querySelectorAll('[data-testid="diagram-value"]')]
+            .filter((n) => Number(n.getAttribute("data-value")) > 0.01)
+            .map(
+              (n) =>
+                Number(
+                  n.parentElement.querySelector("circle").getAttribute("cy"),
+                ) < Number(axis.getAttribute("y1")),
+            );
+        });
+      expect(positiveOrdinates.length).toBeGreaterThan(0);
+      expect(positiveOrdinates.every(Boolean)).toBe(true);
       const axis = await page.getByTestId("diagram-axis").boundingBox();
       await page.mouse.move(axis.x + axis.width * 0.5, axis.y - 50);
       await expect(page.getByTestId("structure-probe")).toContainText("kN·m");
@@ -224,6 +239,24 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await page
         .getByRole("button", { name: "Structure", exact: true })
         .click();
+      await page.locator('[data-element^="load:"]').last().press("Enter");
+      const beamAxis = await page
+        .locator('[data-element^="section:"]')
+        .first()
+        .locator("line")
+        .first()
+        .boundingBox();
+      await page.mouse.move(
+        beamAxis.x + beamAxis.width * 0.35,
+        beamAxis.y - 25,
+      );
+      await page.getByTestId("playground").focus();
+      await page.keyboard.press("Control+d");
+      await expect(page.locator('[data-element^="load:"]')).toHaveCount(3);
+      await analysisHeader
+        .getByRole("button", { name: "Annuler", exact: true })
+        .click();
+      await expect(page.locator('[data-element^="load:"]')).toHaveCount(2);
       await page
         .getByRole("button", { name: "Enregistrer", exact: true })
         .click();
@@ -343,6 +376,49 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       ).not.toContainText(/Poutre|Poteau/);
       await page.screenshot({
         path: "native-test-results/windows-building-focus.png",
+        fullPage: true,
+      });
+      await header
+        .getByRole("button", { name: "Configurer la toiture", exact: true })
+        .click();
+      const roofDialog = page.getByRole("dialog");
+      await roofDialog
+        .getByRole("switch", {
+          name: "Ajouter une toiture au bâtiment",
+          exact: true,
+        })
+        .click();
+      await roofDialog
+        .getByLabel("Intensité de charge 1", { exact: true })
+        .fill("0.4");
+      await roofDialog
+        .getByLabel("Intensité de charge 2", { exact: true })
+        .fill("0.2");
+      await roofDialog
+        .getByLabel("Intensité de charge 3", { exact: true })
+        .fill("0.75");
+      await roofDialog
+        .getByRole("button", { name: "Appliquer la toiture", exact: true })
+        .click();
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+      await expect(page.getByTestId("roof-facet")).toHaveCount(2);
+      await header
+        .getByRole("button", { name: "Calculer le bâtiment", exact: true })
+        .click();
+      await expect(page.getByTestId("roof-reactions")).toBeVisible();
+      await expect(page.getByTestId("roof-balance")).toContainText(
+        "0,000000 kN",
+      );
+      await page.screenshot({
+        path: "native-test-results/windows-roof-results.png",
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "Fermer le panneau", exact: true })
+        .click();
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+      await page.screenshot({
+        path: "native-test-results/windows-roof.png",
         fullPage: true,
       });
     } else {

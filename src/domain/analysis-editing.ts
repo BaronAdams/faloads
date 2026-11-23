@@ -29,10 +29,16 @@ export function analysisElements(
           member: m.mem,
           nodal: m.nl,
           "member-load": m.pl,
-          "member-dist": m.mem.filter(
-            (b) =>
-              b.w !== 0 || (b.w2 ?? 0) !== 0 || b.q !== 0 || (b.q2 ?? 0) !== 0,
-          ),
+          "member-dist": [
+            ...m.mem.filter(
+              (b) =>
+                b.w !== 0 ||
+                (b.w2 ?? 0) !== 0 ||
+                b.q !== 0 ||
+                (b.q2 ?? 0) !== 0,
+            ),
+            ...(m.dl ?? []),
+          ],
         };
   return Object.entries(collections).flatMap(([type, values]) =>
     values.map((value: { id: string } & Record<string, unknown>) => ({
@@ -127,6 +133,12 @@ export function deleteAnalysis(
         !keys.includes(`member-load:${v.id}`) &&
         next.kind === "frame" &&
         next.mem.some((m) => m.id === v.member),
+    );
+    next.dl = next.dl?.filter(
+      (v) =>
+        !keys.includes(`member-dist:${v.id}`) &&
+        next.kind === "frame" &&
+        next.mem.some((b) => b.id === v.member),
     );
   }
   return next;

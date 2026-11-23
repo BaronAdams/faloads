@@ -1,3 +1,9 @@
+import {
+  duplicateAnalysis,
+  frameCanvas,
+  frameBounds,
+  type FrameBounds,
+} from "@/domain/analysis-duplication";
 import { AnalysisSelectionSummary } from "@/components/analysis-selection-summary";
 import { ProfilePicker, ProfileDimensions } from "@/components/section-profile";
 import { profileProperties, type ProfileShape } from "@/domain/section-profile";
@@ -37,7 +43,7 @@ import {
   StructuralDiagram,
   type DiagramCurve,
 } from "@/components/structural-diagram";
-import { frameDisplacement } from "@/domain/diagram";
+import { frameDisplacement, diagramNormal } from "@/domain/diagram";
 import { useCalculation } from "@/lib/use-calculation";
 import {
   CalculationOverlay,
@@ -108,6 +114,7 @@ import {
   load,
   removeFrameNode,
   frameSupportNames,
+  frameDistributions,
   type AnalysisModel,
   type BeamModel,
   type FrameModel,
@@ -366,7 +373,54 @@ export function AnalysisPage({
     );
     commit(patchAnalysis(model, selectedKeys, delta));
   };
+  const duplicationPointer = useRef<{
+    x: number;
+    y: number;
+    units: number;
+    height: number;
+  } | null>(null);
+  const [fixedFrameBounds, setFixedFrameBounds] = useState<FrameBounds>();
   const actions: EditorActions = {
+    duplicate: () => {
+      const pointer = duplicationPointer.current;
+      if (displayView !== "structure" || !pointer) {
+        toast.info("Placez le curseur dans le dessin en vue Structure.");
+        return;
+      }
+      try {
+        const target =
+          model.kind === "beam"
+            ? { x: ((pointer.x - 80) * model.L) / 840, y: 0 }
+            : frameCanvas(
+                model,
+                pointer.height,
+                pointer.units,
+                fixedFrameBounds,
+              ).inverse(pointer);
+        const copy = duplicateAnalysis(
+          model,
+          selectedKeys.length
+            ? selectedKeys
+            : selection
+              ? [`${selection.type}:${selection.id}`]
+              : [],
+          target,
+        );
+        if (model.kind === "frame" && !fixedFrameBounds)
+          setFixedFrameBounds(frameBounds(model));
+        commit(copy.model);
+        setSelectedKeys(copy.keys);
+        const [type, id] = copy.keys.at(-1)!.split(":");
+        setSelection({ type: type as Selection["type"], id });
+        setMenu(null);
+        setEditor(null);
+        toast.success(
+          `${copy.keys.length} élément${copy.keys.length > 1 ? "s" : ""} dupliqué${copy.keys.length > 1 ? "s" : ""}.`,
+        );
+      } catch (e) {
+        toast.error((e as Error).message);
+      }
+    },
     modify: () => {
       if (selection) {
         setEditor(structuredClone(model));
@@ -497,35 +551,36 @@ export function AnalysisPage({
       ["member-load", "member-dist"].includes(type)
     ) {
       const l = next.pl.find((v) => v.id === id);
+      const distribution =
+        next.dl?.find((v) => v.id === id) ?? next.mem.find((v) => v.id === id);
       const m =
         type === "member-dist"
-          ? next.mem.find((v) => v.id === id)!
+          ? next.mem.find(
+              (v) =>
+                v.id ===
+                (distribution && "member" in distribution
+                  ? distribution.member
+                  : id),
+            )!
           : next.mem.find((v) => v.id === l!.member)!;
       const a = next.nodes[m.a - 1],
         b = next.nodes[m.b - 1];
-      const minX = Math.min(...next.nodes.map((v) => v.x)),
-        maxX = Math.max(...next.nodes.map((v) => v.x)),
-        minY = Math.min(...next.nodes.map((v) => v.y)),
-        maxY = Math.max(...next.nodes.map((v) => v.y));
-      const scale = Math.min(
-        Math.max(100, Math.min(760, 1000 - 170 * units)) /
-          Math.max(1, maxX - minX),
-        Math.max(60, height - 350 * units) / Math.max(1, maxY - minY),
-      );
+      const scale = frameCanvas(next, height, units, fixedFrameBounds).scale;
       const dx = b.x - a.x,
         dy = b.y - a.y;
       const dt = (delta.x * dx - delta.y * dy) / (scale * (dx * dx + dy * dy));
       if (type === "member-dist") {
-        const start = m.loadStart ?? 0,
-          end = m.loadEnd ?? 1;
+        const d = distribution!;
+        const start = d.loadStart ?? 0,
+          end = d.loadEnd ?? 1;
         if (handle === "start")
-          m.loadStart = Math.max(0, Math.min(end - 0.0001, start + dt));
+          d.loadStart = Math.max(0, Math.min(end - 0.0001, start + dt));
         else if (handle === "end")
-          m.loadEnd = Math.min(1, Math.max(start + 0.0001, end + dt));
+          d.loadEnd = Math.min(1, Math.max(start + 0.0001, end + dt));
         else {
           const length = end - start;
-          m.loadStart = Math.max(0, Math.min(1 - length, start + dt));
-          m.loadEnd = m.loadStart + length;
+          d.loadStart = Math.max(0, Math.min(1 - length, start + dt));
+          d.loadEnd = d.loadStart + length;
         }
       } else l!.t = Math.max(0, Math.min(1, l!.t + dt));
     } else return;
@@ -559,7 +614,8 @@ export function AnalysisPage({
           Math.max(load.x1 + 0.001, load.x2 + direction * 0.01),
         );
     } else if (type === "member-dist") {
-      const m = next.mem.find((m) => m.id === id)!;
+      const m =
+        next.dl?.find((m) => m.id === id) ?? next.mem.find((m) => m.id === id)!;
       if (edge === "start")
         m.loadStart = Math.max(
           0,
@@ -619,6 +675,9 @@ export function AnalysisPage({
         if (selection.type === "nodal")
           next.nl = next.nl.filter((m) => m.id !== id);
         next.pl = next.pl.filter(
+          (l) => l.id !== id && next.mem.some((m) => m.id === l.member),
+        );
+        next.dl = next.dl?.filter(
           (l) => l.id !== id && next.mem.some((m) => m.id === l.member),
         );
         commit(next);
@@ -953,11 +1012,16 @@ export function AnalysisPage({
         onClose={() => setMenu(null)}
         actions={actions}
         canPaste={!!clipboard && clipboard.family === selectedElement?.family}
+        canDuplicate={selectedKeys.some((key) => !key.startsWith("section:"))}
       />
       <QuickAnalysis kind={kind} open={quick} onOpenChange={setQuick} />
       <div className="analysis-canvas-workspace" aria-busy={calculation.busy}>
         <Playground
           probe
+          onPointerPosition={(point) => {
+            duplicationPointer.current = point;
+          }}
+          onReset={() => setFixedFrameBounds(undefined)}
           immersive
           height={600}
           onSelect={displayView === "structure" ? select : undefined}
@@ -1049,6 +1113,7 @@ export function AnalysisPage({
               reactions={reactions}
               view={displayView}
               amplification={amplification}
+              fixedBounds={fixedFrameBounds}
             />
           )}
         </Playground>
@@ -1067,6 +1132,7 @@ export function AnalysisPage({
             onChange={(v) => {
               if (v !== "current") {
                 clear();
+                setFixedFrameBounds(undefined);
                 commit({
                   ...(kind === "beam" ? beamPreset(v) : framePreset(v)),
                   sectionTypes: model.sectionTypes,
@@ -1282,6 +1348,18 @@ export function AnalysisPage({
                   Ajouter une barre
                 </Button>
               </Panel>
+              {(model.dl?.length ?? 0) > 0 && (
+                <Panel title="Charges réparties indépendantes">
+                  {model.dl!.map((d, i) => (
+                    <ElementRow
+                      key={d.id}
+                      label={`Charge répartie ${i + 1}`}
+                      detail={`${fmt(d.w)} → ${fmt(d.w2 ?? d.w)} kN/m`}
+                      onClick={() => open({ type: "member-dist", id: d.id })}
+                    />
+                  ))}
+                </Panel>
+              )}
               <Panel>
                 <Disclosure
                   title={`Charges nodales · ${model.nl.length}`}
@@ -2138,14 +2216,27 @@ function ElementEditor({
     );
   }
   if (model.kind === "frame" && selection.type === "member-dist") {
-    const b = model.mem.find((m) => m.id === selection.id)!;
+    const b = frameDistributions(model).find((m) => m.id === selection.id)!;
     const patch = (p: Partial<typeof b>) =>
       onChange({
         ...model,
-        mem: model.mem.map((m) => (m.id === b.id ? { ...b, ...p } : m)),
+        mem: model.mem.map((m) => (m.id === b.id ? { ...m, ...p } : m)),
+        dl: model.dl?.map((d) => (d.id === b.id ? { ...d, ...p } : d)),
       });
     return (
       <div className="editor-fields">
+        {model.dl?.some((d) => d.id === b.id) && (
+          <Choice
+            label="Barre porteuse"
+            value={b.member}
+            options={model.mem.map((m, i) => ({
+              value: m.id,
+              label: `B${i + 1}`,
+            }))}
+            onChange={(member) => patch({ member })}
+          />
+        )}
+
         <FormGrid>
           <Numeric
             label="Début de la charge"
@@ -2493,7 +2584,14 @@ function BeamScene({
       b: { x: X(model.L), y },
       points: result.x.map((x, i) => ({
         x: X(x),
-        y: y + (values[i] / max) * 90 * units,
+        y:
+          y +
+          (view === "v"
+            ? 1
+            : diagramNormal(readingMember.a, readingMember.b).y) *
+            (values[i] / max) *
+            90 *
+            units,
         station: x,
         value: values[i],
       })),
@@ -2799,6 +2897,7 @@ function FrameScene({
   reactions,
   view,
   amplification,
+  fixedBounds,
 }: {
   model: FrameModel;
   selected: string | null;
@@ -2807,22 +2906,11 @@ function FrameScene({
   reactions: boolean;
   view: View;
   amplification: number;
+  fixedBounds?: FrameBounds;
 }) {
   const { units, height } = useCanvasGeometry();
-  const minX = Math.min(...model.nodes.map((n) => n.x)),
-    maxX = Math.max(...model.nodes.map((n) => n.x)),
-    minY = Math.min(...model.nodes.map((n) => n.y)),
-    maxY = Math.max(...model.nodes.map((n) => n.y)),
-    scale = Math.min(
-      Math.max(100, Math.min(760, 1000 - 170 * units)) /
-        Math.max(1, maxX - minX),
-      Math.max(60, height - 350 * units) / Math.max(1, maxY - minY),
-    ),
-    X = (x: number) => (1000 - (maxX - minX) * scale) / 2 + (x - minX) * scale,
-    Y = (y: number) =>
-      210 * units +
-      (Math.max(60, height - 350 * units) + (maxY - minY) * scale) / 2 -
-      (y - minY) * scale;
+  const { X, Y } = frameCanvas(model, height, units, fixedBounds);
+  const { minX, maxX, minY, maxY } = frameBounds(model);
   if (result && view !== "structure") {
     const max = Math.max(
       1e-12,
@@ -2845,8 +2933,8 @@ function FrameScene({
           };
         }
         return {
-          x: X(x) + ((r.g.s * p[view]) / max) * 60 * units,
-          y: Y(y) + ((r.g.c * p[view]) / max) * 60 * units,
+          x: X(x) - ((r.g.s * p[view]) / max) * 60 * units,
+          y: Y(y) - ((r.g.c * p[view]) / max) * 60 * units,
           station: p.x,
           value: p[view],
         };
@@ -2949,47 +3037,43 @@ function FrameScene({
           </g>
         );
       })}
-      {model.mem
-        .filter(
-          (m) =>
-            m.w !== 0 || (m.w2 ?? 0) !== 0 || m.q !== 0 || (m.q2 ?? 0) !== 0,
-        )
-        .map((m, i) => {
-          const a = model.nodes[m.a - 1],
-            b = model.nodes[m.b - 1],
-            length = Math.hypot(b.x - a.x, b.y - a.y),
-            c = (b.x - a.x) / length,
-            si = (b.y - a.y) / length,
-            start = m.loadStart ?? 0,
-            end = m.loadEnd ?? 1;
-          return (
-            <DistributedLoad
-              key={`dist:${m.id}`}
-              elementKey={`member-dist:${m.id}`}
-              identifier={`q${i + 1}`}
-              a={{
-                x: X(a.x + (b.x - a.x) * start),
-                y: Y(a.y + (b.y - a.y) * start),
-              }}
-              b={{
-                x: X(a.x + (b.x - a.x) * end),
-                y: Y(a.y + (b.y - a.y) * end),
-              }}
-              forceA={{ x: -m.q * si, y: m.w - m.q * c }}
-              forceB={{
-                x: -(m.q2 ?? m.q) * si,
-                y: (m.w2 ?? m.w) - (m.q2 ?? m.q) * c,
-              }}
-              label={`${fmt(m.w)} → ${fmt(m.w2 ?? m.w)} kN/m${m.q !== 0 || (m.q2 ?? 0) !== 0 ? ` · qᵧ ${fmt(m.q)} → ${fmt(m.q2 ?? m.q)} kN/m` : ""}`}
-              selected={selected === `member-dist:${m.id}`}
-              start={start * 100}
-              end={end * 100}
-              onNudge={(edge, direction) =>
-                onNudge(`member-dist:${m.id}`, edge, direction)
-              }
-            />
-          );
-        })}
+      {frameDistributions(model).map((m, i) => {
+        const member = model.mem.find((b) => b.id === m.member)!;
+        const a = model.nodes[member.a - 1],
+          b = model.nodes[member.b - 1],
+          length = Math.hypot(b.x - a.x, b.y - a.y),
+          c = (b.x - a.x) / length,
+          si = (b.y - a.y) / length,
+          start = m.loadStart ?? 0,
+          end = m.loadEnd ?? 1;
+        return (
+          <DistributedLoad
+            key={`dist:${m.id}`}
+            elementKey={`member-dist:${m.id}`}
+            identifier={`q${i + 1}`}
+            a={{
+              x: X(a.x + (b.x - a.x) * start),
+              y: Y(a.y + (b.y - a.y) * start),
+            }}
+            b={{
+              x: X(a.x + (b.x - a.x) * end),
+              y: Y(a.y + (b.y - a.y) * end),
+            }}
+            forceA={{ x: -m.q * si, y: m.w - m.q * c }}
+            forceB={{
+              x: -(m.q2 ?? m.q) * si,
+              y: (m.w2 ?? m.w) - (m.q2 ?? m.q) * c,
+            }}
+            label={`${fmt(m.w)} → ${fmt(m.w2 ?? m.w)} kN/m${m.q !== 0 || (m.q2 ?? 0) !== 0 ? ` · qᵧ ${fmt(m.q)} → ${fmt(m.q2 ?? m.q)} kN/m` : ""}`}
+            selected={selected === `member-dist:${m.id}`}
+            start={start * 100}
+            end={end * 100}
+            onNudge={(edge, direction) =>
+              onNudge(`member-dist:${m.id}`, edge, direction)
+            }
+          />
+        );
+      })}
       {model.nodes.map((n, i) => (
         <g
           key={n.id}

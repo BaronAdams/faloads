@@ -128,6 +128,21 @@ export const frameSchema = z
       .array(z.object({ id, member: id, t: n.min(0).max(1), fx: n, fy: n }))
       .max(100)
       .default([]),
+    dl: z
+      .array(
+        z.object({
+          id,
+          member: id,
+          w: n,
+          q: n,
+          w2: n.optional(),
+          q2: n.optional(),
+          loadStart: n.min(0).max(1),
+          loadEnd: n.min(0).max(1),
+        }),
+      )
+      .max(100)
+      .optional(),
     E: n.positive().max(1e4),
     nodes: z
       .array(
@@ -174,6 +189,16 @@ export const frameSchema = z
       .max(160),
   })
   .superRefine((m, ctx) => {
+    for (const load of m.dl ?? []) {
+      if (
+        load.loadStart >= load.loadEnd ||
+        !m.mem.some((b) => b.id === load.member)
+      )
+        ctx.addIssue({
+          code: "custom",
+          message: "Charge répartie : barre ou intervalle invalide.",
+        });
+    }
     for (const member of m.mem) {
       if ((member.loadStart ?? 0) >= (member.loadEnd ?? 1))
         ctx.addIssue({
@@ -199,6 +224,16 @@ export const frameSchema = z
       });
   });
 export type FrameModel = z.infer<typeof frameSchema>;
+export function frameDistributions(model: FrameModel) {
+  return [
+    ...model.mem
+      .filter(
+        (b) => b.w !== 0 || (b.w2 ?? 0) !== 0 || b.q !== 0 || (b.q2 ?? 0) !== 0,
+      )
+      .map((b) => ({ ...b, member: b.id })),
+    ...(model.dl ?? []),
+  ];
+}
 export type AnalysisModel = BeamModel | FrameModel;
 export interface BeamResult {
   ok: boolean;
@@ -324,9 +359,23 @@ export function solveFrame(model: z.input<typeof frameSchema>): FrameResult {
     const loads = parsed.pl.filter((l) => l.member === member.id);
     const start = member.loadStart ?? 0,
       end = member.loadEnd ?? 1;
+    const distributions = [
+      { ...member, loadStart: start, loadEnd: end },
+      ...(parsed.dl ?? []).filter((d) => d.member === member.id),
+    ];
+    const tolerance = 1e-6 / Math.max(length, 1e-7);
     const stations = [
-      ...new Set([0, start, end, ...loads.map((l) => l.t), 1]),
-    ].sort((a, b) => a - b);
+      0,
+      ...distributions.flatMap((d) => [d.loadStart, d.loadEnd]),
+      ...loads.map((l) => l.t),
+      1,
+    ]
+      .map((t) => (t < tolerance ? 0 : 1 - t < tolerance ? 1 : t))
+      .sort((a, b) => a - b)
+      .reduce<number[]>((kept, t) => {
+        if (!kept.length || t - kept.at(-1)! > tolerance) kept.push(t);
+        return kept;
+      }, []);
     const nodes = stations.map((t) => {
       if (t === 0) return member.a;
       if (t === 1) return member.b;
@@ -341,7 +390,7 @@ export function solveFrame(model: z.input<typeof frameSchema>): FrameResult {
     for (const l of loads)
       expanded.nl.push({
         id: l.id,
-        n: nodes[stations.indexOf(l.t)],
+        n: nodes[stations.findIndex((t) => Math.abs(t - l.t) <= tolerance)],
         fx: l.fx,
         fy: l.fy,
         m: 0,
@@ -360,19 +409,28 @@ export function solveFrame(model: z.input<typeof frameSchema>): FrameResult {
     });
     for (let i = 0; i < nodes.length - 1; i++) {
       const t0 = stations[i],
-        t1 = stations[i + 1],
-        inside = (t0 + t1) / 2 > start && (t0 + t1) / 2 < end;
-      const interpolate = (first: number, last: number, t: number) =>
-        first + ((last - first) * (t - start)) / (end - start);
+        t1 = stations[i + 1];
+      const intensity = (axis: "w" | "q", t: number) =>
+        distributions.reduce((sum, d) => {
+          if ((t0 + t1) / 2 <= d.loadStart || (t0 + t1) / 2 >= d.loadEnd)
+            return sum;
+          return (
+            sum +
+            d[axis] +
+            (((d[axis === "w" ? "w2" : "q2"] ?? d[axis]) - d[axis]) *
+              (t - d.loadStart)) /
+              (d.loadEnd - d.loadStart)
+          );
+        }, 0);
       expanded.mem.push({
         ...member,
         ...properties,
         a: nodes[i],
         b: nodes[i + 1],
-        w: inside ? interpolate(member.w, member.w2 ?? member.w, t0) : 0,
-        w2: inside ? interpolate(member.w, member.w2 ?? member.w, t1) : 0,
-        q: inside ? interpolate(member.q, member.q2 ?? member.q, t0) : 0,
-        q2: inside ? interpolate(member.q, member.q2 ?? member.q, t1) : 0,
+        w: intensity("w", t0),
+        w2: intensity("w", t1),
+        q: intensity("q", t0),
+        q2: intensity("q", t1),
       });
     }
   }
@@ -567,6 +625,9 @@ export function removeFrameNode(model: FrameModel, index: number): FrameModel {
       .filter((l) => l.n !== n)
       .map((l) => ({ ...l, n: l.n > n ? l.n - 1 : l.n })),
     pl: model.pl.filter((l) =>
+      model.mem.some((b) => b.id === l.member && b.a !== n && b.b !== n),
+    ),
+    dl: model.dl?.filter((l) =>
       model.mem.some((b) => b.id === l.member && b.a !== n && b.b !== n),
     ),
   };
