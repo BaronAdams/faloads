@@ -124,15 +124,17 @@ test("Ctrl D and the context menu place independent beam copies at the mouse abs
   await expect(
     page.getByRole("menuitem", { name: /^Dupliquer/ }),
   ).toBeVisible();
-  const menu = page.getByRole("menuitem", { name: /^Dupliquer/ }),
-    m = (await menu.boundingBox())!;
+  const menu = page.getByRole("menuitem", { name: /^Dupliquer/ });
+  // Measure after the entrance animation, then click the measured screen point.
+  await menu.click({ trial: true });
+  const m = (await menu.boundingBox())!,
+    clickX = Math.round(m.x + m.width / 2),
+    clickY = Math.round(m.y + m.height / 2);
   const axis = (await line.boundingBox())!,
-    expected = Math.max(
-      0,
-      Math.min(8, ((m.x + m.width / 2 - axis.x) / axis.width) * 8),
-    );
-  await menu.click();
+    expected = Math.max(0, Math.min(8, ((clickX - axis.x) / axis.width) * 8));
+  await page.mouse.click(clickX, clickY);
   await expect(page.locator('[data-element^="load:"]')).toHaveCount(4);
+  await expect(page.locator('[role="menu"]')).toHaveCount(0);
   await page.locator('[data-element^="section:"]').first().press("Enter");
   await page.getByTestId("playground").focus();
   await page.keyboard.press("Control+d");
