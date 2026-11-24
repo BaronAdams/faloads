@@ -1,10 +1,10 @@
-StructCalc 0.2 - Tauri 2 / React
+KaliSigma 0.2 - Tauri 2 / React
 
 Pour Windows 10/11 x64 :
 1. Extrayez completement l'archive GitHub.
 2. Utilisez l'installateur *-setup.exe : il verifie et installe WebView2 si
    necessaire (connexion Internet requise lors de cette installation).
-3. StructCalc.exe est egalement fourni en version portable ; WebView2 doit
+3. KaliSigma.exe est egalement fourni en version portable ; WebView2 doit
    deja etre installe sur le PC pour cette version.
 
 Si l'affichage est noir, fermez la fenetre puis ouvrez

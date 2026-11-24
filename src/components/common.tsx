@@ -1,3 +1,4 @@
+import { compactNumber } from "@/lib/compact-number";
 import {
   Dialog,
   DialogContent,
@@ -65,8 +66,34 @@ export function IconButton({
 }: { label: string; children: ReactNode } & React.ComponentProps<
   typeof Button
 >) {
+  const [placement, setPlacement] = useState<{
+    project: boolean;
+    side: "top" | "bottom";
+    align: "start" | "center" | "end";
+    maxWidth?: number;
+  }>({ project: false, side: "top", align: "center" });
+  const positionTooltip = (button: HTMLButtonElement) => {
+    if (!button.closest(".project-header")) return;
+    const box = button.getBoundingClientRect(),
+      grid = button
+        .closest(".ribbon-fields, .project-actions")
+        ?.getBoundingClientRect(),
+      start = box.left + box.width / 2 < window.innerWidth / 2;
+    setPlacement({
+      project: true,
+      side:
+        grid && box.top + box.height / 2 > grid.top + grid.height / 2 + 1
+          ? "bottom"
+          : "top",
+      align: start ? "start" : "end",
+      maxWidth: Math.max(
+        48,
+        start ? window.innerWidth - box.left - 8 : box.right - 8,
+      ),
+    });
+  };
   return (
-    <Tooltip>
+    <Tooltip delayDuration={350} disableHoverableContent>
       <TooltipTrigger asChild>
         <Button
           type="button"
@@ -74,11 +101,29 @@ export function IconButton({
           variant="ghost"
           aria-label={label}
           {...props}
+          onPointerEnter={(event) => {
+            positionTooltip(event.currentTarget);
+            props.onPointerEnter?.(event);
+          }}
+          onFocus={(event) => {
+            positionTooltip(event.currentTarget);
+            props.onFocus?.(event);
+          }}
         >
           {children}
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
+      <TooltipContent
+        side={placement.side}
+        align={placement.align}
+        sideOffset={placement.project ? 4 : 0}
+        avoidCollisions={!placement.project}
+        hideArrow={placement.project}
+        className={placement.project ? "project-header-tooltip" : undefined}
+        style={placement.project ? { maxWidth: placement.maxWidth } : undefined}
+      >
+        {label}
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -209,6 +254,8 @@ export function Numeric({
   step,
   disabled = false,
   labelColor,
+  compact = false,
+  shortLabel,
 }: {
   label: string;
   value: number;
@@ -219,18 +266,22 @@ export function Numeric({
   step?: number;
   disabled?: boolean;
   labelColor?: string;
+  compact?: boolean;
+  shortLabel?: string;
 }) {
   const id = useId(),
-    [text, setText] = useState(String(value).replace(".", ",")),
+    [text, setText] = useState(
+      compact ? compactNumber(value) : String(value).replace(".", ","),
+    ),
     [invalid, setInvalid] = useState(false),
     ref = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (document.activeElement !== ref.current) {
-      setText(String(value).replace(".", ","));
+      setText(compact ? compactNumber(value) : String(value).replace(".", ","));
       setInvalid(false);
       ref.current?.setCustomValidity("");
     }
-  }, [value]);
+  }, [value, compact]);
   return (
     <div className="field">
       <Label htmlFor={id} title={typeof label === "string" ? label : undefined}>
@@ -241,11 +292,20 @@ export function Numeric({
             aria-hidden="true"
           />
         )}
-        {label}
+        {shortLabel ?? label}
       </Label>
       <div className="number-input">
         <Input
           ref={ref}
+          aria-label={label}
+          title={`${value}${unit ? ` ${unit}` : ""}`}
+          data-compact-number={compact || undefined}
+          onFocus={() => {
+            if (compact && !invalid) setText(String(value).replace(".", ","));
+          }}
+          onBlur={() => {
+            if (compact && !invalid) setText(compactNumber(value));
+          }}
           id={id}
           inputMode="decimal"
           value={text}
@@ -330,6 +390,9 @@ export function ProjectHeader({
   toolbar,
   tools,
   workbench = false,
+  flowActions = false,
+  hideBack = false,
+  trailingToolbar,
 }: {
   type: ProjectType;
   project?: Project;
@@ -340,6 +403,9 @@ export function ProjectHeader({
   toolbar?: ReactNode;
   tools?: ReactNode;
   workbench?: boolean;
+  flowActions?: boolean;
+  hideBack?: boolean;
+  trailingToolbar?: ReactNode;
 }) {
   const location = useLocation();
   const compact = useCompactViewport();
@@ -390,7 +456,7 @@ export function ProjectHeader({
     }
   };
   const exportStudy = () =>
-    void exportJson(`${name || type}.structcalc.json`, {
+    void exportJson(`${name || type}.kalisigma.json`, {
       format: "structcalc-project",
       version: 1,
       project: {
@@ -411,6 +477,138 @@ export function ProjectHeader({
     "file:rename": rename,
     "help:guide": () => studyAction("guide:replay"),
   });
+  const projectActions = (
+    <div
+      className={workbench ? "ribbon-group project-action-group" : undefined}
+      role={workbench ? "group" : undefined}
+      aria-label={workbench ? "Projet" : undefined}
+    >
+      {workbench && (
+        <span className="ribbon-legend" aria-hidden="true">
+          Projet
+        </span>
+      )}
+      <div className="project-actions">
+        {tools}
+        {extra && (
+          <div
+            ref={extraRef}
+            className={`project-extra${workbench && compact ? " project-extra-in-menu" : ""}`}
+          >
+            {extra}
+          </div>
+        )}
+        {workbench ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <IconButton label="Autres actions du projet">
+                <Ellipsis />
+              </IconButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {compact && extra && (
+                <DropdownMenuItem
+                  onSelect={() =>
+                    extraRef.current
+                      ?.querySelector<HTMLButtonElement>("button")
+                      ?.click()
+                  }
+                >
+                  {type === "building"
+                    ? "Dimensions types du projet"
+                    : "Calcul simplifié G/Q"}
+                </DropdownMenuItem>
+              )}
+              {compact && ["beam", "frame"].includes(type) && (
+                <DropdownMenuItem
+                  onSelect={() =>
+                    document
+                      .querySelector<HTMLButtonElement>(
+                        '.workbench-project-header [aria-label="Dimensions types du projet"]',
+                      )
+                      ?.click()
+                  }
+                >
+                  Dimensions types du projet
+                </DropdownMenuItem>
+              )}
+              {compact && (
+                <DropdownMenuItem
+                  onSelect={() => desktopCommand("help:shortcuts")}
+                >
+                  Raccourcis clavier et souris
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem onSelect={rename}>
+                <Pencil />
+                Renommer le projet
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={exportStudy}>
+                <Download />
+                Exporter le projet
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => studyAction("guide:replay")}>
+                <CircleHelp />
+                Rejouer le guide
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <>
+            <IconButton
+              label="Rejouer le guide"
+              onClick={() => studyAction("guide:replay")}
+            >
+              <CircleHelp />
+            </IconButton>
+            <IconButton
+              label="Exporter le projet"
+              onClick={() =>
+                void exportJson(`${name || type}.kalisigma.json`, {
+                  format: "structcalc-project",
+                  version: 1,
+                  project: {
+                    id: project?.id ?? uid(),
+                    name: name.trim() || typeInfo(type).label,
+                    type,
+                    updatedAt: new Date().toISOString(),
+                    data,
+                  },
+                }).catch(() => toast.error("Export impossible."))
+              }
+            >
+              <Download />
+            </IconButton>
+          </>
+        )}
+        <Button
+          aria-label={
+            saving
+              ? "Enregistrement en cours"
+              : saved
+                ? "Enregistré"
+                : "Enregistrer"
+          }
+          onClick={() => void save()}
+          data-tour="save"
+          disabled={saving || temporary || !created}
+        >
+          {saving ? (
+            <LoaderCircle className="animate-spin" />
+          ) : saved ? (
+            <Check />
+          ) : (
+            <Save />
+          )}
+          {!workbench && (
+            <span className="button-text">
+              {saved ? "Enregistré" : "Enregistrer"}
+            </span>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
   return (
     <header
       className={`project-header compact-project-header${workbench ? " workbench-project-header" : ""}`}
@@ -481,9 +679,11 @@ export function ProjectHeader({
           </form>
         </DialogContent>
       </Dialog>
-      <IconButton label="Retour aux calculs" onClick={() => nav("/")}>
-        <ArrowLeft />
-      </IconButton>
+      {!hideBack && (
+        <IconButton label="Retour aux calculs" onClick={() => nav("/")}>
+          <ArrowLeft />
+        </IconButton>
+      )}
       {workbench ? (
         <h1 className="sr-only">{name}</h1>
       ) : (
@@ -503,137 +703,14 @@ export function ProjectHeader({
           <span className="study-type-description">{typeInfo(type).label}</span>
         </div>
       )}
-      {toolbar && <div className="project-header-toolbar">{toolbar}</div>}
-      <div
-        className={workbench ? "ribbon-group project-action-group" : undefined}
-        role={workbench ? "group" : undefined}
-        aria-label={workbench ? "Projet" : undefined}
-      >
-        {workbench && (
-          <span className="ribbon-legend" aria-hidden="true">
-            Projet
-          </span>
-        )}
-        <div className="project-actions">
-          {tools}
-          {extra && (
-            <div
-              ref={extraRef}
-              className={`project-extra${workbench && compact ? " project-extra-in-menu" : ""}`}
-            >
-              {extra}
-            </div>
-          )}
-          {workbench ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <IconButton label="Autres actions du projet">
-                  <Ellipsis />
-                </IconButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {compact && extra && (
-                  <DropdownMenuItem
-                    onSelect={() =>
-                      extraRef.current
-                        ?.querySelector<HTMLButtonElement>("button")
-                        ?.click()
-                    }
-                  >
-                    {type === "building"
-                      ? "Dimensions types du projet"
-                      : "Calcul simplifié G/Q"}
-                  </DropdownMenuItem>
-                )}
-                {compact && ["beam", "frame"].includes(type) && (
-                  <DropdownMenuItem
-                    onSelect={() =>
-                      document
-                        .querySelector<HTMLButtonElement>(
-                          '.workbench-project-header [aria-label="Dimensions types du projet"]',
-                        )
-                        ?.click()
-                    }
-                  >
-                    Dimensions types du projet
-                  </DropdownMenuItem>
-                )}
-                {compact && (
-                  <DropdownMenuItem
-                    onSelect={() => desktopCommand("help:shortcuts")}
-                  >
-                    Raccourcis clavier et souris
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem onSelect={rename}>
-                  <Pencil />
-                  Renommer le projet
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={exportStudy}>
-                  <Download />
-                  Exporter le projet
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => studyAction("guide:replay")}>
-                  <CircleHelp />
-                  Rejouer le guide
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
-            <>
-              <IconButton
-                label="Rejouer le guide"
-                onClick={() => studyAction("guide:replay")}
-              >
-                <CircleHelp />
-              </IconButton>
-              <IconButton
-                label="Exporter le projet"
-                onClick={() =>
-                  void exportJson(`${name || type}.structcalc.json`, {
-                    format: "structcalc-project",
-                    version: 1,
-                    project: {
-                      id: project?.id ?? uid(),
-                      name: name.trim() || typeInfo(type).label,
-                      type,
-                      updatedAt: new Date().toISOString(),
-                      data,
-                    },
-                  }).catch(() => toast.error("Export impossible."))
-                }
-              >
-                <Download />
-              </IconButton>
-            </>
-          )}
-          <Button
-            aria-label={
-              saving
-                ? "Enregistrement en cours"
-                : saved
-                  ? "Enregistré"
-                  : "Enregistrer"
-            }
-            onClick={() => void save()}
-            data-tour="save"
-            disabled={saving || temporary || !created}
-          >
-            {saving ? (
-              <LoaderCircle className="animate-spin" />
-            ) : saved ? (
-              <Check />
-            ) : (
-              <Save />
-            )}
-            {!workbench && (
-              <span className="button-text">
-                {saved ? "Enregistré" : "Enregistrer"}
-              </span>
-            )}
-          </Button>
+      {toolbar && (
+        <div className="project-header-toolbar">
+          {toolbar}
+          {flowActions && projectActions}
+          {trailingToolbar}
         </div>
-      </div>
+      )}
+      {!flowActions && projectActions}
     </header>
   );
 }

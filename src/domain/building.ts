@@ -16,6 +16,7 @@ import {
   windPressure,
 } from "./engineering";
 import { uid } from "@/lib/utils";
+import { roofSchema, roofAnalysis, type Roof } from "./roof";
 const positive = z.number().positive().max(1000);
 const slotSchema = z.object({
   exists: z.boolean(),
@@ -89,16 +90,26 @@ export const floorSchema = z
         ctx.addIssue({ code: "custom", message: "Poutre hors de la grille" });
     }
   });
-export const buildingSchema = z.object({
-  kind: z.literal("building"),
-  reduction: reductionSchema.default("none"),
-  sectionTypes: sectionTypesSchema,
-  floors: z.array(floorSchema).min(1).max(60),
-  zone: z.string(),
-  region: z.string(),
-  terrain: z.string(),
-  direction: z.number(),
-});
+export const buildingSchema = z
+  .object({
+    kind: z.literal("building"),
+    reduction: reductionSchema.default("none"),
+    sectionTypes: sectionTypesSchema,
+    floors: z.array(floorSchema).min(1).max(60),
+    roof: roofSchema.optional(),
+    zone: z.string(),
+    region: z.string(),
+    terrain: z.string(),
+    direction: z.number(),
+  })
+  .superRefine((model, ctx) => {
+    if (model.roof?.enabled)
+      try {
+        roofAnalysis(model.floors.at(-1)!, model.roof);
+      } catch (e) {
+        ctx.addIssue({ code: "custom", message: (e as Error).message });
+      }
+  });
 export type Floor = z.infer<typeof floorSchema>;
 export type BuildingModel = z.infer<typeof buildingSchema>;
 export const roman = (num: number): string => {
@@ -215,7 +226,11 @@ export function floorCoordinates(f: Floor) {
   f.spanY.forEach((v) => ys.push(ys.at(-1)! + v));
   return { xs, ys };
 }
-export function buildingResults(f: Floor) {
+export function buildingResults(
+  f: Floor,
+  roof?: Roof,
+  requireRoofLoads = false,
+) {
   const { xs, ys } = floorCoordinates(f);
   const warnings: string[] = [];
   const columns = Object.entries(f.nodes)
@@ -267,6 +282,7 @@ export function buildingResults(f: Floor) {
     });
   let area = 0;
   for (const [key, p] of Object.entries(f.panels)) {
+    if (roof?.enabled && !roof.keepSlab) continue;
     if (!p.exists) continue;
     const [c, r] = key.split(",").map(Number),
       w = f.spanX[c],
@@ -326,19 +342,96 @@ export function buildingResults(f: Floor) {
     node.live.push(...live);
     node.q += live.reduce((s, v) => s + v.q, 0);
   };
+  const roofData = roof?.enabled
+    ? roofAnalysis(f, roof, requireRoofLoads)
+    : undefined;
+  const roofFloor = `roof:${f.id}`;
+  const roofEnds = new Map<string, { g: number[]; q: number[] }>();
+  const roofRoutes: {
+    frame: number;
+    side: number;
+    target: string;
+    g: number;
+    q: number;
+  }[] = [];
+  if (roofData && roof)
+    for (const p of roofData.supports) {
+      const side = p.v === 0 ? 0 : 1,
+        along = roof.axis === "x" ? xs : ys;
+      const onGrid = along.findIndex((u) => Math.abs(u - p.u) < 1e-7);
+      const node =
+        roof.axis === "x"
+          ? `${onGrid},${side ? f.spanY.length : 0}`
+          : `${side ? f.spanX.length : 0},${onGrid}`;
+      if (onGrid >= 0 && columns.some((n) => n.key === node)) {
+        transmit(node, p.g, [{ floor: roofFloor, usage: "H", q: p.q }], 0);
+        roofRoutes.push({
+          frame: p.frame,
+          side,
+          target: `Poteau ${columns.find((n) => n.key === node)!.label}`,
+          g: p.g,
+          q: p.q,
+        });
+        continue;
+      }
+      let segment = along.findIndex(
+        (u, i) =>
+          i < along.length - 1 && p.u >= u - 1e-7 && p.u <= along[i + 1] + 1e-7,
+      );
+      segment = Math.max(0, segment);
+      const key =
+        roof.axis === "x"
+          ? edgeKey(true, side ? f.spanY.length : 0, segment)
+          : edgeKey(false, side ? f.spanX.length : 0, segment);
+      const edge = edges.find((e) => e.key === key);
+      if (!edge) {
+        warnings.push(
+          `Toiture · ferme ${p.frame + 1} : poutre ou voile de rive ${key} absent.`,
+        );
+        continue;
+      }
+      edge.g += p.g / edge.length;
+      edge.q += p.q / edge.length;
+      edge.live.push({ floor: roofFloor, usage: "H", q: p.q });
+      edge.contributions.push(`Toiture · ferme ${p.frame + 1}`);
+      const t = Math.max(0, Math.min(1, (p.u - along[segment]) / edge.length));
+      const ends = roofEnds.get(key) ?? { g: [0, 0], q: [0, 0] };
+      ends.g[0] += p.g * (1 - t);
+      ends.g[1] += p.g * t;
+      ends.q[0] += p.q * (1 - t);
+      ends.q[1] += p.q * t;
+      roofEnds.set(key, ends);
+      roofRoutes.push({
+        frame: p.frame,
+        side,
+        target: edge.label,
+        g: p.g,
+        q: p.q,
+      });
+    }
   for (const e of edges) {
     e.elu = elu(e.g, e.q);
     e.els = els(e.g, e.q);
     e.moment = (e.elu * e.length ** 2) / 8;
     e.shear = (e.elu * e.length) / 2;
     if (e.kind === "beam")
-      for (const key of [e.a, e.b])
+      for (const [side, key] of [e.a, e.b].entries()) {
+        const roofEnd = roofEnds.get(e.key),
+          roofG = roofEnd ? roofEnd.g[0] + roofEnd.g[1] : 0;
         transmit(
           key,
-          (e.g * e.length) / 2,
-          e.live.map((v) => ({ ...v, q: v.q / 2 })),
+          (e.g * e.length - roofG) / 2 + (roofEnd?.g[side] ?? 0),
+          [
+            ...e.live
+              .filter((v) => v.floor !== roofFloor)
+              .map((v) => ({ ...v, q: v.q / 2 })),
+            ...(roofEnd
+              ? [{ floor: roofFloor, usage: "H", q: roofEnd.q[side] }]
+              : []),
+          ],
           e.area / 2,
         );
+      }
   }
   const obliques = f.obliques.map((o, i) => {
     const length = Math.hypot(o.x2 - o.x1, o.y2 - o.y1);
@@ -392,6 +485,7 @@ export function buildingResults(f: Floor) {
       .reduce((s, e) => s + e.q * e.length, 0) +
     obliques.filter((o) => o.kind === "column").reduce((s, o) => s + o.q, 0);
   return {
+    roof: roofData ? { ...roofData, routes: roofRoutes } : undefined,
     area,
     totalElu: elu(totalG, totalQ),
     totalG,
@@ -408,7 +502,11 @@ export function buildingDescent(model: BuildingModel) {
   const rows = model.floors.map((f) => ({
     id: f.id,
     name: f.name,
-    results: buildingResults(f),
+    results: buildingResults(
+      f,
+      f.id === model.floors.at(-1)!.id ? model.roof : undefined,
+      true,
+    ),
     wind: floorWind(model, model.floors.indexOf(f)),
   }));
   for (let i = rows.length - 1; i >= 0; i--) {
@@ -476,7 +574,10 @@ export function buildingDescent(model: BuildingModel) {
     });
   }
   return rows.reverse().map((row) => {
-    const local = buildingResults(model.floors.find((f) => f.id === row.id)!);
+    const local = buildingResults(
+      model.floors.find((f) => f.id === row.id)!,
+      row.id === model.floors.at(-1)!.id ? model.roof : undefined,
+    );
     return {
       ...row,
       local,

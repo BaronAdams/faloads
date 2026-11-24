@@ -74,9 +74,11 @@ test("native desktop has its own workbench while the browser keeps its sidebar",
   await parameters(page);
   await page.getByRole("button", { name: /Force F2/ }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.locator(".desktop-parameter-bar")).toContainText(
-    "Force verticale Fy",
-  );
+  await expect(
+    page
+      .getByTestId("project-workbench-header")
+      .getByLabel("Force verticale Fy", { exact: true }),
+  ).toBeVisible();
   await expect(page.getByTestId("selection-highlight")).toBeVisible();
   expect(
     await page

@@ -1,7 +1,8 @@
 [package]
-name = "structcalc"
+name = "kalisigma"
+default-run = "kalisigma"
 version = "0.2.0"
-description = "StructCalc — calcul de structures"
+description = "KaliSigma — calcul de structures"
 authors = ["BaronAdams"]
 edition = "2021"
 rust-version = "1.90"
@@ -11,7 +12,7 @@ name = "structcalc_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [[bin]]
-name = "structcalc"
+name = "kalisigma"
 path = "src/main.rs"
 required-features = ["app"]
 

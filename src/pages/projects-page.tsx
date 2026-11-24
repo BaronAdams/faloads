@@ -159,7 +159,7 @@ export function ProjectsPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() =>
-                        void exportJson(`${p.name}.structcalc.json`, {
+                        void exportJson(`${p.name}.kalisigma.json`, {
                           format: "structcalc-project",
                           version: 1,
                           project: p,

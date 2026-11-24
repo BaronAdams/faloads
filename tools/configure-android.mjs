@@ -25,4 +25,22 @@ const template = await readFile(
   "utf8",
 );
 await writeFile(files[0], template.replace("__PACKAGE__", packageLine));
+const config = JSON.parse(
+  await readFile(join(root, "src-tauri/tauri.conf.json"), "utf8"),
+);
+const stringsPath = join(main, "res/values/strings.xml");
+const strings = await readFile(stringsPath, "utf8");
+if (!/<string\s+name="app_name">[^<]*<\/string>/.test(strings))
+  throw Error("Android template has no app_name resource");
+const displayName = config.productName
+  .replaceAll("&", "&amp;")
+  .replaceAll("<", "&lt;")
+  .replaceAll("'", "\\'");
+await writeFile(
+  stringsPath,
+  strings.replace(
+    /(<string\s+name="(?:app_name|main_activity_title)">)[^<]*(<\/string>)/g,
+    `$1${displayName}$2`,
+  ),
+);
 console.log("Configured Android system-bar and display-cutout insets");

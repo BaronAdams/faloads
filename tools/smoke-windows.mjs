@@ -9,6 +9,9 @@ const executable = resolve(process.argv[2]);
 mkdirSync("native-test-results", { recursive: true });
 let savedId;
 async function checkWorkbenchLayout(page) {
+  await page
+    .getByRole("button", { name: "Enregistrer", exact: true })
+    .scrollIntoViewIfNeeded();
   const layout = await page.evaluate(() => {
     const rect = (selector) => {
       const r = document.querySelector(selector).getBoundingClientRect();
@@ -18,11 +21,14 @@ async function checkWorkbenchLayout(page) {
       width: innerWidth,
       height: innerHeight,
       header: rect(".project-header"),
+      menubar: rect(".desktop-menubar"),
       footer: rect(".desktop-statusbar"),
       save: rect('[data-tour="save"]'),
     };
   });
   expect(layout.header.height).toBe(layout.width > 1000 ? 104 : 128);
+  expect(layout.menubar.height).toBe(28);
+  expect(layout.header.y).toBe(28);
   expect(layout.save.x + layout.save.width).toBeLessThanOrEqual(
     layout.width + 1,
   );
@@ -98,12 +104,19 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
     expect(await page.evaluate(() => Boolean(window.__TAURI_INTERNALS__))).toBe(
       true,
     );
+    await expect(page).toHaveTitle("KaliSigma");
     expect(
       await page.evaluate(() =>
         window.__TAURI_INTERNALS__.invoke("desktop_menu_ready"),
       ),
-    ).toBe(true);
-    await expect(page.locator(".desktop-menubar")).toHaveCount(0);
+    ).toBe(false);
+    if (mode === "compatibility") {
+      await expect(page.locator(".desktop-menubar")).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute(
+        "data-native-menu",
+        "false",
+      );
+    }
     if (mode === "default") {
       await page
         .getByRole("button", { name: "Passer la présentation" })
@@ -118,18 +131,165 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await page
         .getByRole("button", { name: "Explorer librement", exact: true })
         .click();
-      await expect(page.locator(".desktop-menubar")).toHaveCount(0);
+      await expect(page.locator(".desktop-menubar")).toBeVisible();
       layout = await checkWorkbenchLayout(page);
-      // Exercise the same Tauri event channel used by the system menu.
-      await page.evaluate(() =>
-        window.__TAURI_INTERNALS__.invoke("plugin:event|emit", {
-          event: "desktop-menu",
-          payload: "study:calculate",
+      const analysisHeader = page.getByTestId("project-workbench-header");
+      await expect(
+        analysisHeader
+          .getByRole("button", { name: "Ouvrir les résultats", exact: true })
+          .locator("svg.lucide-file-chart-column"),
+      ).toHaveCount(1);
+      for (const [name, side] of [
+        ["Calculer", "top"],
+        ["Ouvrir les résultats", "bottom"],
+      ]) {
+        const button = analysisHeader.getByRole("button", {
+          name,
+          exact: true,
+        });
+        await button.hover();
+        const tooltip = page.locator('[data-slot="tooltip-content"]');
+        await expect(tooltip).toBeVisible();
+        await expect(tooltip).toHaveAttribute("data-side", side);
+        await tooltip.evaluate((el) =>
+          Promise.all(el.getAnimations().map((a) => a.finished)),
+        );
+        const box = await tooltip.boundingBox(),
+          target = await button.boundingBox();
+        if (side === "top")
+          expect(box.y + box.height).toBeLessThanOrEqual(target.y - 2);
+        else expect(box.y).toBeGreaterThanOrEqual(target.y + target.height + 2);
+        await page.screenshot({
+          path: `native-test-results/windows-tooltip-${side}.png`,
+          fullPage: true,
+        });
+        await page.mouse.move(2, 600);
+        await expect(tooltip).toHaveCount(0);
+      }
+      await expect(
+        analysisHeader.getByRole("button", {
+          name: "Retour aux calculs",
+          exact: true,
         }),
-      );
+      ).toHaveCount(0);
+      await expect(analysisHeader.getByRole("switch")).toHaveCount(0);
+      await expect(
+        analysisHeader.getByRole("button", {
+          name: "Calcul simplifié G/Q",
+          exact: true,
+        }),
+      ).toHaveCount(0);
+
+      // Exercise the visible, themed menu in the real packaged EXE.
+      await page
+        .getByRole("menubar")
+        .getByRole("menuitem", { name: "Calcul", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Lancer le calcul", exact: true })
+        .click();
       await expect(page.locator(".canvas-result-status")).toContainText(
         "Calcul actualisé",
       );
+      await page
+        .getByRole("button", { name: "Ouvrir les paramètres", exact: true })
+        .click();
+      expect(
+        (await page.getByRole("dialog").boundingBox()).width,
+      ).toBeLessThanOrEqual(600);
+      await page
+        .getByRole("button", { name: "Revenir au schéma", exact: true })
+        .click();
+      await expect(page.locator(".canvas-result-status")).toContainText(
+        "Calcul actualisé",
+      );
+      await page
+        .getByRole("button", { name: "Ouvrir les résultats", exact: true })
+        .click();
+      await expect(page.getByRole("dialog")).toContainText("Flèche admissible");
+      await expect(page.getByTestId("deflection-check")).toContainText(
+        "Critère respecté",
+      );
+      await page.screenshot({
+        path: "native-test-results/windows-deflection.png",
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "Fermer le panneau", exact: true })
+        .click();
+      await page.getByRole("button", { name: "Moment M", exact: true }).click();
+      const positiveOrdinates = await page
+        .getByTestId("playground")
+        .evaluate((el) => {
+          const axis = el.querySelector('[data-testid="diagram-axis"]');
+          return [...el.querySelectorAll('[data-testid="diagram-value"]')]
+            .filter((n) => Number(n.getAttribute("data-value")) > 0.01)
+            .map(
+              (n) =>
+                Number(
+                  n.parentElement.querySelector("circle").getAttribute("cy"),
+                ) < Number(axis.getAttribute("y1")),
+            );
+        });
+      expect(positiveOrdinates.length).toBeGreaterThan(0);
+      expect(positiveOrdinates.every(Boolean)).toBe(true);
+      const axis = await page.getByTestId("diagram-axis").boundingBox();
+      await page.mouse.move(axis.x + axis.width * 0.5, axis.y - 50);
+      await expect(page.getByTestId("structure-probe")).toContainText("kN·m");
+      await expect(page.getByTestId("probe-guide")).toHaveAttribute(
+        "stroke",
+        "white",
+      );
+      await page.screenshot({
+        path: "native-test-results/windows-probe.png",
+        fullPage: true,
+      });
+      const station = Number(
+        await page.getByTestId("structure-probe").getAttribute("data-station"),
+      );
+      await page.keyboard.press("3");
+      const stationInput = page.getByLabel("Position · m", { exact: true });
+      await expect(stationInput).toBeFocused();
+      await page.keyboard.type(",5");
+      expect(
+        Number(
+          await page
+            .getByTestId("structure-probe")
+            .getAttribute("data-station"),
+        ),
+      ).toBeCloseTo(station, 5);
+      await page.keyboard.press("Enter");
+      expect(
+        Number(
+          await page
+            .getByTestId("structure-probe")
+            .getAttribute("data-station"),
+        ),
+      ).toBeCloseTo(3.5, 5);
+      await page
+        .getByRole("button", { name: "Fermer la lecture", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Structure", exact: true })
+        .click();
+      await page.locator('[data-element^="load:"]').last().press("Enter");
+      const beamAxis = await page
+        .locator('[data-element^="section:"]')
+        .first()
+        .locator("line")
+        .first()
+        .boundingBox();
+      await page.mouse.move(
+        beamAxis.x + beamAxis.width * 0.35,
+        beamAxis.y - 25,
+      );
+      await page.getByTestId("playground").focus();
+      await page.keyboard.press("Control+d");
+      await expect(page.locator('[data-element^="load:"]')).toHaveCount(3);
+      await analysisHeader
+        .getByRole("button", { name: "Annuler", exact: true })
+        .click();
+      await expect(page.locator('[data-element^="load:"]')).toHaveCount(2);
       await page
         .getByRole("button", { name: "Enregistrer", exact: true })
         .click();
@@ -150,6 +310,14 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .getByRole("button", { name: "Explorer librement", exact: true })
         .click();
       const header = page.getByTestId("project-workbench-header");
+      await expect(
+        page.getByRole("navigation", { name: "Niveaux du bâtiment" }),
+      ).toContainText("RDC");
+      await expect(header.getByRole("switch")).toHaveCount(0);
+      await expect(header.locator("[data-critical-icon=column]")).toHaveCount(
+        1,
+      );
+      await expect(header.locator("[data-critical-icon=beam]")).toHaveCount(1);
       await expect(page.locator(".project-page > header")).toHaveCount(1);
       await expect(
         page.locator(
@@ -162,11 +330,11 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           name: "Poteau le plus chargé",
           exact: true,
         }),
-      ).toHaveText("");
+      ).toHaveText("max");
       buildingLayout = await checkWorkbenchLayout(page);
       await header.getByRole("button", { name: "3D", exact: true }).click();
       await expect(
-        header.getByRole("combobox", { name: "Annotations", exact: true }),
+        header.getByRole("button", { name: "Options de vue", exact: true }),
       ).toHaveCount(1);
       await expect(page.getByLabel("Rotation 3D", { exact: true })).toHaveCount(
         0,
@@ -176,6 +344,25 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       ).toHaveCount(0);
       const scene = page.getByTestId("building-3d");
       await expect(scene).toBeVisible();
+      await expect(
+        header.getByRole("group", { name: "Niveau actif · RDC", exact: true }),
+      ).toBeVisible();
+      await header
+        .getByRole("button", { name: "Grille du niveau actif", exact: true })
+        .click();
+      const grid = page.getByRole("dialog", {
+        name: "Grille · RDC",
+        exact: true,
+      });
+      await expect(
+        grid.getByLabel("X · travée 3", { exact: true }),
+      ).toBeVisible();
+      await grid
+        .getByRole("button", { name: "Revenir au schéma", exact: true })
+        .click();
+      // Closing Radix overlays still intercept pointers during their exit animation.
+      // Wait for removal before sending the real mouse gesture to WebView2.
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
       const yaw = await scene.getAttribute("data-yaw");
       const canvas = await page.getByTestId("playground").boundingBox();
       await page.mouse.move(
@@ -197,6 +384,76 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         path: "native-test-results/windows-building.png",
         fullPage: true,
       });
+      await header
+        .getByRole("button", { name: "Calculer le bâtiment", exact: true })
+        .click();
+      await expect(page.getByTestId("building-cumulative")).toBeVisible();
+      await page
+        .getByRole("button", { name: "Fermer le panneau", exact: true })
+        .click();
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+      const column = scene.locator('[data-element*="|node|1,1"]');
+      await column.press("Enter");
+      await page
+        .getByRole("button", {
+          name: "Isoler les annotations de cet élément",
+          exact: true,
+        })
+        .click();
+      await expect(scene.getByTestId("building-annotation")).toHaveCount(1);
+      await expect(scene.getByTestId("building-annotation")).toContainText(
+        "kN",
+      );
+      await expect(
+        scene.locator(".building-annotation-layer"),
+      ).not.toContainText(/Poutre|Poteau/);
+      await page.screenshot({
+        path: "native-test-results/windows-building-focus.png",
+        fullPage: true,
+      });
+      await header
+        .getByRole("button", { name: "Configurer la toiture", exact: true })
+        .click();
+      const roofDialog = page.getByRole("dialog");
+      await roofDialog
+        .getByRole("switch", {
+          name: "Ajouter une toiture au bâtiment",
+          exact: true,
+        })
+        .click();
+      await roofDialog
+        .getByLabel("Intensité de charge 1", { exact: true })
+        .fill("0.4");
+      await roofDialog
+        .getByLabel("Intensité de charge 2", { exact: true })
+        .fill("0.2");
+      await roofDialog
+        .getByLabel("Intensité de charge 3", { exact: true })
+        .fill("0.75");
+      await roofDialog
+        .getByRole("button", { name: "Appliquer la toiture", exact: true })
+        .click();
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+      await expect(page.getByTestId("roof-facet")).toHaveCount(2);
+      await header
+        .getByRole("button", { name: "Calculer le bâtiment", exact: true })
+        .click();
+      await expect(page.getByTestId("roof-reactions")).toBeVisible();
+      await expect(page.getByTestId("roof-balance")).toContainText(
+        "0,000000 kN",
+      );
+      await page.screenshot({
+        path: "native-test-results/windows-roof-results.png",
+        fullPage: true,
+      });
+      await page
+        .getByRole("button", { name: "Fermer le panneau", exact: true })
+        .click();
+      await expect(page.locator('[role="dialog"]')).toHaveCount(0);
+      await page.screenshot({
+        path: "native-test-results/windows-roof.png",
+        fullPage: true,
+      });
     } else {
       await page.evaluate((id) => (location.hash = `/project/${id}`), savedId);
       await expect(
@@ -214,6 +471,9 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .getByRole("button", { name: "Ouvrir les résultats", exact: true })
         .click();
       await expect(page.locator(".metric").first()).toContainText("111,00");
+      await expect(page.getByTestId("deflection-check")).toContainText(
+        "Critère respecté",
+      );
       await expect
         .poll(async () => {
           const box = await page.getByRole("dialog").boundingBox();
@@ -257,7 +517,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           "-NoProfile",
           "-NonInteractive",
           "-Command",
-          "Get-Process StructCalc,msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Json",
+          "Get-Process KaliSigma,msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Json",
         ],
         { encoding: "utf8", timeout: 10000 },
       );

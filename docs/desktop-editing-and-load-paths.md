@@ -6,7 +6,7 @@ Cette évolution conserve les polices DM Sans / JetBrains Mono et les icônes ap
 
 Le nom est demandé sur l’écran de départ, avant de monter le modèle ou de naviguer vers le projet. Entrée valide le nom ; Annuler reste sur l’écran précédent. Un lien direct `/new/...` présente également le nom avant d’instancier le modèle. Les études enregistrées s’ouvrent directement.
 
-Sur Desktop, les textes de l’interface ne sont pas sélectionnables. Les champs restent sélectionnables et éditables au clavier. Le menu contextuel de la WebView est supprimé. Dans les schémas, un menu métier remplace celui du navigateur.
+Sur Desktop, les textes de l’interface ne sont pas sélectionnables. Les champs restent sélectionnables et éditables au clavier. Le menu contextuel de la WebView est supprimé. Dans les schémas, un menu métier remplace celui du navigateur. Pour les poutres et les cadres, son action Modifier ouvre l’éditeur complet ; le ruban ne conserve que les paramètres essentiels de la sélection. Voir [les profils et les charges réparties](analysis-editing.md).
 
 - Clic gauche : sélectionner et modifier dans la barre de paramètres.
 - Shift + clic : ajouter ou retirer un élément de même nature.

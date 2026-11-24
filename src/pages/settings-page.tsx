@@ -83,7 +83,7 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
             <div className="profile-mark">
               {workspace.profile.name.slice(0, 1).toUpperCase() || "σ"}
             </div>
-            <h2>{workspace.profile.name || "Votre espace StructCalc"}</h2>
+            <h2>{workspace.profile.name || "Votre espace KaliSigma"}</h2>
             <p className="muted mt-3">
               {workspace.projects.length} projet
               {workspace.projects.length > 1 ? "s" : ""} enregistré
@@ -208,7 +208,7 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
             <Button
               variant="outline"
               onClick={() =>
-                void exportJson("StructCalc-sauvegarde.json", {
+                void exportJson("KaliSigma-sauvegarde.json", {
                   format: "structcalc-workspace",
                   version: 1,
                   workspace,
@@ -235,7 +235,7 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
                   })
                   .catch(() =>
                     toast.error(
-                      "Ce fichier ne contient pas une sauvegarde StructCalc valide.",
+                      "Ce fichier ne contient pas une sauvegarde KaliSigma valide.",
                     ),
                   )
               }
@@ -254,7 +254,7 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
         <span className="brand-mark small">σ</span>
         <div>
           <strong>
-            StructCalc <span className="mono">0.2.0</span>
+            KaliSigma <span className="mono">0.2.0</span>
           </strong>
           <p>
             Calcul de structures et descente de charges · Interface en français

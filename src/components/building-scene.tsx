@@ -1,3 +1,4 @@
+import { roofAnalysis, roofGeometry, type Roof } from "@/domain/roof";
 import { caseValue, type LoadCase } from "@/components/building-3d";
 import { useCanvasGeometry } from "@/components/playground";
 import {
@@ -30,6 +31,7 @@ export function buildingPlanGeometry(
 }
 export function BuildingScene({
   floor,
+  roof,
   showInfluence,
   selected,
   results,
@@ -37,6 +39,7 @@ export function BuildingScene({
   field = "ELU",
 }: {
   floor: Floor;
+  roof?: Roof;
   showInfluence: boolean;
   selected: string | null;
   results: ReturnType<typeof buildingResults>;
@@ -49,10 +52,13 @@ export function BuildingScene({
     units,
     height,
   );
+  const roofData = roof?.enabled
+    ? { ...roofGeometry(floor, roof), ...roofAnalysis(floor, roof) }
+    : undefined;
   return (
     <>
       {xs.map((x, c) => (
-        <g key={c}>
+        <g key={c} data-building-annotation="axes">
           <line
             x1={X(x)}
             x2={X(x)}
@@ -80,7 +86,7 @@ export function BuildingScene({
         </g>
       ))}
       {ys.map((y, r) => (
-        <g key={r}>
+        <g key={r} data-building-annotation="axes">
           <line
             x1={ox - 24 * units}
             x2={X(xs[xs.length - 1]) + 24 * units}
@@ -100,6 +106,7 @@ export function BuildingScene({
         </g>
       ))}
       {Object.entries(floor.panels).map(([key, p]) => {
+        if (roof?.enabled && !roof.keepSlab) return null;
         const [c, r] = key.split(",").map(Number),
           x = X(xs[c]),
           y = Y(ys[r]),
@@ -195,6 +202,7 @@ export function BuildingScene({
                 );
               })()}
             <text
+              data-building-annotation="slabs-labels"
               x={x + w / 2}
               y={y + h / 2 - 6 * units}
               textAnchor="middle"
@@ -205,6 +213,7 @@ export function BuildingScene({
             </text>
             {p.exists && (
               <text
+                data-building-annotation="slabs-values"
                 x={x + w / 2}
                 y={y + h / 2 + 12 * units}
                 textAnchor="middle"
@@ -273,9 +282,21 @@ export function BuildingScene({
                 className="numeric"
                 style={{ fontSize: `${10 * units}px` }}
               >
-                {showResults
-                  ? `${fmt(caseValue(results.edges.find((item) => item.key === key)?.g ?? 0, results.edges.find((item) => item.key === key)?.q ?? 0, field), 1)} kN/m`
-                  : `${fmt(e.b, 0)}×${fmt(e.h, 0)}`}
+                <tspan
+                  data-building-annotation={`${e.kind === "wall" ? "walls" : "beams"}-labels`}
+                >
+                  {e.kind === "wall" ? "V" : "P"}
+                  {horizontal
+                    ? `${nodeName(segment, line)}–${nodeName(segment + 1, line)}`
+                    : `${nodeName(line, segment)}–${nodeName(line, segment + 1)}`}{" "}
+                </tspan>
+                <tspan
+                  data-building-annotation={`${e.kind === "wall" ? "walls" : "beams"}-values`}
+                >
+                  {showResults
+                    ? `${fmt(caseValue(results.edges.find((item) => item.key === key)?.g ?? 0, results.edges.find((item) => item.key === key)?.q ?? 0, field), 1)} kN/m`
+                    : `${fmt(e.b, 0)}×${fmt(e.h, 0)}`}
+                </tspan>
               </text>
             )}
             <line
@@ -321,10 +342,23 @@ export function BuildingScene({
               y={Y(ys[r]) + 17 * units}
               className="numeric"
             >
-              {nodeName(c, r)}
-              {showResults
-                ? ` · ${fmt(caseValue(results.columns.find((n) => n.key === key)?.g ?? 0, results.columns.find((n) => n.key === key)?.q ?? 0, field))} kN`
-                : ""}
+              <tspan data-building-annotation="columns-labels">
+                {nodeName(c, r)}
+              </tspan>
+              {showResults && (
+                <tspan data-building-annotation="columns-values">
+                  {" "}
+                  ·{" "}
+                  {fmt(
+                    caseValue(
+                      results.columns.find((n) => n.key === key)?.g ?? 0,
+                      results.columns.find((n) => n.key === key)?.q ?? 0,
+                      field,
+                    ),
+                  )}{" "}
+                  kN
+                </tspan>
+              )}
             </text>
           </g>
         );
@@ -388,7 +422,7 @@ export function BuildingScene({
           fill="var(--muted-foreground)"
           className="numeric"
         >
-          {fmt(v)} m
+          <tspan data-building-annotation="axes">{fmt(v)} m</tspan>
         </text>
       ))}
       {floor.spanY.map((v, i) => (
@@ -400,9 +434,46 @@ export function BuildingScene({
           fill="var(--muted-foreground)"
           className="numeric"
         >
-          {fmt(v)} m
+          <tspan data-building-annotation="axes">{fmt(v)} m</tspan>
         </text>
       ))}
+      {roofData && (
+        <g data-testid="roof-plan" pointerEvents="none">
+          {roofData.facets.map((f) => (
+            <polygon
+              key={f.id}
+              points={f.points
+                .map((p) => {
+                  const q = roofData.toPlan(p);
+                  return `${X(q.x)},${Y(q.y)}`;
+                })
+                .join(" ")}
+              fill="var(--purple)"
+              fillOpacity=".04"
+              stroke="var(--purple)"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          ))}
+          {roofData.frames.map((u, i) => {
+            const a = roofData.toPlan({ u, v: 0 }),
+              b = roofData.toPlan({ u, v: roofData.D });
+            return (
+              <line
+                key={i}
+                x1={X(a.x)}
+                y1={Y(a.y)}
+                x2={X(b.x)}
+                y2={Y(b.y)}
+                stroke="var(--purple)"
+                strokeDasharray="5 6"
+                strokeOpacity=".6"
+                vectorEffect="non-scaling-stroke"
+              />
+            );
+          })}
+        </g>
+      )}
     </>
   );
 }

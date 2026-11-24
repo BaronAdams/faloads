@@ -1,4 +1,4 @@
-import { createStudy, parameters, calculate } from "./helpers";
+import { duplicateLevel, createStudy, parameters, calculate } from "./helpers";
 import { test, expect, type Page } from "@playwright/test";
 const ready = async (page: Page) => {
   await page.goto("/");
@@ -172,7 +172,7 @@ test("building editing, deleted segments, floor duplication and results work", a
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.getByRole("dialog").getByRole("switch").click();
   await page.getByRole("button", { name: "Appliquer", exact: true }).click();
-  await page.getByRole("button", { name: "Dupliquer", exact: true }).click();
+  await duplicateLevel(page);
   await parameters(page);
   await expect(page.getByLabel("Nom du niveau")).toHaveValue("R+1");
   await page
@@ -231,17 +231,12 @@ test("simplified G/Q calculation responds to load edits in the mobile sheet", as
   await ready(page);
   await page.goto("/#/new/beam");
   await createStudy(page);
-  if (info.project.name === "mobile") {
-    await page
-      .getByRole("button", { name: "Autres actions du projet", exact: true })
-      .click();
-    await page
-      .getByRole("menuitem", { name: "Calcul simplifié G/Q", exact: true })
-      .click();
-  } else
-    await page
-      .getByRole("button", { name: "Calcul simplifié G/Q", exact: true })
-      .click();
+  await parameters(page);
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Calcul simplifié G/Q", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(1);
   const dialog = page.getByRole("dialog");
   await expect(
     dialog.getByRole("heading", { name: "Calcul simplifié G/Q" }),
@@ -354,7 +349,7 @@ test("onboarding demonstrates a real calculation and retains it between steps", 
   await expect(page.getByTestId("onboarding-moment")).toContainText("33,60");
   await page.getByRole("button", { name: "Continuer", exact: true }).click();
   await expect(
-    page.getByText("StructCalc-projet.json", { exact: true }),
+    page.getByText("KaliSigma-projet.json", { exact: true }),
   ).toBeVisible();
   await expect(page.locator(".export-document-title")).toContainText("4,00 m");
   await page.getByRole("button", { name: "Retour", exact: true }).click();

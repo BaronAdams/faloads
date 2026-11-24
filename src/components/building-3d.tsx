@@ -1,3 +1,4 @@
+import { roofAnalysis, roofGeometry } from "@/domain/roof";
 import { type ReactNode } from "react";
 import {
   type BuildingModel,
@@ -5,7 +6,13 @@ import {
   floorCoordinates,
 } from "@/domain/building";
 import { levelG, coatingG, elu, els } from "@/domain/engineering";
-import { useCanvasGeometry } from "./playground";
+import { useCanvasGeometry, useCanvasPointer } from "./playground";
+import {
+  buildingProjection,
+  arrangeBuildingLabels,
+  type BuildingLabel,
+  type BuildingAnnotations,
+} from "@/domain/building-view";
 import { fmt } from "@/lib/utils";
 export type LoadCase = "G" | "Q" | "ELS" | "ELU";
 export const caseValue = (g: number, q: number, field: LoadCase) =>
@@ -26,6 +33,7 @@ export function Building3D({
   activeFloor,
   annotations,
   allLevels,
+  annotationTarget,
 }: {
   model: BuildingModel;
   rows?: ReturnType<typeof buildingDescent>;
@@ -34,12 +42,11 @@ export function Building3D({
   pitch: number;
   selected?: string;
   activeFloor: string;
-  annotations: "slabs" | "beams" | "columns" | "all";
+  annotations: BuildingAnnotations;
   allLevels: boolean;
+  annotationTarget?: string;
 }) {
   const { height, units } = useCanvasGeometry();
-  const a = (yaw * Math.PI) / 180,
-    b = (pitch * Math.PI) / 180;
   const corners: number[][] = [];
   let elevation = 0;
   const floors = model.floors.map((f, i) => {
@@ -49,64 +56,95 @@ export function Building3D({
     for (const x of [0, xs.at(-1)!])
       for (const y of [0, ys.at(-1)!])
         for (const z of [base, elevation]) corners.push([x, y, z]);
+    for (const o of f.obliques) {
+      corners.push([o.x1, o.y1, base], [o.x2, o.y2, elevation]);
+    }
     return { f, i, xs, ys, base, z: elevation };
   });
-  const project = (x: number, y: number, z: number) => ({
-    x: x * Math.cos(a) - y * Math.sin(a),
-    y: (x * Math.sin(a) + y * Math.cos(a)) * Math.sin(b) - z * Math.cos(b),
-    depth: (x * Math.sin(a) + y * Math.cos(a)) * Math.cos(b) + z * Math.sin(b),
-  });
-  const projected = corners.map(([x, y, z]) => project(x, y, z)),
-    minX = Math.min(...projected.map((p) => p.x)),
-    maxX = Math.max(...projected.map((p) => p.x)),
-    minY = Math.min(...projected.map((p) => p.y)),
-    maxY = Math.max(...projected.map((p) => p.y));
-  const scale = Math.min(
-    780 / Math.max(1, maxX - minX),
-    Math.max(160, height - 290 * units) / Math.max(1, maxY - minY),
+  const roofData = model.roof?.enabled
+    ? {
+        ...roofGeometry(model.floors.at(-1)!, model.roof),
+        ...roofAnalysis(model.floors.at(-1)!, model.roof),
+      }
+    : undefined;
+  if (roofData)
+    for (const facet of roofData.facets)
+      for (const p of facet.points) {
+        const q = roofData.toPlan(p);
+        corners.push([q.x, q.y, elevation + p.z]);
+      }
+  const minX = Math.min(...corners.map((p) => p[0])),
+    minY = Math.min(...corners.map((p) => p[1]));
+  const extentX = Math.max(...corners.map((p) => p[0])) - minX,
+    extentY = Math.max(...corners.map((p) => p[1])) - minY;
+  const { project, scale } = buildingProjection(
+    extentX,
+    extentY,
+    elevation + (model.roof?.enabled ? model.roof.rise : 0),
+    yaw,
+    pitch,
+    height,
+    units,
   );
-  const P = (x: number, y: number, z: number) => {
-    const p = project(x, y, z);
-    return {
-      ...p,
-      x: (1000 - (maxX - minX) * scale) / 2 + (p.x - minX) * scale,
-      y: 180 * units + (p.y - minY) * scale,
-    };
-  };
+  const P = (x: number, y: number, z: number) => project(x - minX, y - minY, z);
+  const { view } = useCanvasPointer();
+  const textSize = units / view.k;
+  const labels: BuildingLabel[] = [];
+  let annotationOwner: string | undefined;
   const shapes: { depth: number; key: string; render: ReactNode }[] = [];
   const label = (
     x: number,
     y: number,
     text: string,
     color = "var(--foreground)",
-  ) => (
-    <text
-      x={x}
-      y={y}
-      fill={color}
-      textAnchor="middle"
-      className="numeric"
-      style={{ fontSize: 11 * units }}
-    >
-      {text}
-    </text>
-  );
-  for (const { f, i, xs, ys, base, z } of floors) {
+  ) => {
+    labels.push({
+      id: String(labels.length),
+      element: annotationOwner,
+      x,
+      y,
+      text,
+      color,
+      priority:
+        color === "var(--orange)"
+          ? 100
+          : color === "var(--muted-foreground)"
+            ? 20
+            : 0,
+    });
+    return null;
+  };
+  for (const { f, xs, ys, base, z } of floors) {
     const result = rows?.find((r) => r.id === f.id)?.results;
     const annotated = allLevels || f.id === activeFloor;
     const marker = P(0, 0, z);
+    annotationOwner = `${f.id}|level`;
     shapes.push({
       key: `${f.id}-name`,
       depth: 1e9,
-      render: label(
-        marker.x - 30 * units,
-        marker.y - 16 * units,
-        f.name,
-        "var(--muted-foreground)",
-      ),
+      render:
+        annotations.levels && !annotationTarget
+          ? label(
+              marker.x - 30 * units,
+              marker.y - 16 * units,
+              f.name,
+              "var(--muted-foreground)",
+            )
+          : null,
     });
     for (const [key, p] of Object.entries(f.panels))
-      if (p.exists) {
+      if (
+        p.exists &&
+        !(
+          f.id === model.floors.at(-1)!.id &&
+          model.roof?.enabled &&
+          !model.roof.keepSlab
+        )
+      ) {
+        annotationOwner = `${f.id}|panel|${key}`;
+        const visible =
+          annotated &&
+          (!annotationTarget || annotationTarget === annotationOwner);
         const [c, r] = key.split(",").map(Number),
           points = [
             [xs[c], ys[r]],
@@ -129,6 +167,9 @@ export function Building3D({
           render: (
             <g
               data-element={`${f.id}|panel|${key}`}
+              data-floor={f.id}
+              data-active-floor={f.id === activeFloor}
+              opacity={f.id === activeFloor ? 1 : 0.5}
               role="button"
               tabIndex={0}
               className="svg-element"
@@ -140,11 +181,11 @@ export function Building3D({
                 fillOpacity={chosen ? 0.5 : 0.12}
                 stroke="var(--border)"
               />
-              {annotated &&
-                (annotations === "slabs" || annotations === "all") &&
+              {visible &&
+                annotations.slabs.labels &&
                 label(center.x, center.y, p.label)}
-              {annotated &&
-                (annotations === "slabs" || annotations === "all") &&
+              {visible &&
+                (annotations.slabs.values || !!annotationTarget) &&
                 label(
                   center.x,
                   center.y + 15 * units,
@@ -156,6 +197,10 @@ export function Building3D({
       }
     for (const [key, e] of Object.entries(f.edges))
       if (e.exists) {
+        annotationOwner = `${f.id}|edge|${key}`;
+        const visible =
+          annotated &&
+          (!annotationTarget || annotationTarget === annotationOwner);
         const [axis, l, s] = key.split(":"),
           horizontal = axis === "h",
           line = +l,
@@ -178,6 +223,9 @@ export function Building3D({
           render: (
             <g
               data-element={`${f.id}|edge|${key}`}
+              data-floor={f.id}
+              data-active-floor={f.id === activeFloor}
+              opacity={f.id === activeFloor ? 1 : 0.5}
               role="button"
               tabIndex={0}
               className="svg-element"
@@ -199,8 +247,9 @@ export function Building3D({
                 vectorEffect="non-scaling-stroke"
               />
               {value &&
-                annotated &&
-                (annotations === "beams" || annotations === "all" || chosen) &&
+                visible &&
+                (annotations[e.kind === "wall" ? "walls" : "beams"].values ||
+                  !!annotationTarget) &&
                 label(
                   (from.x + to.x) / 2,
                   (from.y + to.y) / 2 - 8 * units,
@@ -213,6 +262,10 @@ export function Building3D({
       }
     for (const [key, n] of Object.entries(f.nodes))
       if (n.exists) {
+        annotationOwner = `${f.id}|node|${key}`;
+        const visible =
+          annotated &&
+          (!annotationTarget || annotationTarget === annotationOwner);
         const [c, r] = key.split(",").map(Number),
           from = P(xs[c], ys[r], base),
           to = P(xs[c], ys[r], z),
@@ -224,6 +277,9 @@ export function Building3D({
           render: (
             <g
               data-element={`${f.id}|node|${key}`}
+              data-floor={f.id}
+              data-active-floor={f.id === activeFloor}
+              opacity={f.id === activeFloor ? 1 : 0.5}
               role="button"
               tabIndex={0}
               className="svg-element"
@@ -240,10 +296,8 @@ export function Building3D({
                 vectorEffect="non-scaling-stroke"
               />
               {value &&
-                annotated &&
-                (annotations === "columns" ||
-                  annotations === "all" ||
-                  chosen) &&
+                visible &&
+                (annotations.columns.values || !!annotationTarget) &&
                 label(
                   (from.x + to.x) / 2 + 14 * units,
                   (from.y + to.y) / 2,
@@ -255,6 +309,10 @@ export function Building3D({
         });
       }
     for (const o of f.obliques) {
+      annotationOwner = `${f.id}|oblique|${o.id}`;
+      const visible =
+        annotated &&
+        (!annotationTarget || annotationTarget === annotationOwner);
       const from = P(o.x1, o.y1, o.kind === "column" ? base : z),
         to = P(
           o.kind === "column" ? o.x1 : o.x2,
@@ -269,6 +327,9 @@ export function Building3D({
         render: (
           <g
             data-element={`${f.id}|oblique|${o.id}`}
+            data-floor={f.id}
+            data-active-floor={f.id === activeFloor}
+            opacity={f.id === activeFloor ? 1 : 0.5}
             role="button"
             tabIndex={0}
           >
@@ -283,10 +344,9 @@ export function Building3D({
               vectorEffect="non-scaling-stroke"
             />
             {value &&
-              annotated &&
-              (annotations === "all" ||
-                annotations === (o.kind === "beam" ? "beams" : "columns") ||
-                chosen) &&
+              visible &&
+              (annotations[o.kind === "beam" ? "beams" : "columns"].values ||
+                !!annotationTarget) &&
               label(
                 (from.x + to.x) / 2,
                 (from.y + to.y) / 2,
@@ -298,9 +358,161 @@ export function Building3D({
       });
     }
   }
+  if (roofData && model.roof) {
+    const r = model.roof,
+      active = activeFloor === model.floors.at(-1)!.id;
+    const R = (u: number, v: number, z: number) => {
+      const q = roofData.toPlan({ u, v });
+      return P(q.x, q.y, elevation + z);
+    };
+    for (const facet of roofData.facets) {
+      const points = facet.points.map((p) => R(p.u, p.v, p.z));
+      const center = {
+        x: points.reduce((s, p) => s + p.x, 0) / points.length,
+        y: points.reduce((s, p) => s + p.y, 0) / points.length,
+      };
+      annotationOwner = `roof|face|${facet.id}`;
+      if (!annotationTarget && (allLevels || active)) {
+        if (annotations.roof.labels)
+          label(center.x, center.y, `Pan ${facet.id}`);
+        if (annotations.roof.values)
+          label(
+            center.x,
+            center.y + 14 * textSize,
+            `${field} ${fmt(caseValue(facet.g, facet.q, field))} kN/m² (plan)`,
+          );
+      }
+      shapes.push({
+        key: `roof-face-${facet.id}`,
+        depth: points.reduce((s, p) => s + p.depth, 0) / points.length,
+        render: (
+          <polygon
+            data-testid="roof-facet"
+            data-roof-face={facet.id}
+            points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill="var(--purple)"
+            fillOpacity={active ? 0.12 : 0.05}
+            stroke="var(--purple)"
+            strokeOpacity={active ? 0.8 : 0.4}
+            strokeWidth="1.1"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+        ),
+      });
+    }
+    for (const [i, u] of roofData.frames.entries()) {
+      const vs =
+          r.shape === "mono"
+            ? [0, roofData.D]
+            : [0, roofData.D / 2, roofData.D],
+        top = vs.map((v) => R(u, v, roofData.height(u, v))),
+        a = R(u, 0, 0),
+        b = R(u, roofData.D, 0);
+      shapes.push({
+        key: `roof-frame-${i}`,
+        depth: (a.depth + b.depth) / 2 + 0.01,
+        render: (
+          <g
+            data-testid="roof-truss"
+            pointerEvents="none"
+            stroke="var(--purple)"
+            strokeWidth="1.7"
+            fill="none"
+            opacity={active ? 1 : 0.5}
+          >
+            <polyline
+              points={top.map((p) => `${p.x},${p.y}`).join(" ")}
+              vectorEffect="non-scaling-stroke"
+            />
+            <line
+              x1={a.x}
+              y1={a.y}
+              x2={b.x}
+              y2={b.y}
+              vectorEffect="non-scaling-stroke"
+            />
+            {r.shape === "mono" && (
+              <line
+                x1={b.x}
+                y1={b.y}
+                x2={top.at(-1)!.x}
+                y2={top.at(-1)!.y}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            {[1, 2, 3].map((j) => {
+              const base = R(u, (roofData.D * j) / 4, 0),
+                end = R(
+                  u,
+                  (roofData.D * (j % 2 === 0 ? j - 1 : j + 1)) / 4,
+                  roofData.height(
+                    u,
+                    (roofData.D * (j % 2 === 0 ? j - 1 : j + 1)) / 4,
+                  ),
+                );
+              return (
+                <line
+                  key={j}
+                  x1={base.x}
+                  y1={base.y}
+                  x2={end.x}
+                  y2={end.y}
+                  strokeWidth="1"
+                  vectorEffect="non-scaling-stroke"
+                />
+              );
+            })}
+          </g>
+        ),
+      });
+    }
+    const n = Math.min(100, Math.ceil(roofData.D / r.purlinSpacing));
+    for (let i = 0; i <= n; i++) {
+      const v = (roofData.D * i) / n,
+        limit =
+          (Math.min(roofData.L, roofData.D) / 2) *
+          Math.min(
+            1,
+            (2 * v) / roofData.D,
+            (2 * (roofData.D - v)) / roofData.D,
+          );
+      const us = [
+          ...new Set([...roofData.frames, limit, roofData.L - limit]),
+        ].sort((a, b) => a - b),
+        points = us.map((u) => R(u, v, roofData.height(u, v)));
+      shapes.push({
+        key: `roof-purlin-${i}`,
+        depth: points.reduce((s, p) => s + p.depth, 0) / points.length + 0.02,
+        render: (
+          <polyline
+            points={points.map((p) => `${p.x},${p.y}`).join(" ")}
+            fill="none"
+            stroke="var(--primary)"
+            strokeOpacity=".65"
+            strokeWidth="1"
+            vectorEffect="non-scaling-stroke"
+            pointerEvents="none"
+          />
+        ),
+      });
+    }
+  }
+  const layout = arrangeBuildingLabels(
+    labels,
+    {
+      left: -view.x / view.k,
+      right: (1000 - view.x) / view.k,
+      top: -view.y / view.k,
+      bottom: (height - view.y) / view.k,
+    },
+    textSize,
+  );
   return (
     <g
       className="building-3d"
+      data-scale={scale}
+      data-annotation-target={annotationTarget}
       data-testid="building-3d"
       data-yaw={yaw}
       data-pitch={pitch}
@@ -310,6 +522,61 @@ export function Building3D({
         .map((s) => (
           <g key={s.key}>{s.render}</g>
         ))}
+      <g className="building-annotation-layer" pointerEvents="none">
+        {layout.placed.map((l) => (
+          <g
+            key={l.id}
+            data-testid="building-annotation"
+            data-label-id={l.id}
+            data-building-element={l.element}
+          >
+            {Math.hypot(l.labelX - l.x, l.labelY - l.y) > 20 * textSize && (
+              <line
+                x1={l.x}
+                y1={l.y}
+                x2={l.labelX}
+                y2={l.labelY}
+                stroke={l.color}
+                strokeOpacity={0.45}
+                strokeWidth={0.7}
+                vectorEffect="non-scaling-stroke"
+              />
+            )}
+            <rect
+              x={l.labelX - l.w / 2}
+              y={l.labelY - l.h / 2}
+              width={l.w}
+              height={l.h}
+              rx={3 * textSize}
+              fill="var(--plot)"
+              fillOpacity={0.92}
+            />
+            <text
+              x={l.labelX}
+              y={l.labelY}
+              dominantBaseline="central"
+              textAnchor="middle"
+              fill={l.color}
+              className="numeric"
+              style={{ fontSize: 11 * textSize }}
+            >
+              {l.text}
+            </text>
+          </g>
+        ))}
+      </g>
+      {layout.hidden > 0 && (
+        <text
+          data-testid="building-annotations-hidden"
+          x={(1000 - view.x) / view.k - 12 * textSize}
+          y={(height - view.y) / view.k - 75 * textSize}
+          textAnchor="end"
+          fill="var(--muted-foreground)"
+          style={{ fontSize: 10 * textSize }}
+        >
+          {layout.hidden} repères masqués · zoomez pour détailler
+        </text>
+      )}
     </g>
   );
 }

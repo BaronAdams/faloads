@@ -29,6 +29,7 @@ const menus = [
       ["file:export", "Exporter le projet…"],
       ["file:rename", "Renommer…"],
       ["app:settings", "Paramètres…"],
+      ["window:close", "Quitter"],
     ],
   ],
   [
@@ -38,7 +39,7 @@ const menus = [
       ["edit:redo", "Rétablir"],
       ["edit:copy", "Copier les propriétés"],
       ["edit:paste", "Coller les propriétés"],
-      ["edit:select-all", "Tout sélectionner de même nature"],
+      ["edit:select-all", "Tout sélectionner"],
       ["edit:delete", "Supprimer la sélection"],
       ["edit:add", "Ajouter un élément…"],
     ],
@@ -55,11 +56,19 @@ const menus = [
   ],
   ["Calcul", [["study:calculate", "Lancer le calcul"]]],
   [
+    "Fenêtre",
+    [
+      ["window:minimize", "Réduire la fenêtre"],
+      ["window:fullscreen", "Plein écran"],
+      ["window:close", "Fermer la fenêtre"],
+    ],
+  ],
+  [
     "Aide",
     [
       ["help:guide", "Guide de prise en main"],
       ["help:shortcuts", "Raccourcis clavier…"],
-      ["app:about", "À propos de StructCalc"],
+      ["app:about", "À propos de KaliSigma"],
     ],
   ],
 ] as const;
@@ -67,7 +76,7 @@ const projectOnly = (id: string) =>
   /^(edit:|view:|study:|help:)/.test(id) ||
   ["file:save", "file:export", "file:rename"].includes(id);
 
-/** Real Tauri menus follow the host OS; this DOM fallback also previews menu actions. */
+/** Themed application menus on Windows/Linux; system-wide native menus on macOS. */
 export function DesktopMenu({
   projectActive,
   editorActive,
@@ -115,6 +124,49 @@ export function DesktopMenu({
       delete document.documentElement.dataset.nativeMenu;
     };
   }, [native, projectActive, editorActive]);
+  useEffect(() => {
+    if (native) return;
+    const keydown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) return;
+      const key = event.key.toLowerCase();
+      if (
+        document.querySelector('[role="dialog"]:not([data-state="closed"])')
+      ) {
+        if (key === "f5" || ((event.ctrlKey || event.metaKey) && key === "s"))
+          event.preventDefault();
+        return;
+      }
+      if (key === "f10" || (event.altKey && key === "f")) {
+        event.preventDefault();
+        document.querySelector<HTMLElement>(".desktop-menu-trigger")?.focus();
+        return;
+      }
+      const command = event.ctrlKey || event.metaKey;
+      const id =
+        command && !event.altKey
+          ? key === "s"
+            ? event.shiftKey
+              ? "file:export"
+              : "file:save"
+            : key === "o"
+              ? "file:open"
+              : key === "n" && event.shiftKey
+                ? "file:new"
+                : undefined
+          : key === "f5"
+            ? "study:calculate"
+            : undefined;
+      if (!id) return;
+      event.preventDefault();
+      if (
+        !projectOnly(id) ||
+        (projectActive && (id !== "study:calculate" || editorActive))
+      )
+        desktopCommand(id);
+    };
+    document.addEventListener("keydown", keydown);
+    return () => document.removeEventListener("keydown", keydown);
+  }, [native, projectActive, editorActive]);
   useDesktopCommands({
     "file:new": () => setPicker(true),
     "file:open": () => navigate("/projects"),
@@ -124,8 +176,18 @@ export function DesktopMenu({
         .catch(() => toast.error("Import impossible."));
     },
     "app:settings": () => navigate("/settings"),
+    ...Object.fromEntries(
+      ["minimize", "fullscreen", "close"].map((action) => [
+        `window:${action}`,
+        () => {
+          void invoke("desktop_window_action", { action }).catch(() =>
+            toast.error("La commande de fenêtre n’a pas abouti."),
+          );
+        },
+      ]),
+    ),
     "app:about": () =>
-      toast.info("StructCalc · Atelier de structure · Version 0.2.0"),
+      toast.info("KaliSigma · Atelier de structure · Version 0.2.0"),
   });
   return (
     <>

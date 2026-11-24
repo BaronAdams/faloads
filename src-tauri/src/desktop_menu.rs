@@ -1,8 +1,11 @@
+use tauri::AppHandle;
+#[cfg(target_os = "macos")]
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem, Submenu},
-    AppHandle, Emitter, Wry,
+    Emitter, Wry,
 };
 
+#[cfg(target_os = "macos")]
 fn item(
     app: &AppHandle,
     id: &str,
@@ -12,23 +15,31 @@ fn item(
     MenuItem::with_id(app, id, text, true, shortcut)
 }
 
+// macOS owns its global menu. Windows/Linux use the themed, keyboard-accessible
+// application menubar, exactly as in the application previews.
+#[cfg(not(target_os = "macos"))]
+pub fn install(_app: &AppHandle) -> tauri::Result<()> {
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
 pub fn install(app: &AppHandle) -> tauri::Result<()> {
     let menu = Menu::new(app)?;
     #[cfg(target_os = "macos")]
     menu.append(&Submenu::with_items(
         app,
-        "StructCalc",
+        "KaliSigma",
         true,
         &[
-            &PredefinedMenuItem::about(app, Some("À propos de StructCalc"), None)?,
+            &PredefinedMenuItem::about(app, Some("À propos de KaliSigma"), None)?,
             &item(app, "app:settings", "Réglages…", Some("Cmd+,"))?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::services(app, Some("Services"))?,
-            &PredefinedMenuItem::hide(app, Some("Masquer StructCalc"))?,
+            &PredefinedMenuItem::hide(app, Some("Masquer KaliSigma"))?,
             &PredefinedMenuItem::hide_others(app, Some("Masquer les autres"))?,
             &PredefinedMenuItem::show_all(app, Some("Tout afficher"))?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, Some("Quitter StructCalc"))?,
+            &PredefinedMenuItem::quit(app, Some("Quitter KaliSigma"))?,
         ],
     )?)?;
     let file = Submenu::with_items(
@@ -73,12 +84,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
             &PredefinedMenuItem::separator(app)?,
             &item(app, "edit:copy", "Copier les propriétés", None)?,
             &item(app, "edit:paste", "Coller les propriétés", None)?,
-            &item(
-                app,
-                "edit:select-all",
-                "Tout sélectionner de même nature",
-                None,
-            )?,
+            &item(app, "edit:select-all", "Tout sélectionner", None)?,
             &item(app, "edit:delete", "Supprimer la sélection", None)?,
             &item(app, "edit:add", "Ajouter un élément…", None)?,
         ],
@@ -130,7 +136,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     #[cfg(not(target_os = "macos"))]
     help.append(&PredefinedMenuItem::about(
         app,
-        Some("À propos de StructCalc"),
+        Some("À propos de KaliSigma"),
         None,
     )?)?;
     menu.append(&help)?;

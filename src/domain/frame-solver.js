@@ -50,8 +50,8 @@ export function frameSolve(S) {
     const c = dx / L,
       s = dy / L,
       E = S.E * 1e6,
-      ea = (E * b.bw * b.h) / 1e4 / L,
-      ei = (E * b.bw * b.h ** 3) / 12 / 1e8,
+      ea = (E * (b.A ?? (b.bw * b.h) / 1e4)) / L,
+      ei = E * (b.I ?? (b.bw * b.h ** 3) / 12 / 1e8),
       a2 = (12 * ei) / L ** 3,
       a3 = (6 * ei) / L ** 2,
       a4 = (4 * ei) / L,
@@ -74,13 +74,17 @@ export function frameSolve(S) {
     ];
     const qy = b.q - b.w * c,
       qx = -b.w * s,
+      qy2 = (b.q2 ?? b.q) - (b.w2 ?? b.w) * c,
+      qx2 = -(b.w2 ?? b.w) * s,
+      ky = (qy2 - qy) / L,
+      kx = (qx2 - qx) / L,
       pe = [
-        (qx * L) / 2,
-        (qy * L) / 2,
-        (qy * L * L) / 12,
-        (qx * L) / 2,
-        (qy * L) / 2,
-        (-qy * L * L) / 12,
+        (L * (2 * qx + qx2)) / 6,
+        (L * (7 * qy + 3 * qy2)) / 20,
+        (L * L * (3 * qy + 2 * qy2)) / 60,
+        (L * (qx + 2 * qx2)) / 6,
+        (L * (3 * qy + 7 * qy2)) / 20,
+        (-L * L * (2 * qy + 3 * qy2)) / 60,
       ],
       Kg = mm(tr(T), mm(k, T)),
       pg = tr(T).map((r) => r.reduce((t, v, j) => t + v * pe[j], 0));
@@ -96,7 +100,7 @@ export function frameSolve(S) {
       P[r] += pg[p];
       d.forEach((q, o) => (K[r][q] += Kg[p][o]));
     });
-    G.push({ A, L, c, s, k, T, pe, qx, qy, d, ei });
+    G.push({ A, L, c, s, k, T, pe, qx, qy, kx, ky, d, ei, EA: ea * L });
   }
   for (const l of S.nl) {
     if (!S.nodes[l.n - 1]) return { err: "Charge nodale : nœud inexistant." };
@@ -104,26 +108,39 @@ export function frameSolve(S) {
     P[3 * l.n - 2] += l.fy;
     P[3 * l.n - 1] += l.m;
   }
-  const fx = new Set();
+  const fx = new Set(),
+    u = new Array(N3).fill(0),
+    springLoads = new Array(N3).fill(0);
   S.nodes.forEach((nd, i) => {
     const s = nd.s;
-    if (s == 1 || s == 2 || s == 4) fx.add(3 * i);
-    if (s == 1 || s == 2 || s == 3) fx.add(3 * i + 1);
-    if (s == 1) fx.add(3 * i + 2);
-    if (s == 5) K[3 * i + 1][3 * i + 1] += nd.ky ?? 10000;
+    const prescribe = (q, value) => {
+      fx.add(3 * i + q);
+      u[3 * i + q] = value ?? 0;
+    };
+    if (s == 1 || s == 2 || s == 4) prescribe(0, nd.dx);
+    if (s == 1 || s == 2 || s == 3) prescribe(1, nd.dy);
+    if (s == 1) prescribe(2, nd.drz);
+    if (s == 5) {
+      const k = nd.ky ?? 10000;
+      K[3 * i + 1][3 * i + 1] += k;
+      // A moving elastic support acts through its anchor displacement.
+      springLoads[3 * i + 1] = k * (nd.dy ?? 0);
+    }
   });
   const fr = [...Array(N3).keys()].filter((j) => !fx.has(j));
   // Elastic restraints also stabilize rigid-body motion; the stiffness
   // matrix, rather than a count of fixed DOFs, detects mechanisms.
   const sol = gauss(
     fr.map((i) => fr.map((j) => K[i][j])),
-    fr.map((i) => P[i]),
+    fr.map(
+      (i) =>
+        P[i] + springLoads[i] - K[i].reduce((sum, k, j) => sum + k * u[j], 0),
+    ),
   );
   if (!sol)
     return {
       err: "Structure instable (mécanisme) : ajoutez des appuis ou des barres.",
     };
-  const u = new Array(N3).fill(0);
   fr.forEach((j, i) => (u[j] = sol[i]));
   const rea = [];
   S.nodes.forEach((nd, i) => {
@@ -135,7 +152,7 @@ export function frameSolve(S) {
         r[q] = K[3 * i + q].reduce((t, v, j) => t + v * u[j], 0) - P[3 * i + q];
         any = 1;
       }
-    if (nd.s == 5) r[1] = -(nd.ky ?? 10000) * u[3 * i + 1];
+    if (nd.s == 5) r[1] = -(nd.ky ?? 10000) * (u[3 * i + 1] - (nd.dy ?? 0));
     rea.push({ i, r });
   });
   let sx = 0,
@@ -154,7 +171,15 @@ export function frameSolve(S) {
       fe = g.k.map((r, i) => r.reduce((t, v, j) => t + v * ul[j], 0) - g.pe[i]),
       xs = [];
     for (let i = 0; i <= 20; i++) xs.push((g.L * i) / 20);
-    if (Math.abs(g.qy) > 1e-9) {
+    if (Math.abs(g.ky) > 1e-12) {
+      const disc = g.qy * g.qy - 2 * g.ky * fe[1];
+      if (disc >= 0)
+        for (const x0 of [
+          (-g.qy + Math.sqrt(disc)) / g.ky,
+          (-g.qy - Math.sqrt(disc)) / g.ky,
+        ])
+          if (x0 > 0 && x0 < g.L) xs.push(x0);
+    } else if (Math.abs(g.qy) > 1e-12) {
       const x0 = -fe[1] / g.qy;
       if (x0 > 0 && x0 < g.L) xs.push(x0);
     }
@@ -166,18 +191,31 @@ export function frameSolve(S) {
         g.L * (t - 2 * t * t + t ** 3) * ul[2] +
         (3 * t * t - 2 * t ** 3) * ul[4] +
         g.L * (-t * t + t ** 3) * ul[5] +
-        (g.qy * x * x * (g.L - x) ** 2) / (24 * g.ei);
+        (g.qy * x * x * (g.L - x) ** 2) / (24 * g.ei) +
+        (g.ky *
+          (x ** 5 / 120 -
+            (g.L ** 2 * x ** 3) / 40 +
+            (g.L ** 3 * x ** 2) / 60)) /
+          g.ei;
       const theta =
         ((6 * t * t - 6 * t) / g.L) * ul[1] +
         (1 - 4 * t + 3 * t * t) * ul[2] +
         ((6 * t - 6 * t * t) / g.L) * ul[4] +
         (-2 * t + 3 * t * t) * ul[5] +
-        (g.qy * x * (g.L - x) * (g.L - 2 * x)) / (12 * g.ei);
+        (g.qy * x * (g.L - x) * (g.L - 2 * x)) / (12 * g.ei) +
+        (g.ky *
+          (x ** 4 / 24 - (3 * g.L ** 2 * x ** 2) / 40 + (g.L ** 3 * x) / 30)) /
+          g.ei;
       return {
         x,
-        N: -fe[0] - g.qx * x,
-        V: fe[1] + g.qy * x,
-        M: -fe[2] + fe[1] * x + (g.qy * x * x) / 2,
+        u:
+          ul[0] * (1 - t) +
+          ul[3] * t +
+          (g.qx * x * (g.L - x)) / (2 * g.EA) +
+          (g.kx * x * (g.L * g.L - x * x)) / (6 * g.EA),
+        N: -fe[0] - g.qx * x - (g.kx * x * x) / 2,
+        V: fe[1] + g.qy * x + (g.ky * x * x) / 2,
+        M: -fe[2] + fe[1] * x + (g.qy * x * x) / 2 + (g.ky * x ** 3) / 6,
         v,
         theta,
       };

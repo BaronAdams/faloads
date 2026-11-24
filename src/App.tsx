@@ -79,9 +79,14 @@ function Shell() {
       )}
       <aside className="app-sidebar">
         <Link to="/" className="brand">
-          <span className="brand-mark">σ</span>
+          <img
+            className="brand-mark"
+            src="/app-icon.svg"
+            alt=""
+            draggable={false}
+          />
           <div>
-            <strong>StructCalc</strong>
+            <strong>KaliSigma</strong>
             <small>Votre atelier de structure</small>
           </div>
         </Link>
@@ -122,8 +127,13 @@ function Shell() {
       <div className="main-column">
         <header className="mobile-app-header">
           <Link to="/" className="brand">
-            <span className="brand-mark small">σ</span>
-            <strong>StructCalc</strong>
+            <img
+              className="brand-mark small"
+              src="/app-icon.svg"
+              alt=""
+              draggable={false}
+            />
+            <strong>KaliSigma</strong>
           </Link>
           <Link to="/profile" aria-label="Mon profil">
             <UserRound size={20} />

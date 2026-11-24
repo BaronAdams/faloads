@@ -6,6 +6,7 @@ import {
   diagramUnit,
   isForceDiagram,
   placeDiagramLabels,
+  diagramNormal,
   type DiagramField,
 } from "@/domain/diagram";
 export interface DiagramCurve {
@@ -34,6 +35,7 @@ export function StructuralDiagram({
     const tx = curve.b.x - curve.a.x,
       ty = curve.b.y - curve.a.y,
       len = Math.hypot(tx, ty) || 1;
+    const normal = diagramNormal(curve.a, curve.b);
     return characteristicIndices(curve.points.map((p) => p.value)).map(
       (index) => {
         const p = curve.points[index],
@@ -49,8 +51,8 @@ export function StructuralDiagram({
           markerY: p.y,
           x: p.x + (endpoint ? (tx / len) * toward * 8 * units : 0),
           y: p.y + (endpoint ? (ty / len) * toward * 8 * units : 0),
-          nx: (-ty / len) * sign,
-          ny: (tx / len) * sign,
+          nx: normal.x * sign,
+          ny: normal.y * sign,
           text: `${symbol} = ${fmt(Math.abs(p.value * factor) < 0.005 ? 0 : p.value * factor)} ${unit}`,
         };
       },
@@ -104,6 +106,7 @@ export function StructuralDiagram({
             textAnchor="middle"
             dominantBaseline="middle"
             className="numeric diagram-value"
+            data-annotation="diagrams-values"
             fill={color}
             stroke="var(--plot)"
             strokeWidth={4 * units}
