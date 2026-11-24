@@ -19,4 +19,17 @@ export const levelSchema = z.object({
   b: z.number().positive().max(1000),
   h: z.number().positive().max(1000),
   e: z.number().positive().max(1000),
+  // Optional overrides: legacy studies continue to use their project defaults.
+  tributary: z
+    .object({
+      area: z.number().positive().max(1e6),
+      wallLength: z.number().positive().max(100).optional(),
+      primaryB: z.number().positive().max(1000),
+      primaryH: z.number().positive().max(1000),
+      secondaryB: z.number().positive().max(1000),
+      secondaryH: z.number().positive().max(1000),
+      primaryLength: z.number().nonnegative().max(200),
+      secondaryLength: z.number().nonnegative().max(200),
+    })
+    .optional(),
 });

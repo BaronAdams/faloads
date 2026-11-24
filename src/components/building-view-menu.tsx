@@ -1,32 +1,9 @@
-import { useState } from "react";
-import { Eye, ChevronLeft, ChevronRight } from "lucide-react";
-import { IconButton } from "./common";
-import { useCompactViewport } from "@/lib/runtime";
+import { ViewMenu, type ViewEntry } from "./view-menu";
 import {
   buildingAnnotationNames,
   type BuildingAnnotations,
   type OrbitAxis,
 } from "@/domain/building-view";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuCheckboxItem,
-  DropdownMenuSeparator,
-  DropdownMenuLabel,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-} from "./ui/dropdown-menu";
-type Entry = {
-  label: string;
-  children?: Entry[];
-  checked?: boolean;
-  toggle?: (value: boolean) => void;
-  action?: () => void;
-  disabled?: boolean;
-};
 export function BuildingViewMenu({
   annotations,
   onChange,
@@ -40,6 +17,7 @@ export function BuildingViewMenu({
   focused,
   canFocus,
   onFocus,
+  hasRoof = false,
 }: {
   annotations: BuildingAnnotations;
   onChange: (v: BuildingAnnotations) => void;
@@ -53,10 +31,12 @@ export function BuildingViewMenu({
   focused: boolean;
   canFocus: boolean;
   onFocus: (v: boolean) => void;
+  hasRoof?: boolean;
 }) {
-  const compact = useCompactViewport(),
-    [path, setPath] = useState<number[]>([]);
-  const nodes: Entry[] = [
+  const categories = Object.entries(buildingAnnotationNames).filter(
+    ([key]) => key !== "roof" || (is3D && hasRoof),
+  );
+  const entries: ViewEntry[] = [
     ...(is3D
       ? [
           {
@@ -70,15 +50,13 @@ export function BuildingViewMenu({
     {
       label: "Annotations",
       children: [
-        ...Object.entries(buildingAnnotationNames).map(([key, label]) => ({
-          label: key === "roof" && !is3D ? `${label} · vue 3D` : label,
-          children: (["labels", "values"] as const).map((flag) => ({
-            label:
-              flag === "labels"
-                ? is3D && !["slabs", "roof"].includes(key)
-                  ? "Repères en plan"
-                  : "Repères"
-                : "Valeurs",
+        ...categories.map(([key, label]) => ({
+          label,
+          children: (is3D && !["slabs", "roof"].includes(key)
+            ? (["values"] as const)
+            : (["labels", "values"] as const)
+          ).map((flag) => ({
+            label: flag === "labels" ? "Repères" : "Valeurs",
             checked:
               annotations[key as keyof typeof buildingAnnotationNames][flag],
             toggle: (value: boolean) =>
@@ -91,11 +69,16 @@ export function BuildingViewMenu({
               }),
           })),
         })),
-        {
-          label: "Noms des niveaux",
-          checked: annotations.levels,
-          toggle: (levels) => onChange({ ...annotations, levels }),
-        },
+        ...(is3D
+          ? [
+              {
+                label: "Noms des niveaux",
+                checked: annotations.levels,
+                toggle: (levels: boolean) =>
+                  onChange({ ...annotations, levels }),
+              },
+            ]
+          : []),
         {
           label: "Axes de la grille",
           checked: annotations.axes,
@@ -107,10 +90,7 @@ export function BuildingViewMenu({
             onChange({
               ...annotations,
               ...Object.fromEntries(
-                Object.keys(buildingAnnotationNames).map((k) => [
-                  k,
-                  { labels: true, values: true },
-                ]),
+                categories.map(([k]) => [k, { labels: true, values: true }]),
               ),
             }),
         },
@@ -131,99 +111,35 @@ export function BuildingViewMenu({
         },
       ],
     },
-    { label: "Tous les niveaux", checked: allLevels, toggle: onAllLevels },
-    { label: "Surfaces d’influence", checked: influence, toggle: onInfluence },
-    {
-      label: "Rotation 3D",
-      children: (
-        [
-          ["auto", "Selon le geste"],
-          ["vertical", "Axe vertical"],
-          ["horizontal", "Axe horizontal"],
-        ] as const
-      ).map(([value, label]) => ({
-        label,
-        checked: orbitAxis === value,
-        toggle: () => onOrbitAxis(value),
-      })),
-    },
+    ...(is3D
+      ? [
+          {
+            label: "Tous les niveaux",
+            checked: allLevels,
+            toggle: onAllLevels,
+          },
+          {
+            label: "Rotation 3D",
+            children: (
+              [
+                ["auto", "Selon le geste"],
+                ["vertical", "Axe vertical"],
+                ["horizontal", "Axe horizontal"],
+              ] as const
+            ).map(([value, label]) => ({
+              label,
+              checked: orbitAxis === value,
+              toggle: () => onOrbitAxis(value),
+            })),
+          },
+        ]
+      : [
+          {
+            label: "Surfaces d’influence",
+            checked: influence,
+            toggle: onInfluence,
+          },
+        ]),
   ];
-  const entries = (items: Entry[], prefix: number[] = []): React.ReactNode =>
-    items.map((entry, index) =>
-      entry.children ? (
-        compact ? (
-          <DropdownMenuItem
-            key={entry.label}
-            onSelect={(e) => {
-              e.preventDefault();
-              setPath([...prefix, index]);
-            }}
-          >
-            {entry.label}
-            <ChevronRight className="ml-auto" />
-          </DropdownMenuItem>
-        ) : (
-          <DropdownMenuSub key={entry.label}>
-            <DropdownMenuSubTrigger>{entry.label}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent>
-              {entries(entry.children, [...prefix, index])}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        )
-      ) : entry.toggle ? (
-        <DropdownMenuCheckboxItem
-          key={entry.label}
-          disabled={entry.disabled}
-          checked={entry.checked}
-          onSelect={(e) => e.preventDefault()}
-          onCheckedChange={entry.toggle}
-        >
-          {entry.label}
-        </DropdownMenuCheckboxItem>
-      ) : (
-        <DropdownMenuItem key={entry.label} onSelect={entry.action}>
-          {entry.label}
-        </DropdownMenuItem>
-      ),
-    );
-  let current = nodes,
-    title = "Vue";
-  for (const index of path) {
-    title = current[index].label;
-    current = current[index].children!;
-  }
-  return (
-    <DropdownMenu
-      onOpenChange={(open) => {
-        if (!open) setPath([]);
-      }}
-    >
-      <DropdownMenuTrigger asChild>
-        <IconButton label="Options de vue">
-          <Eye />
-        </IconButton>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="start"
-        className={compact ? "analysis-view-menu-compact" : undefined}
-      >
-        {compact && path.length > 0 && (
-          <>
-            <DropdownMenuItem
-              onSelect={(e) => {
-                e.preventDefault();
-                setPath(path.slice(0, -1));
-              }}
-            >
-              <ChevronLeft />
-              Retour
-            </DropdownMenuItem>
-            <DropdownMenuLabel>{title}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        {entries(current, path)}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+  return <ViewMenu entries={entries} />;
 }

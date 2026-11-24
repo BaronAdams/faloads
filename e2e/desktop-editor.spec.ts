@@ -271,7 +271,9 @@ test("keeps section libraries inside each study and supports point forces on fra
   await page
     .getByRole("button", { name: "Ajouter une dimension type" })
     .click();
-  await page.getByLabel("Nom 1", { exact: true }).fill("Poutre 25 × 40");
+  await page
+    .locator('.section-type-row input[id^="section-name-"]')
+    .fill("Section privée 25 × 40");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Ajouter", exact: true }).click();
   await page
@@ -319,13 +321,17 @@ test("keeps section libraries inside each study and supports point forces on fra
   );
   const model = await saved(page);
   expect(model.pl[0].t).toBeCloseTo(moved / 100, 3);
-  expect(model.sectionTypes[0].name).toBe("Poutre 25 × 40");
+  expect(model.sectionTypes.at(-1).name).toBe("Section privée 25 × 40");
   await page.goto("/#/new/beam");
   await createStudy(page, "Autre étude", true);
   await page
     .getByRole("button", { name: "Dimensions types du projet" })
     .click();
-  await expect(page.locator(".section-type-row")).toHaveCount(0);
+  await expect(page.locator(".section-type-row")).toHaveCount(1);
+  await page.getByLabel("Dimension à modifier", { exact: true }).click();
+  await expect(
+    page.getByRole("option", { name: "Section privée 25 × 40", exact: true }),
+  ).toHaveCount(0);
 });
 
 test("changes slab thickness in bulk without overwriting individual live loads", async ({

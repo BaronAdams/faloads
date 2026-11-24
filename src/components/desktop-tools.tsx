@@ -30,7 +30,8 @@ import { Choice, Numeric, IconButton, Disclosure } from "./common";
 import { useDesktopCommands } from "@/lib/desktop-commands";
 import { runtime } from "@/lib/runtime";
 import { uid } from "@/lib/utils";
-import { type SectionType } from "@/domain/section-types";
+import { type SectionType, sectionCatalogue } from "@/domain/section-types";
+import { SectionSketch } from "./section-profile";
 export type MenuPoint = { x: number; y: number } | null;
 export type EditorActions = {
   copy: () => void;
@@ -232,11 +233,15 @@ export function DetailDialog({
 export function SectionTypes({
   value,
   onChange,
+  profiles = false,
 }: {
   value: SectionType[];
   onChange: (value: SectionType[]) => void;
+  profiles?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false),
+    [catalogue, setCatalogue] = useState("beam"),
+    [editing, setEditing] = useState("");
   return (
     <>
       <IconButton
@@ -254,14 +259,68 @@ export function SectionTypes({
           Ces sections appartiennent uniquement à cette étude. Sélectionnez
           plusieurs éléments pour appliquer une même dimension type.
         </p>
+        <Disclosure title="Parcourir le catalogue">
+          <Choice
+            label="Catalogue prêt à utiliser"
+            value={catalogue}
+            onChange={setCatalogue}
+            options={[
+              { value: "beam", label: "Poutres béton" },
+              { value: "column", label: "Poteaux béton" },
+              { value: "slab", label: "Planchers" },
+              { value: "wall", label: "Voiles" },
+              ...(profiles ? [{ value: "ipe", label: "Profilés IPE" }] : []),
+            ]}
+          />
+          <div className="section-catalogue" aria-label="Sections du catalogue">
+            {sectionCatalogue(profiles)
+              .filter((t) =>
+                catalogue === "ipe"
+                  ? !!t.catalogue
+                  : t.kind === catalogue && !t.catalogue,
+              )
+              .map((t) => {
+                const exists = value.some((s) => s.id === t.id);
+                return (
+                  <Button
+                    type="button"
+                    key={t.id}
+                    variant={editing === t.id ? "secondary" : "outline"}
+                    aria-pressed={editing === t.id}
+                    disabled={!exists && value.length >= 100}
+                    onClick={() => {
+                      setEditing(t.id);
+                      if (!exists) onChange([...value, structuredClone(t)]);
+                    }}
+                  >
+                    {!exists && "+ "}
+                    {t.name}
+                  </Button>
+                );
+              })}
+          </div>
+        </Disclosure>
+        {value.length > 0 && (
+          <Choice
+            label="Dimension à modifier"
+            value={value.some((s) => s.id === editing) ? editing : value[0].id}
+            options={value.map((s) => ({ value: s.id, label: s.name }))}
+            onChange={setEditing}
+          />
+        )}
         <div className="section-type-list">
-          {value.map((s, i) => {
+          {value.map((s) => {
+            if (
+              s.id !==
+              (value.some((v) => v.id === editing) ? editing : value[0]?.id)
+            )
+              return null;
             const patch = (p: Partial<SectionType>) =>
               onChange(value.map((v) => (v.id === s.id ? { ...s, ...p } : v)));
             return (
               <div className="section-type-row" key={s.id}>
                 <div className="field">
-                  <Label htmlFor={`section-name-${s.id}`}>Nom {i + 1}</Label>
+                  <Label htmlFor={`section-name-${s.id}`}>Nom de la dimension</Label>
                   <Input
                     id={`section-name-${s.id}`}
                     value={s.name}
@@ -273,6 +332,7 @@ export function SectionTypes({
                 </div>
                 <Choice
                   label="Élément"
+                  disabled={!!s.catalogue}
                   value={s.kind}
                   options={[
                     { value: "beam", label: "Poutre / barre" },
@@ -284,7 +344,11 @@ export function SectionTypes({
                     patch({ kind: kind as SectionType["kind"] })
                   }
                 />
-                {s.kind === "slab" ? (
+                {s.catalogue ? (
+                  <span className="hint">
+                    Profil tabulé · A {s.A} cm² · I {s.I} cm⁴
+                  </span>
+                ) : s.kind === "slab" ? (
                   <Choice
                     label="Plancher"
                     value={s.slab ?? "dp"}
@@ -309,6 +373,7 @@ export function SectionTypes({
                   />
                 )}
                 <Numeric
+                  disabled={!!s.catalogue}
                   label={
                     s.kind === "slab" ? "Épaisseur dalle pleine" : "Hauteur"
                   }
@@ -324,24 +389,28 @@ export function SectionTypes({
                 >
                   <Trash2 />
                 </IconButton>
+                {s.kind !== "slab" && <SectionSketch value={s} />}
               </div>
             );
           })}
         </div>
         <Button
           variant="outline"
-          onClick={() =>
+          disabled={value.length >= 100}
+          onClick={() => {
+            const id = uid();
+            setEditing(id);
             onChange([
               ...value,
               {
-                id: uid(),
+                id,
                 name: `Section ${value.length + 1}`,
                 kind: "beam",
                 b: 25,
                 h: 40,
               },
-            ])
-          }
+            ]);
+          }}
         >
           <Plus />
           Ajouter une dimension type
