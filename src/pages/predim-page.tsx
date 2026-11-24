@@ -1,4 +1,4 @@
-import { sectionTypesSchema } from "@/domain/section-types";
+import { sectionTypesSchema, sectionCatalogue } from "@/domain/section-types";
 import { SectionTypes } from "@/components/desktop-tools";
 import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
@@ -59,7 +59,7 @@ export function predimDefaults(
   concrete = "C25/30",
 ): PredimModel {
   return {
-    sectionTypes: [],
+    sectionTypes: sectionCatalogue(),
     n: type === "column" ? 800 : 500,
     length:
       type === "wall"

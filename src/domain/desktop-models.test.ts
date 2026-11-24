@@ -221,6 +221,9 @@ describe("Batch editing preserves element identity and topology", () => {
     const a = buildingDefaults(),
       b = buildingDefaults();
     a.sectionTypes.push({ id: "t", name: "P30", kind: "column", b: 30, h: 30 });
-    expect(b.sectionTypes).toEqual([]);
+    expect(b.sectionTypes.length).toBeGreaterThan(0);
+    expect(b.sectionTypes.some((t) => t.id === "t")).toBe(false);
+    a.sectionTypes[0].b = 99;
+    expect(b.sectionTypes[0].b).toBe(20);
   });
 });

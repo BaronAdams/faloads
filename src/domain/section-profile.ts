@@ -15,6 +15,7 @@ export type ProfileGeometry = {
   tf?: number;
   A?: number;
   I?: number;
+  catalogue?: string;
 };
 export const profileNames: Record<ProfileShape, string> = {
   rect: "Rectangulaire",
@@ -28,6 +29,7 @@ export const profileNames: Record<ProfileShape, string> = {
 export function profileProperties(s: ProfileGeometry) {
   const { b, h } = s,
     shape = s.shape ?? "rect";
+  if (s.catalogue && s.A && s.I) return { A: s.A, I: s.I };
   if (shape === "custom")
     return { A: s.A ?? b * h, I: s.I ?? (b * h ** 3) / 12 };
   if (shape === "circle")

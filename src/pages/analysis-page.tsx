@@ -5,7 +5,12 @@ import {
   type FrameBounds,
 } from "@/domain/analysis-duplication";
 import { AnalysisSelectionSummary } from "@/components/analysis-selection-summary";
-import { ProfilePicker, ProfileDimensions } from "@/components/section-profile";
+import {
+  ProfilePicker,
+  ProfileDimensions,
+  SectionSketch,
+} from "@/components/section-profile";
+import { analysisSectionType } from "@/domain/section-types";
 import { profileProperties, type ProfileShape } from "@/domain/section-profile";
 import { DistributedLoad } from "@/components/distributed-load";
 import { StructureProbe } from "@/components/structure-probe";
@@ -862,6 +867,7 @@ export function AnalysisPage({
       </IconButton>
       <div className="project-auxiliary-tools">
         <SectionTypes
+          profiles
           value={model.sectionTypes}
           onChange={(sectionTypes) => commit({ ...model, sectionTypes })}
         />
@@ -1769,9 +1775,7 @@ export function AnalysisPage({
                         selectedKeys.length
                           ? selectedKeys
                           : [`${selection.type}:${selection.id}`],
-                        editor.kind === "beam"
-                          ? { shape: "rect", b: t.b / 100, h: t.h / 100 }
-                          : { shape: "rect", bw: t.b, h: t.h },
+                        analysisSectionType(t, editor.kind === "beam"),
                       ),
                     );
                 }}
@@ -2023,6 +2027,8 @@ function ElementEditor({
     if (selection.type === "section") {
       const s = model.sections.find((s) => s.id === selection.id)!;
       const patch = (p: Partial<typeof s>) => {
+        if (["b", "h", "tw", "tf", "shape"].some((k) => k in p))
+          p.catalogue = undefined;
         const sections = model.sections.map((v) => ({ ...v })),
           index = sections.findIndex((v) => v.id === s.id);
         sections[index] = { ...s, ...p };
@@ -2068,6 +2074,7 @@ function ElementEditor({
             <ProfileDimensions value={s} onChange={patch} unit="m" />
           ) : (
             <>
+              <SectionSketch value={s} unit="m" />
               <Numeric
                 label="Aire A"
                 value={s.A * 1e4}
@@ -2434,7 +2441,17 @@ function ElementEditor({
     const patch = (p: Partial<typeof b>) =>
       onChange({
         ...model,
-        mem: model.mem.map((v) => (v.id === b.id ? { ...b, ...p } : v)),
+        mem: model.mem.map((v) =>
+          v.id === b.id
+            ? {
+                ...b,
+                ...p,
+                ...(["bw", "h", "tw", "tf", "shape"].some((k) => k in p)
+                  ? { catalogue: undefined }
+                  : {}),
+              }
+            : v,
+        ),
       });
     return (
       <div className="editor-fields">
@@ -2460,22 +2477,25 @@ function ElementEditor({
           }
         />
         {b.shape === "custom" ? (
-          <FormGrid>
-            <Numeric
-              label="Aire A"
-              value={(b.A ?? (b.bw * b.h) / 1e4) * 1e4}
-              min={0.001}
-              unit="cm²"
-              onChange={(A) => patch({ A: A / 1e4 })}
-            />
-            <Numeric
-              label="Inertie I"
-              value={(b.I ?? (b.bw * b.h ** 3) / 12 / 1e8) * 1e8}
-              min={0.001}
-              unit="cm⁴"
-              onChange={(I) => patch({ I: I / 1e8 })}
-            />
-          </FormGrid>
+          <>
+            <SectionSketch value={{ ...b, b: b.bw }} />
+            <FormGrid>
+              <Numeric
+                label="Aire A"
+                value={(b.A ?? (b.bw * b.h) / 1e4) * 1e4}
+                min={0.001}
+                unit="cm²"
+                onChange={(A) => patch({ A: A / 1e4 })}
+              />
+              <Numeric
+                label="Inertie I"
+                value={(b.I ?? (b.bw * b.h ** 3) / 12 / 1e8) * 1e8}
+                min={0.001}
+                unit="cm⁴"
+                onChange={(I) => patch({ I: I / 1e8 })}
+              />
+            </FormGrid>
+          </>
         ) : (
           <ProfileDimensions
             value={{ ...b, b: b.bw }}

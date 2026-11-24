@@ -9,7 +9,7 @@ import {
 import { toggleSelection, selectionFamily } from "@/domain/selection";
 import { RibbonGroup } from "@/components/project-ribbon";
 import { useDesktopCommands } from "@/lib/desktop-commands";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Copy,
@@ -30,7 +30,11 @@ import {
   Minus,
   Focus,
   House,
+  ListChecks,
 } from "lucide-react";
+import { validateBuilding, columnNodes } from "@/domain/building-validation";
+import { ColumnDescentTable } from "@/components/column-descent-table";
+import { SectionSketch } from "@/components/section-profile";
 import { toast } from "sonner";
 import {
   buildingPlanGeometry,
@@ -133,6 +137,7 @@ export function BuildingPage({ project }: { project?: Project }) {
     [focusAnnotations, setFocusAnnotations] = useState(false),
     [details, setDetails] = useState(false),
     [resultsOpen, setResultsOpen] = useState(false),
+    [validationOpen, setValidationOpen] = useState(false),
     [view, setView] = useState<"plan" | "3d">("plan"),
     [field, setField] = useState<LoadCase>("ELU"),
     [influence, setInfluence] = useState(true),
@@ -159,6 +164,10 @@ export function BuildingPage({ project }: { project?: Project }) {
     floor.id === model.floors.at(-1)!.id ? model.roof : undefined;
   const preview = buildingResults(floor, activeRoof),
     results = current?.results ?? preview;
+  const validationIssues = useMemo(
+    () => (validationOpen ? validateBuilding(model) : []),
+    [validationOpen, model],
+  );
   useEffect(() => {
     drafts.set(draftKey, model);
   }, [drafts, draftKey, model]);
@@ -428,6 +437,10 @@ export function BuildingPage({ project }: { project?: Project }) {
   const run = async () => {
     const invalid = document.querySelector<HTMLInputElement>("input:invalid");
     if (invalid) return invalid.reportValidity();
+    if (validateBuilding(model).some((issue) => issue.severity === "error")) {
+      setValidationOpen(true);
+      return;
+    }
     setParameters(false);
     if (await calculation.run()) {
       setResultsOpen(true);
@@ -743,6 +756,9 @@ export function BuildingPage({ project }: { project?: Project }) {
               );
           }}
         />
+      )}
+      {full && (slot || free) && (
+        <SectionSketch value={{ b: (slot ?? free)!.b, h: (slot ?? free)!.h }} />
       )}
     </>
   );
@@ -1062,6 +1078,12 @@ export function BuildingPage({ project }: { project?: Project }) {
       >
         <FileChartColumn />
       </IconButton>
+      <IconButton
+        label="Vérifier les liaisons du modèle"
+        onClick={() => setValidationOpen(true)}
+      >
+        <ListChecks />
+      </IconButton>
     </RibbonGroup>
   );
   const headerTools = (
@@ -1225,6 +1247,7 @@ export function BuildingPage({ project }: { project?: Project }) {
                 onChange={(v) => setField(v as LoadCase)}
               />
               <BuildingViewMenu
+                hasRoof={!!model.roof?.enabled}
                 annotations={annotations}
                 is3D={view === "3d"}
                 focused={focusAnnotations && !!selection}
@@ -1264,6 +1287,56 @@ export function BuildingPage({ project }: { project?: Project }) {
           />
         }
       />
+      <DetailDialog
+        open={validationOpen}
+        onOpenChange={setValidationOpen}
+        title="Cohérence des liaisons du modèle"
+        description="Vérification géométrique du cheminement des charges avant calcul. Cliquez sur une incohérence pour localiser l’élément."
+      >
+        <p className="hint">
+          Les extrémités sont liées si leurs coordonnées coïncident à 0,1 mm
+          près. Les poteaux se cumulent uniquement entre niveaux voisins et
+          porteurs alignés. Un transfert non modélisé bloque le calcul.
+        </p>
+        {validationIssues.length ? (
+          <div className="model-issues" role="list">
+            {validationIssues.map((issue, i) => (
+              <button
+                type="button"
+                key={i}
+                role="listitem"
+                onClick={() => {
+                  const index = model.floors.findIndex(
+                    (f) => f.id === issue.floor,
+                  );
+                  if (index >= 0) changeFloor(index);
+                  setSelection(issue.element || null);
+                  setSelectedKeys(issue.element ? [issue.element] : []);
+                  setView("plan");
+                  setValidationOpen(false);
+                }}
+              >
+                <strong>
+                  {issue.severity === "error" ? "À corriger" : "À vérifier"}
+                </strong>
+                <span>{issue.message}</span>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <Notice>
+            {model.floors.length} niveau(x) et{" "}
+            {model.floors.reduce((s, f) => s + columnNodes(f).length, 0)}{" "}
+            poteaux vérifiés. Aucun défaut de liaison détecté pour la descente
+            gravitaire.
+          </Notice>
+        )}
+        <p className="hint">
+          Ce contrôle ne remplace pas une analyse de stabilité globale ou un
+          modèle éléments finis des poutres de transfert.
+        </p>
+        <Button onClick={() => setValidationOpen(false)}>Fermer</Button>
+      </DetailDialog>
       {duplication && (
         <BuildingDuplication
           source={floor}
@@ -1718,6 +1791,7 @@ export function BuildingPage({ project }: { project?: Project }) {
                   </table>
                 </div>
               </Panel>
+              <ColumnDescentTable rows={calculation.result} />
               <Panel title={`Poutres et voiles · ${floor.name}`}>
                 <div className="table-wrap">
                   <table>

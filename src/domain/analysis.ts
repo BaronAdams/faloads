@@ -3,7 +3,7 @@ import { z } from "zod";
 import { beamSolve } from "./beam-solver.js";
 import { frameSolve } from "./frame-solver.js";
 import { uid } from "@/lib/utils";
-import { sectionTypesSchema } from "./section-types";
+import { sectionTypesSchema, sectionCatalogue } from "./section-types";
 const n = z.number().finite(),
   position = n.min(0).max(1000),
   id = z.string().min(1).max(100);
@@ -38,6 +38,7 @@ export const beamSchema = z
           x1: position,
           x2: position,
           shape: z.enum(profileShapes),
+          catalogue: z.string().optional(),
           tw: n.positive().optional(),
           tf: n.positive().optional(),
           b: n.positive(),
@@ -170,6 +171,7 @@ export const frameSchema = z
           w: n,
           q: n,
           shape: z.enum(profileShapes).optional(),
+          catalogue: z.string().optional(),
           tw: n.positive().optional(),
           tf: n.positive().optional(),
           A: n.positive().optional(),
@@ -503,7 +505,7 @@ export const load = (type: BeamLoad["type"], L: number): BeamLoad => ({
 export function beamPreset(type = "iso"): BeamModel {
   const base: BeamModel = {
     kind: "beam",
-    sectionTypes: [],
+    sectionTypes: sectionCatalogue(true),
     L: 8,
     material: { E: 30000, nu: 0.2 },
     timoshenko: true,
@@ -573,7 +575,7 @@ export function framePreset(type = "portal"): FrameModel {
   }
   return {
     kind: "frame",
-    sectionTypes: [],
+    sectionTypes: sectionCatalogue(true),
     pl: [],
     E: 30,
     nodes,

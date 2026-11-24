@@ -147,6 +147,99 @@
 .workbench-project-header .number-input {
   min-width: 0;
 }
+/* Units own their column; they can never hide the editable digits. */
+.building-page
+  .workbench-project-header
+  .ribbon-fields
+  .field:not(:has([role="combobox"])) {
+  grid-template-columns: max-content 132px;
+}
+.building-page .workbench-project-header .number-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--muted);
+}
+.building-page .workbench-project-header .number-input input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+  padding-inline: 8px;
+  border: 0;
+  background: transparent;
+}
+.building-page .workbench-project-header .number-input > span {
+  position: static;
+  transform: none;
+  padding-right: 8px;
+  flex: none;
+}
+.section-sketch {
+  margin: 8px 0;
+  max-width: 340px;
+  width: 100%;
+}
+.section-sketch svg {
+  width: 100%;
+  max-height: 210px;
+}
+.section-sketch figcaption {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  text-align: center;
+}
+.section-catalogue {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-block: 12px;
+}
+.section-type-row .section-sketch {
+  grid-column: 1 / -1;
+  flex: 0 0 100%;
+  max-width: none;
+  margin: 0;
+}
+.section-type-row .section-sketch svg {
+  max-width: 300px;
+  display: block;
+  margin: 0 auto;
+}
+.column-cumulative-wrap {
+  max-height: min(52dvh, 520px);
+  overflow: auto;
+  margin-top: 12px;
+}
+.column-cumulative-wrap th {
+  white-space: nowrap;
+}
+.column-cumulative-wrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--card);
+}
+.model-issues {
+  display: grid;
+  gap: 8px;
+}
+.model-issues > button {
+  display: grid;
+  gap: 4px;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--muted);
+}
+.model-issues > button strong {
+  color: var(--destructive);
+  font-size: 12px;
+}
+.model-issues > button:focus-visible {
+  outline: 2px solid var(--ring);
+}
 .workbench-project-header .toggle {
   margin: 0;
   white-space: nowrap;

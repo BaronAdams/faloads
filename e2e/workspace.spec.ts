@@ -320,6 +320,13 @@ test("building influence selection highlights only real contributors without ope
     .getByRole("button", { name: "Calculer le bâtiment", exact: true })
     .click();
   await expect(page.locator(".calculation-veil")).toHaveCount(0);
-  await expect(page.getByRole("alert")).toContainText("Appui");
+  const diagnostic = page.getByRole("dialog", {
+    name: "Cohérence des liaisons du modèle",
+    exact: true,
+  });
+  await expect(diagnostic).toContainText("Appui de poutre absent");
+  await expect(page.locator(".canvas-result-status")).toContainText(
+    "Calcul non actualisé",
+  );
   await expect(page.getByTestId("node-influence")).toHaveCount(0);
 });

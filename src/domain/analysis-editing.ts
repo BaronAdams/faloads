@@ -82,6 +82,11 @@ export function patchAnalysis(
   const next = structuredClone(m);
   for (const el of analysisElements(next))
     if (keys.includes(el.key)) {
+      if (
+        !Object.hasOwn(patch, "catalogue") &&
+        ["b", "bw", "h", "tw", "tf", "shape"].some((k) => k in patch)
+      )
+        el.value.catalogue = undefined;
       Object.assign(el.value, patch);
       if (
         next.kind === "beam" &&

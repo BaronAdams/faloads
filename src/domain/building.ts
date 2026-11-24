@@ -3,7 +3,7 @@ import {
   reducedLive,
   type LiveContribution,
 } from "./load-reduction";
-import { sectionTypesSchema } from "./section-types";
+import { sectionTypesSchema, sectionCatalogue } from "./section-types";
 import { z } from "zod";
 import { levelSchema } from "./levels";
 import {
@@ -17,6 +17,7 @@ import {
 } from "./engineering";
 import { uid } from "@/lib/utils";
 import { roofSchema, roofAnalysis, type Roof } from "./roof";
+import { validateBuilding, sameNode } from "./building-validation";
 const positive = z.number().positive().max(1000);
 const slotSchema = z.object({
   exists: z.boolean(),
@@ -212,7 +213,7 @@ export const newFloor = (name = "RDC"): Floor =>
 export const buildingDefaults = (): BuildingModel => ({
   kind: "building",
   reduction: "ec1",
-  sectionTypes: [],
+  sectionTypes: sectionCatalogue(),
   floors: [newFloor()],
   zone: "II",
   region: "Intérieure",
@@ -324,6 +325,10 @@ export function buildingResults(
       edge!.contributions.push(p.label);
     }
   }
+  const freeColumnLoads = new Map<
+    string,
+    { g: number; live: LiveContribution[] }
+  >();
   const transmit = (
     key: string,
     g: number,
@@ -332,6 +337,19 @@ export function buildingResults(
   ) => {
     const node = columns.find((n) => n.key === key);
     if (!node) {
+      const [c, r] = key.split(",").map(Number);
+      const free = f.obliques.find(
+        (o) =>
+          o.kind === "column" &&
+          sameNode({ x: o.x1, y: o.y1 }, { x: xs[c], y: ys[r] }),
+      );
+      if (free) {
+        const load = freeColumnLoads.get(free.id) ?? { g: 0, live: [] };
+        load.g += g;
+        load.live.push(...live);
+        freeColumnLoads.set(free.id, load);
+        return;
+      }
       warnings.push(
         `Appui ${key} absent : ajoutez un poteau ou modélisez explicitement le transfert.`,
       );
@@ -435,17 +453,25 @@ export function buildingResults(
   }
   const obliques = f.obliques.map((o, i) => {
     const length = Math.hypot(o.x2 - o.x1, o.y2 - o.y1);
-    const g =
+    let g =
       o.kind === "beam"
         ? o.g + ((o.b * o.h) / 1e4) * 25
         : o.g * o.area + ((o.b * o.h) / 1e4) * f.height * 25;
-    const q = o.kind === "beam" ? o.q : o.q * o.area;
+    let q = o.kind === "beam" ? o.q : o.q * o.area;
+    const live: LiveContribution[] =
+      o.kind === "column" ? [{ floor: f.id, usage: "E", q }] : [];
+    if (o.kind === "column") {
+      const load = freeColumnLoads.get(o.id);
+      g += load?.g ?? 0;
+      live.push(...(load?.live ?? []));
+      q = live.reduce((s, v) => s + v.q, 0);
+    }
     if (o.kind === "beam")
       for (const [x, y] of [
         [o.x1, o.y1],
         [o.x2, o.y2],
       ]) {
-        const node = columns.find((n) => Math.hypot(n.x - x, n.y - y) < 1e-6);
+        const node = columns.find((n) => sameNode(n, { x, y }));
         if (node)
           transmit(
             node.key,
@@ -453,7 +479,21 @@ export function buildingResults(
             [{ floor: f.id, usage: "E", q: (q * length) / 2 }],
             0,
           );
-        else
+        else if (
+          f.obliques.some(
+            (v) =>
+              v.kind === "column" && sameNode({ x: v.x1, y: v.y1 }, { x, y }),
+          )
+        ) {
+          const target = f.obliques.find(
+            (v) =>
+              v.kind === "column" && sameNode({ x: v.x1, y: v.y1 }, { x, y }),
+          )!;
+          const load = freeColumnLoads.get(target.id) ?? { g: 0, live: [] };
+          load.g += (g * length) / 2;
+          load.live.push({ floor: f.id, usage: "E", q: (q * length) / 2 });
+          freeColumnLoads.set(target.id, load);
+        } else
           warnings.push(
             `Poutre libre ${i + 1} : extrémité sans poteau de grille.`,
           );
@@ -464,10 +504,26 @@ export function buildingResults(
       length,
       g,
       q,
+      live,
       elu: elu(g, q),
       els: els(g, q),
     };
   });
+  // Apply free-beam reactions after all members, independent of collection order.
+  for (const o of obliques.filter((o) => o.kind === "column")) {
+    const input = f.obliques.find((v) => v.id === o.id)!;
+    o.g =
+      input.g * input.area +
+      ((input.b * input.h) / 1e4) * f.height * 25 +
+      (freeColumnLoads.get(o.id)?.g ?? 0);
+    o.live = [
+      { floor: f.id, usage: "E", q: input.q * input.area },
+      ...(freeColumnLoads.get(o.id)?.live ?? []),
+    ];
+    o.q = o.live.reduce((s, v) => s + v.q, 0);
+    o.elu = elu(o.g, o.q);
+    o.els = els(o.g, o.q);
+  }
   columns.forEach((n) => {
     n.nElu = elu(n.g, n.q);
     n.nEls = els(n.g, n.q);
@@ -499,32 +555,57 @@ export function buildingResults(
 
 /** Floors are stored ground→roof. Transmit raw G/Q roof→ground, then reduce Q once at each level. */
 export function buildingDescent(model: BuildingModel) {
-  const rows = model.floors.map((f) => ({
-    id: f.id,
-    name: f.name,
-    results: buildingResults(
-      f,
-      f.id === model.floors.at(-1)!.id ? model.roof : undefined,
-      true,
-    ),
-    wind: floorWind(model, model.floors.indexOf(f)),
-  }));
+  const errors = validateBuilding(model).filter((v) => v.severity === "error");
+  if (errors.length)
+    throw Error(
+      `${errors[0].message}${errors.length > 1 ? ` (${errors.length} incohérences à corriger)` : ""}`,
+    );
+  const rows = model.floors
+    .map((f) => ({
+      id: f.id,
+      name: f.name,
+      results: buildingResults(
+        f,
+        f.id === model.floors.at(-1)!.id ? model.roof : undefined,
+        true,
+      ),
+      wind: floorWind(model, model.floors.indexOf(f)),
+    }))
+    .map((row) => ({
+      ...row,
+      results: {
+        ...row.results,
+        columns: row.results.columns.map((n) => ({
+          ...n,
+          sources: [{ floor: row.id, name: row.name, g: n.g, q: n.q }],
+        })),
+        obliques: row.results.obliques.map((n) => ({
+          ...n,
+          sources: [{ floor: row.id, name: row.name, g: n.g, q: n.q }],
+        })),
+      },
+    }));
   for (let i = rows.length - 1; i >= 0; i--) {
     const current = rows[i].results;
     if (current.warnings.length)
       throw Error(`${rows[i].name} : ${current.warnings[0]}`);
     const above = rows[i + 1]?.results;
     if (above) {
-      for (const upper of above.columns) {
-        const lower = current.columns.find(
-          (n) => Math.hypot(n.x - upper.x, n.y - upper.y) < 1e-6,
-        );
+      const carriers = (r: typeof current) => [
+        ...r.columns.map((n) => ({ x: n.x, y: n.y, value: n })),
+        ...r.obliques
+          .filter((n) => n.kind === "column")
+          .map((n) => ({ x: n.x1, y: n.y1, value: n })),
+      ];
+      for (const upper of carriers(above)) {
+        const lower = carriers(current).find((n) => sameNode(n, upper))?.value;
         if (!lower)
           throw Error(
-            `${rows[i].name} : le poteau supérieur ${upper.label} n’a pas de poteau aligné. Un transfert doit être modélisé.`,
+            `${rows[i].name} : le poteau supérieur ${upper.value.label} n’a pas de poteau aligné. Un transfert doit être modélisé.`,
           );
-        lower.g += upper.g;
-        lower.live.push(...upper.live);
+        lower.g += upper.value.g;
+        lower.live.push(...upper.value.live);
+        lower.sources.push(...upper.value.sources);
       }
       for (const upper of above.edges.filter((e) => e.kind === "wall")) {
         const lower = current.edges.find(
@@ -543,19 +624,6 @@ export function buildingDescent(model: BuildingModel) {
         lower.live.push(...upper.live);
         lower.q += upper.q;
       }
-      for (const upper of above.obliques.filter((o) => o.kind === "column")) {
-        const lower = current.obliques.find(
-          (o) =>
-            o.kind === "column" &&
-            Math.hypot(o.x1 - upper.x1, o.y1 - upper.y1) < 1e-6,
-        );
-        if (!lower)
-          throw Error(
-            `${rows[i].name} : poteau libre supérieur sans porteur aligné.`,
-          );
-        lower.g += upper.g;
-        lower.q += upper.q;
-      }
     }
     for (const n of current.columns) {
       const reduction = reducedLive(n.live, model.reduction);
@@ -569,9 +637,27 @@ export function buildingDescent(model: BuildingModel) {
       e.els = els(e.g, e.q);
     }
     current.obliques.forEach((o) => {
+      if (o.kind === "column") o.q = reducedLive(o.live, model.reduction).q;
       o.elu = elu(o.g, o.q);
       o.els = els(o.g, o.q);
     });
+    current.totalG =
+      current.columns.reduce((s, n) => s + n.g, 0) +
+      current.edges
+        .filter((e) => e.kind === "wall")
+        .reduce((s, e) => s + e.g * e.length, 0) +
+      current.obliques
+        .filter((o) => o.kind === "column")
+        .reduce((s, o) => s + o.g, 0);
+    current.totalQ =
+      current.columns.reduce((s, n) => s + n.q, 0) +
+      current.edges
+        .filter((e) => e.kind === "wall")
+        .reduce((s, e) => s + e.q * e.length, 0) +
+      current.obliques
+        .filter((o) => o.kind === "column")
+        .reduce((s, o) => s + o.q, 0);
+    current.totalElu = elu(current.totalG, current.totalQ);
   }
   return rows.reverse().map((row) => {
     const local = buildingResults(

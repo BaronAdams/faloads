@@ -1,4 +1,5 @@
 import { SectionTypes } from "@/components/desktop-tools";
+import { DescentLevelFields } from "@/components/descent-level-fields";
 import { reductionOptions, type Reduction } from "@/domain/load-reduction";
 import { useEffect, useState } from "react";
 import {
@@ -253,9 +254,9 @@ export function DescentPage({
               </Panel>
               <Notice>
                 Les contributions de planchers sont cumulées du niveau le plus
-                haut vers le RDC. Les paramètres du système servent à décrire le
-                modèle ; le poids propre des poutres et poteaux n’est pas ajouté
-                automatiquement.
+                haut vers le RDC. Les poids propres des poutres et du porteur
+                sont inclus. À l’étape Niveaux, vous pouvez adapter l’aire et
+                les poutres à chaque étage.
               </Notice>
               {wall && <WindFields value={model} onChange={patch} />}
             </div>
@@ -512,6 +513,7 @@ export function DescentPage({
                   <tr>
                     <th>Niveau</th>
                     <th>h · m</th>
+                    <th>Aire · m²</th>
                     <th>G plancher · kN/m²</th>
                     <th>G revêt. · kN/m²</th>
                     <th>Q · kN/m²</th>
@@ -522,6 +524,7 @@ export function DescentPage({
                     <tr key={l.id}>
                       <th scope="row">{l.label}</th>
                       <td>{fmt(l.height)}</td>
+                      <td>{fmt(l.tributary?.area ?? area)}</td>
                       <td>{fmt(levelG(l))}</td>
                       <td>{fmt(coatingG(l))}</td>
                       <td>{fmt(l.q)}</td>
@@ -588,6 +591,7 @@ export function DescentPage({
                   <thead>
                     <tr>
                       <th>Niveau</th>
+                      <th>Aire · m²</th>
                       <th>G dalle · kN</th>
                       <th>G revêt. · kN</th>
                       <th>G poutres principales · kN</th>
@@ -610,6 +614,7 @@ export function DescentPage({
                     {rows.map((r) => (
                       <tr key={r.id}>
                         <th scope="row">{r.label}</th>
+                        <td>{fmt(r.area)}</td>
                         {[
                           r.gs,
                           r.gr,
@@ -630,7 +635,7 @@ export function DescentPage({
                           {wall
                             ? wallPredim(
                                 r.nElu,
-                                model.wallLength,
+                                r.wallLength || model.wallLength,
                                 model.concrete,
                                 model.code,
                               ).e
@@ -658,10 +663,9 @@ export function DescentPage({
               </Notice>
             )}
             <Notice>
-              Les sections affichées sont des estimations initiales. Les
-              contributions de poids propre des éléments verticaux et les
-              vérifications de flambement, flexion composée et ferraillage ne
-              sont pas incluses.
+              Les sections affichées sont des estimations initiales. Les poids
+              propres sont inclus. Les vérifications de flambement, flexion
+              composée et ferraillage restent à effectuer.
             </Notice>
           </>
         )}
@@ -695,12 +699,19 @@ export function DescentPage({
         >
           <div className="editor-fields">
             {levelEditor && (
-              <LevelEditor
-                level={levelEditor}
-                sectionTypes={model.sectionTypes}
-                wall={wall}
-                onChange={setLevelEditor}
-              />
+              <>
+                <DescentLevelFields
+                  model={model}
+                  level={levelEditor}
+                  onChange={setLevelEditor}
+                />
+                <LevelEditor
+                  level={levelEditor}
+                  sectionTypes={model.sectionTypes}
+                  wall={wall}
+                  onChange={setLevelEditor}
+                />
+              </>
             )}
           </div>
           <EditorFooter>

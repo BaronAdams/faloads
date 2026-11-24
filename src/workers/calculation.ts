@@ -1,4 +1,8 @@
-import { descentBeamWeights, type DescentModel } from "@/domain/descent";
+import {
+  descentBeamWeights,
+  descentLevelLoads,
+  type DescentModel,
+} from "@/domain/descent";
 import { solveBeam, solveFrame, type AnalysisModel } from "@/domain/analysis";
 import { buildingDescent, type BuildingModel } from "@/domain/building";
 import { descent } from "@/domain/engineering";
@@ -19,6 +23,11 @@ export function calculate(kind: string, model: unknown): unknown {
     m.area,
     m.kind === "wall-load" ? m.wallLength : 0,
     m.quasi,
-    { ...descentBeamWeights(m), reduction: m.reduction, selfWeight: true },
+    {
+      ...descentBeamWeights(m),
+      perLevel: descentLevelLoads(m),
+      reduction: m.reduction,
+      selfWeight: true,
+    },
   );
 }

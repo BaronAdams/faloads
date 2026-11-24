@@ -1,5 +1,7 @@
 import { uid } from "@/lib/utils";
 import { reducedLive, psi2, type Reduction } from "./load-reduction";
+import type { z } from "zod";
+import type { levelSchema } from "./levels";
 /** Port of the shipped Dart domain. kN, m and cm are explicit at boundaries. */
 export type Code = "ec2" | "bael91";
 export const concreteClasses = ["C20/25", "C25/30", "C30/37", "C35/45"];
@@ -128,6 +130,7 @@ export interface Level {
   b: number;
   h: number;
   e: number;
+  tributary?: z.infer<typeof levelSchema>["tributary"];
 }
 export function newLevel(label = "RDC"): Level {
   return {
@@ -167,6 +170,12 @@ export function descent(
     primary?: number;
     secondary?: number;
     selfWeight?: boolean;
+    perLevel?: {
+      area: number;
+      wallLength: number;
+      primary: number;
+      secondary: number;
+    }[];
   } = {},
 ) {
   let g = 0,
@@ -178,31 +187,36 @@ export function descent(
     z += levels[i].height;
   }
   return levels.map((level, i) => {
-    const gs = levelG(level) * area,
-      gr = coatingG(level) * area,
-      ql = level.q * area;
-    const gp = options.primary ?? 0,
-      gsec = options.secondary ?? 0;
+    const settings = options.perLevel?.[i],
+      localArea = settings?.area ?? area,
+      localWall = settings?.wallLength ?? wallLength;
+    const gs = levelG(level) * localArea,
+      gr = coatingG(level) * localArea,
+      ql = level.q * localArea;
+    const gp = settings?.primary ?? options.primary ?? 0,
+      gsec = settings?.secondary ?? options.secondary ?? 0;
     const gv = options.selfWeight
-      ? (wallLength
-          ? (wallLength * level.e) / 100
-          : (level.b * level.h) / 1e4) *
+      ? (localWall ? (localWall * level.e) / 100 : (level.b * level.h) / 1e4) *
         level.height *
         25
       : 0;
     g += gs + gr + gp + gsec + gv;
     const live = levels
       .slice(0, i + 1)
-      .map((l) => ({ floor: l.id, usage: l.usage, q: l.q * area }));
+      .map((l, j) => ({
+        floor: l.id,
+        usage: l.usage,
+        q: l.q * (options.perLevel?.[j]?.area ?? area),
+      }));
     const reduced = reducedLive(live, options.reduction);
     const q = reduced.q;
-    w += wallLength
-      ? windPressure(elevations[i]) * wallLength * level.height
-      : 0;
+    w += localWall ? windPressure(elevations[i]) * localWall * level.height : 0;
     return {
       id: level.id,
       label: level.label,
       height: level.height,
+      area: localArea,
+      wallLength: localWall,
       gs,
       gr,
       gp,

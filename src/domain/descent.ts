@@ -2,7 +2,7 @@ import { z } from "zod";
 import { levelSchema } from "./levels";
 import { newLevel } from "./engineering";
 import { reductionSchema } from "./load-reduction";
-import { sectionTypesSchema } from "./section-types";
+import { sectionTypesSchema, sectionCatalogue } from "./section-types";
 export const descentSchema = z
   .object({
     tributaryConvention: z.literal("full-spans").optional(),
@@ -50,7 +50,7 @@ export function descentDefaults(
     levels: [newLevel("R+1"), newLevel("RDC")],
     quasi: false,
     reduction: "ec1",
-    sectionTypes: [],
+    sectionTypes: sectionCatalogue(),
     zone: "II",
     region: "Intérieure",
     terrain: "IIIb",
@@ -78,4 +78,39 @@ export function descentBeamWeights(model: DescentModel) {
           (model.spans[2] + model.spans[3]),
       }
     : { primary: 0, secondary: 0 };
+}
+
+export function levelTributary(
+  model: DescentModel,
+  level: DescentModel["levels"][number],
+) {
+  return (
+    level.tributary ?? {
+      area: descentArea(model),
+      wallLength: model.wallLength,
+      primaryB: model.primaryB,
+      primaryH: model.primaryH,
+      secondaryB: model.secondaryB,
+      secondaryH: model.secondaryH,
+      primaryLength: model.spans[0] + model.spans[1],
+      secondaryLength: model.spans[2] + model.spans[3],
+    }
+  );
+}
+export function descentLevelLoads(model: DescentModel) {
+  return model.levels.map((level) => {
+    const t = levelTributary(model, level),
+      beams = model.kind === "column-load" && model.system === "beams";
+    return {
+      area: t.area,
+      wallLength:
+        model.kind === "wall-load" ? (t.wallLength ?? model.wallLength) : 0,
+      primary: beams
+        ? ((25 * t.primaryB * t.primaryH) / 1e4) * t.primaryLength
+        : 0,
+      secondary: beams
+        ? ((25 * t.secondaryB * t.secondaryH) / 1e4) * t.secondaryLength
+        : 0,
+    };
+  });
 }
