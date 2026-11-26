@@ -445,7 +445,9 @@ def run(model):
                 face_x=face if side==0 else l-face
                 tie=max(V*shift*1000/sh['critical'][side]['z_mm'],envelope(cases,i,l,face_x,1,shift)*1e6/design['z_mm'])
                 sigma=max(0,tie)/base
-                a=anchorage(mat,design['tension']['phi_mm'],sigma,det['cnom_mm'],design['tension']['clear_min_mm'])
+                compressed_end=flex_supports[j]['As2_req_mm2']>0
+                if compressed_end:sigma=max(sigma,mat['fyd'])
+                a=anchorage(mat,design['tension']['phi_mm'],sigma,det['cnom_mm'],design['tension']['clear_min_mm'],compression=compressed_end)
                 a['available_mm']=supports[j]['width_m']*1000-det['cnom_mm']
                 a['fits']=a['available_mm']>=a['lbd_mm']
                 sn=1/(1+(a['lbd_mm']/sh['critical'][side]['z_mm'])**2)

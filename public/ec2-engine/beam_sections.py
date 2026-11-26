@@ -230,11 +230,11 @@ def shear(bw_mm,d_mm,mat,Ved_kN,Vred_kN,Asl_mm2,phi_t=8,branches=2,alpha_deg=90,
                 maximum_spacing_mm=smax,shift_mm=z*(cot-ca)/2,shear_shift_mm=z*(cot+ca),
                 z_mm=z,k=k,rho_l=rho,nu1=nu,method=method,checks=checks,all_ok=all(c['ok'] for c in checks))
 
-def anchorage(mat,phi,sigma_sd,cover=35,clear=25,good_bond=True):
+def anchorage(mat,phi,sigma_sd,cover=35,clear=25,good_bond=True,compression=False):
     fbd=2.25*(1 if good_bond else .7)*.7*mat['fctm']/1.5
     lb=phi/4*max(0,min(sigma_sd,mat['fyd']))/fbd
     cd=min(clear/2,cover)
-    a2=max(.7,min(1,1-.15*(cd-phi)/phi))
-    minimum=max(.3*lb,10*phi,100)
+    a2=1. if compression else max(.7,min(1,1-.15*(cd-phi)/phi))
+    minimum=max((.6 if compression else .3)*lb,10*phi,100)
     length=math.ceil(max(a2*lb,.7*lb,minimum)/10)*10
     return dict(fbd_MPa=fbd,sigma_sd_MPa=sigma_sd,lb_rqd_mm=lb,alpha2=a2,minimum_mm=minimum,lbd_mm=length)

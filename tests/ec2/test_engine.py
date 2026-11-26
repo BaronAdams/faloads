@@ -128,6 +128,14 @@ class EC2(unittest.TestCase):
         self.assertGreaterEqual(r['bars'][1]['bottom']['groups'][0]['area_mm2'],r['spans'][1]['As_min_mm2'])
         self.assertGreaterEqual(r['spans'][1]['compression']['area_mm2'],r['spans'][1]['As2_req_mm2'])
 
+    def test_compressed_anchor_does_not_receive_the_tension_cover_reduction(self):
+        tension=anchorage(self.mat,8,435,50,60)
+        compression=anchorage(self.mat,8,435,50,60,compression=True)
+        self.assertLess(tension['alpha2'],1)
+        self.assertEqual(compression['alpha2'],1)
+        self.assertGreaterEqual(compression['lbd_mm'],compression['lb_rqd_mm'])
+        self.assertGreaterEqual(compression['minimum_mm'],.6*compression['lb_rqd_mm'])
+
     def test_support_compression_steel_also_limits_stirrup_spacing(self):
         m=self.beam;m['materials']['exposure']='XD2';m['spans'][0].update(ln_m=8,q_kN_m=20)
         for support in m['supports']:support.update(condition='fixed',width_m=1)
