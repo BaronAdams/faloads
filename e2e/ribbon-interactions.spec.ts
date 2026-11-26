@@ -35,15 +35,11 @@ test.beforeEach(async ({ page }, info) => {
 });
 
 async function saved(page: Page) {
-  const previous = page.url().includes("/new/")
-    ? await page.getByTestId("playground").elementHandle()
-    : null;
-  await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await expect(page.locator("[data-autosave-status]")).toHaveAttribute(
+    "data-autosave-status",
+    "saved",
+  );
   await expect(page).toHaveURL(/project\//);
-  if (previous)
-    await expect
-      .poll(() => previous.evaluate((el) => el.isConnected))
-      .toBe(false);
   await expect(page.getByTestId("playground")).toBeVisible();
   return page.evaluate(
     () =>

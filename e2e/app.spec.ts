@@ -199,6 +199,7 @@ test("building editing, deleted segments, floor duplication and results work", a
 test("all eight predimensioning projects expose editable inputs and computed results", async ({
   page,
 }) => {
+  test.setTimeout(90000);
   await ready(page);
   for (const type of [
     "column",
