@@ -416,7 +416,8 @@ def run(model):
         design=flex_spans[i]
         # Conservative anchored longitudinal area: the continuous corner bars.
         Asl=2*area(design['tension']['phi_mm'])
-        sh=stirrup_schedule(model,cases,i,l,design['d_mm'],mat,Asl,design['compression']['phi_mm'] if design['As2_calc_mm2']>0 else 0)
+        compressed=any(s['As2_calc_mm2']>0 for s in [design,flex_supports[i],flex_supports[i+1]])
+        sh=stirrup_schedule(model,cases,i,l,design['d_mm'],mat,Asl,det['phi_l_mm'] if compressed else 0)
         shears.append(sh);checks.extend(dict(c,element='span:'+str(i)) for c in sh['checks'])
         shift=sh['shift_mm']/1000
         end_areas=[]

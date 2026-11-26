@@ -128,6 +128,14 @@ class EC2(unittest.TestCase):
         self.assertGreaterEqual(r['bars'][1]['bottom']['groups'][0]['area_mm2'],r['spans'][1]['As_min_mm2'])
         self.assertGreaterEqual(r['spans'][1]['compression']['area_mm2'],r['spans'][1]['As2_req_mm2'])
 
+    def test_support_compression_steel_also_limits_stirrup_spacing(self):
+        m=self.beam;m['materials']['exposure']='XD2';m['spans'][0].update(ln_m=8,q_kN_m=20)
+        for support in m['supports']:support.update(condition='fixed',width_m=1)
+        r=compute(m)
+        self.assertEqual(r['spans'][0]['As2_calc_mm2'],0)
+        self.assertTrue(any(s['As2_calc_mm2']>0 for s in r['supports']))
+        self.assertTrue(all(c['maximum_spacing_mm']<=15*m['detailing']['phi_l_mm'] for c in r['shear'][0]['critical']))
+
     def test_fixed_end_top_anchors_cannot_be_silently_ignored(self):
         m=self.beam
         for support in m['supports']:support['condition']='fixed'
