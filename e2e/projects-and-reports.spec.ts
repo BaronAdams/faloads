@@ -258,4 +258,19 @@ test("an undo during a slow native write persists the reverted model", async ({
   ).toBe(8);
   await page.reload();
   await expect(page.getByLabel("Longueur L", { exact: true })).toHaveValue("8");
+  // A second undo happens before the debounce can start any write. The model
+  // is already persisted, so its status must return to saved without a timer.
+  await page.clock.install({ time: new Date("2026-11-26T10:00:00Z") });
+  await page.clock.pauseAt(new Date("2026-11-26T10:00:01Z"));
+  await page.getByLabel("Longueur L", { exact: true }).fill("10");
+  await expect(page.locator("[data-autosave-status]")).toHaveAttribute(
+    "data-autosave-status",
+    "pending",
+  );
+  await page.getByRole("button", { name: "Annuler", exact: true }).click();
+  await expect(page.getByLabel("Longueur L", { exact: true })).toHaveValue("8");
+  await expect(page.locator("[data-autosave-status]")).toHaveAttribute(
+    "data-autosave-status",
+    "saved",
+  );
 });

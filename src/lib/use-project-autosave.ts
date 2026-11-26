@@ -34,6 +34,7 @@ export function useProjectAutosave(
       if (!snapshot.project || !snapshot.name.trim() || temporary)
         return Promise.resolve(false);
       if (snapshot.signature === persisted.current && !inFlight.current) {
+        if (alive.current) setStatus("saved");
         studyAction("project:saved");
         return Promise.resolve(true);
       }
@@ -68,12 +69,11 @@ export function useProjectAutosave(
     [saveProject, temporary],
   );
   useEffect(() => {
-    if (
-      !project ||
-      temporary ||
-      (signature === persisted.current && !inFlight.current)
-    )
+    if (!project || temporary) return;
+    if (signature === persisted.current && !inFlight.current) {
+      setStatus("saved");
       return;
+    }
     setStatus("pending");
     const timer = setTimeout(() => void persist(), 400);
     return () => clearTimeout(timer);
