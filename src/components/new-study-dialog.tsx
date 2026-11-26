@@ -139,6 +139,7 @@ export function NewStudyDialog() {
                   });
                 drafts.delete(type);
                 if (temporary) drafts.set(type, data);
+                creationId.current = null;
                 setRequested(null);
                 setName("");
                 navigate(temporary ? `/new/${type}` : `/project/${id}`, {

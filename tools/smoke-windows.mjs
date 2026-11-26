@@ -293,9 +293,10 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         .getByRole("button", { name: "Annuler", exact: true })
         .click();
       await expect(page.locator('[data-element^="load:"]')).toHaveCount(2);
-      await page
-        .getByRole("button", { name: "Enregistrer", exact: true })
-        .click();
+      await expect(page.locator("[data-autosave-status]")).toHaveAttribute(
+        "data-autosave-status",
+        "saved",
+      );
       await expect(page).toHaveURL(/project\//);
       savedId = page.url().split("/project/")[1];
       await page.screenshot({
@@ -312,6 +313,13 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
       await page
         .getByRole("button", { name: "Explorer librement", exact: true })
         .click();
+      const storedProjects = await page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke("read_workspace"),
+      );
+      expect(storedProjects.projects).toHaveLength(2);
+      expect(storedProjects.projects.find((p) => p.id === savedId)?.name).toBe(
+        "Verification native Windows",
+      );
       const header = page.getByTestId("project-workbench-header");
       await expect(
         page.getByRole("navigation", { name: "Niveaux du bâtiment" }),
@@ -461,6 +469,15 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         fullPage: true,
       });
     } else {
+      const restored = await page.evaluate(() =>
+        window.__TAURI_INTERNALS__.invoke("read_workspace"),
+      );
+      expect(restored.projects).toHaveLength(2);
+      expect(
+        restored.projects.some(
+          (p) => p.name === "Bâtiment enregistré à la fermeture",
+        ),
+      ).toBe(true);
       await page.evaluate((id) => (location.hash = `/project/${id}`), savedId);
       await expect(
         page.getByRole("heading", {
@@ -511,6 +528,30 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
     console.log(
       `PASS ${mode}: native Tauri window, WebView2 content, working solver and Rust persistence.`,
     );
+    if (mode === "default") {
+      await page
+        .getByRole("button", { name: "Autres actions du projet", exact: true })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Renommer le projet", exact: true })
+        .click();
+      await page
+        .getByLabel("Nom du projet", { exact: true })
+        .fill("Bâtiment enregistré à la fermeture");
+      await page
+        .getByRole("button", { name: "Enregistrer le nom", exact: true })
+        .click();
+    }
+    // Close through Tauri immediately after the rename, before the autosave
+    // debounce. The next process must recover that last edit from Rust storage.
+    await page.evaluate(() => {
+      void window.__TAURI_INTERNALS__.invoke("desktop_window_action", {
+        action: "close",
+      });
+    });
+    await expect
+      .poll(() => processHandle.exitCode, { timeout: 15000 })
+      .not.toBeNull();
   } catch (error) {
     writeFileSync(
       `native-test-results/${mode}-error.txt`,

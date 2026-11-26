@@ -111,6 +111,46 @@ test("chooses report steps and detail independently and downloads a real PDF", a
   await expect(dialog).toHaveCount(0);
 });
 
+test("successive direct creations preserve two independent saved studies", async ({
+  page,
+}) => {
+  await page.goto("/#/new/beam");
+  await createStudy(page, "Poutre conservée");
+  const first = page.url();
+  await parameters(page);
+  await page
+    .getByRole("dialog")
+    .getByLabel("Longueur L", { exact: true })
+    .fill("9");
+  await page
+    .getByRole("button", { name: "Valider les paramètres", exact: true })
+    .click();
+  await page.goto("/#/new/frame");
+  await createStudy(page, "Portique indépendant");
+  expect(page.url()).not.toBe(first);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem("structcalc.workspace.v1")!).projects
+            .length,
+      ),
+    )
+    .toBe(2);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Portique indépendant", exact: true }),
+  ).toHaveCount(1);
+  await page.goto(first);
+  await expect(
+    page.getByRole("heading", { name: "Poutre conservée", exact: true }),
+  ).toHaveCount(1);
+  await parameters(page);
+  await expect(
+    page.getByRole("dialog").getByLabel("Longueur L", { exact: true }),
+  ).toHaveValue("9");
+});
+
 test("keeps report choices and explains an invalid structural model instead of exporting", async ({
   page,
 }) => {
