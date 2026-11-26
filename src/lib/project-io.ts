@@ -1,3 +1,4 @@
+import { isRCModel, rcColumnSchema, rcBeamSchema } from "@/domain/rc/model";
 import { z } from "zod";
 import {
   projectSchema,
@@ -14,15 +15,19 @@ import { uid } from "./utils";
 export function validateProject(p: unknown): Project {
   const project = projectSchema.parse(p);
   const schema =
-    project.type === "beam"
-      ? beamSchema
-      : project.type === "frame"
-        ? frameSchema
-        : project.type === "building"
-          ? buildingSchema
-          : project.type === "column-load" || project.type === "wall-load"
-            ? descentSchema
-            : predimSchema;
+    project.type === "column" && isRCModel(project.data)
+      ? rcColumnSchema
+      : project.type === "beam-size" && isRCModel(project.data)
+        ? rcBeamSchema
+        : project.type === "beam"
+          ? beamSchema
+          : project.type === "frame"
+            ? frameSchema
+            : project.type === "building"
+              ? buildingSchema
+              : project.type === "column-load" || project.type === "wall-load"
+                ? descentSchema
+                : predimSchema;
   schema.parse(project.data);
   if (!Number.isFinite(Date.parse(project.updatedAt)))
     throw Error("Date du projet invalide.");

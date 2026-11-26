@@ -28,10 +28,16 @@ jobs:
           workspaces: src-tauri -> target
       - run: npm ci
       - run: npm run build
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm run test:ec2
       - run: npm test
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml --check
       - run: cargo test --manifest-path src-tauri/Cargo.toml --no-default-features --lib --locked
       - run: npx playwright install --with-deps chromium
+      - name: Verify bundled EC2 runtime and PDFs with the native CSP
+        run: node tools/verify-rc-production.mjs
       - run: npm run test:e2e
       - uses: actions/upload-artifact@v4
         if: always()

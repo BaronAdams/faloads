@@ -1,0 +1,11 @@
+{
+  "_comment": "Paillé §12.9.1 : mât encastré en pied 40x60 (h=40 dans le plan), C30/37, l = 4 m, l0 = 2l = 8 m, NG = 300 kN, NQ = 500 kN (psi2 = 0,3), phi(inf,t0) = 2,1, rigidité nominale c = 12. Livre (8HA16 imposés) : EI = 13,7, NB = 2,11 MN, MEd = 46 kN·m, As requis = 0.",
+  "section": {"b_cm": 60, "h_cm": 40, "dp_cm": 4},
+  "geometry": {"l_m": 4.0, "l0_m": 8.0, "braced": false, "static_scheme": "console"},
+  "materials": {"fck": 30, "fyk": 500, "phi_inf_t0": 2.1},
+  "detailing": {"cnom_mm": 30},
+  "options": {"second_order_method": "rigidite", "c0": 12},
+  "loads": {"mode": "actions", "self_weight": false,
+            "actions": [{"name": "G", "category": "G", "N_kN": 300},
+                        {"name": "Q", "category": "Q", "N_kN": 500, "psi0": 0.7, "psi2": 0.3}]}
+}

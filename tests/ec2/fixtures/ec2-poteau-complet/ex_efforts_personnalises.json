@@ -1,0 +1,13 @@
+{
+  "_comment": "Démonstration des efforts personnalisés : N en tête + N intermédiaire (z = 1,2 m), moments d'extrémité de tête et de pied (G), vent réparti sur la hauteur, poids propre automatique. Pas de valeur de référence du livre.",
+  "section":  {"b_cm": 40, "h_cm": 45},
+  "geometry": {"l_m": 3.0, "l0_m": 2.1, "braced": true},
+  "materials":{"fck": 25, "fyk": 500, "phi_inf_t0": 2.4},
+  "detailing":{"cnom_mm": 30},
+  "loads":    {"mode": "actions", "self_weight": true, "actions": [
+     {"name": "G",  "category": "G", "N_kN": 1390, "moments": {"y": {"top": 12, "bottom": -6}}},
+     {"name": "Q",  "category": "Q", "N_kN": 900,  "psi0": 0.7, "psi2": 0.3,
+      "axial": [{"z_m": 1.2, "N_kN": 80}]},
+     {"name": "Vent","category": "W","psi0": 0.6, "psi2": 0,
+      "transverse": [{"plane": "y", "type": "uniform", "q_kN_m": 3}]}]}
+}

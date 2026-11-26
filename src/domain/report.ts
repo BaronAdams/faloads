@@ -1,3 +1,5 @@
+import { isRCModel } from "./rc/model";
+import { rcReportSteps } from "./rc/report";
 import {
   beamSchema,
   frameSchema,
@@ -57,7 +59,8 @@ export type CalculationReport = {
 };
 const steps = (entries: [string, string, string][]): ReportStep[] =>
   entries.map(([id, title, description]) => ({ id, title, description }));
-export function reportSteps(type: ProjectType): ReportStep[] {
+export function reportSteps(type: ProjectType, data?: unknown): ReportStep[] {
+  if (isRCModel(data)) return rcReportSteps(data.kind === "rc-column");
   if (type === "beam" || type === "frame")
     return steps([
       [
@@ -251,8 +254,11 @@ export function reportSteps(type: ProjectType): ReportStep[] {
     ],
   ]);
 }
-export const defaultReportSelection = (type: ProjectType): ReportSelection =>
-  Object.fromEntries(reportSteps(type).map((s) => [s.id, "summary"]));
+export const defaultReportSelection = (
+  type: ProjectType,
+  data?: unknown,
+): ReportSelection =>
+  Object.fromEntries(reportSteps(type, data).map((s) => [s.id, "summary"]));
 const f = (n: number, d = 3) => {
   if (!Number.isFinite(n)) throw Error("Une valeur du calcul n’est pas finie.");
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: d }).format(
@@ -325,6 +331,10 @@ export function buildCalculationReport(
   author = "",
   generatedAt = new Date().toISOString(),
 ): CalculationReport {
+  if (isRCModel(project.data))
+    throw Error(
+      "Le dimensionnement EC2 doit être recalculé avec le moteur local avant de préparer sa note.",
+    );
   const definitions = reportSteps(project.type),
     content: Content = {};
   if (!definitions.some((s) => selection[s.id]))

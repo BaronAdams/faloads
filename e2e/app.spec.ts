@@ -196,14 +196,12 @@ test("building editing, deleted segments, floor duplication and results work", a
   ).toHaveCount(2);
   await expect(page.getByRole("dialog")).toContainText("Poutres et voiles");
 });
-test("all eight predimensioning projects expose editable inputs and computed results", async ({
+test("the six remaining estimate projects expose editable inputs and computed results", async ({
   page,
 }) => {
   test.setTimeout(90000);
   await ready(page);
   for (const type of [
-    "column",
-    "beam-size",
     "wall",
     "stairs",
     "balcony",
@@ -227,7 +225,7 @@ test("small viewport and enlarged text retain navigation without horizontal over
   await page.addStyleTag({ content: "html{font-size:22px}" });
   await page.goto("/#/new/column");
   await createStudy(page);
-  await expect(page.getByTestId("predim-result")).toBeVisible();
+  await expect(page.getByTestId("rc-project")).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth + 1,

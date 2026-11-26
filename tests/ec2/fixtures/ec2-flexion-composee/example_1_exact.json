@@ -1,0 +1,38 @@
+{
+  "section": {
+    "type": "rect",
+    "b_cm": 24,
+    "h_cm": 55,
+    "d_cm": 50,
+    "dp_cm": 5
+  },
+  "materials": {
+    "fck": 25,
+    "fyk": 500,
+    "alpha_e": 15,
+    "steel_diagram": "horizontal",
+    "exposure": "XD2",
+    "crack_control": false
+  },
+  "loads": {
+    "NG_kN": 85,
+    "MG_kNm": 90,
+    "NQ_kN": 75,
+    "MQ_kNm": 80
+  },
+  "slenderness": {
+    "l_m": 6.0,
+    "l0_m": 4.2426,
+    "braced": true,
+    "rm": 0.33333,
+    "b_cm": 24,
+    "imperfection": "l0/400"
+  },
+  "actual_steel": {
+    "As1_cm2": 12.06,
+    "As2_cm2": 6.03
+  },
+  "options": {
+    "n_files": 3
+  }
+}

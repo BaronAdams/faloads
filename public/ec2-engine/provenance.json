@@ -1,0 +1,8 @@
+{
+  "origin": "User-provided EC2 skill archives, 2026-11-26",
+  "files": {
+    "skills/ec2-poteau-complet/scripts/poteau_complet_ec2.py": "4c1af8c2e750c38a644b6a123defbee50065b130d5d01be911843fe13d9d2f88",
+    "skills/ec2-flexion-composee/scripts/flexion_composee_ec2.py": "6eca2185b722844243fccf85b5c6e0bea0a1d6571fee5a288b298e745a4cc0f4",
+    "skills/ec2-compression-simple/scripts/compression_ec2.py": "f656d1e89edd76328daac88d4a9364bb64d24fe95acd20225ebfddb1e10cec50"
+  }
+}

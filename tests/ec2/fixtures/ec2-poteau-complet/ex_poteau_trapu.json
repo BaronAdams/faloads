@@ -1,0 +1,10 @@
+{
+  "_comment": "Poteau trapu 40x40, l0 = 2,0 m, NG = 450 kN, NQ = 200 kN : franchit la porte d'entrée du niveau 1 (moments nuls, λ = 17,3 ≤ λlim par défaut). As,min gouverne.",
+  "section": {"b_cm": 40, "h_cm": 40, "dp_cm": 4},
+  "geometry": {"l_m": 2.85, "l0_m": 2.0, "braced": true},
+  "materials": {"fck": 25, "fyk": 500, "phi_inf_t0": 2.0},
+  "detailing": {"cnom_mm": 30},
+  "loads": {"mode": "actions", "self_weight": true,
+            "actions": [{"name": "G", "category": "G", "N_kN": 450},
+                        {"name": "Q", "category": "Q", "N_kN": 200, "psi0": 0.7, "psi2": 0.3}]}
+}

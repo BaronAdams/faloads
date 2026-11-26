@@ -185,11 +185,14 @@ test("reinforced concrete design is named consistently and retains honest method
   );
   await page.goto("/#/new/beam-size");
   await createStudy(page);
-  await expect(page.locator(".predim-illustration")).toContainText(
-    "Dimensionnement Béton Armé",
+  await expect(page.getByTestId("rc-project")).toBeVisible();
+  await expect(page.locator(".rc-canvas-heading")).toContainText(
+    "Dimensionnement béton armé",
   );
-  await expect(page.getByTestId("predim-result")).toBeVisible();
-  await expect(page.locator(".notice")).toContainText(
-    "Le ferraillage et les vérifications réglementaires détaillées restent à effectuer",
-  );
+  await expect(
+    page.getByRole("button", {
+      name: "Calculer le dimensionnement",
+      exact: true,
+    }),
+  ).toBeVisible();
 });

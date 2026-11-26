@@ -1,3 +1,5 @@
+import { isRCModel, rcModelSchema } from "./rc/model";
+import { rcDrawing } from "./rc/drawing";
 import type { Project } from "@/lib/storage";
 import { beamSchema, frameSchema } from "./analysis";
 import { buildingSchema, floorCoordinates } from "./building";
@@ -31,6 +33,10 @@ const num = (n: number) =>
 export function projectDrawing(
   project: Pick<Project, "type" | "data">,
 ): string {
+  if (isRCModel(project.data)) {
+    const parsed = rcModelSchema.safeParse(project.data);
+    if (parsed.success) return rcDrawing(parsed.data);
+  }
   const ink = "#26354e",
     blue = "#3e6fce",
     load = "#b86b16";

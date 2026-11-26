@@ -29,9 +29,9 @@ export function ReportButton({ project }: { project: Project }) {
     [error, setError] = useState(""),
     [phase, setPhase] = useState("");
   const [selection, setSelection] = useState<ReportSelection>(() =>
-    defaultReportSelection(project.type),
+    defaultReportSelection(project.type, project.data),
   );
-  const definitions = reportSteps(project.type),
+  const definitions = reportSteps(project.type, project.data),
     selected = definitions.filter((s) => selection[s.id]);
   const show = () => {
     if (document.querySelector('[role="dialog"][data-state="open"]')) {
@@ -120,7 +120,9 @@ export function ReportButton({ project }: { project: Project }) {
               size="sm"
               variant="ghost"
               disabled={busy}
-              onClick={() => setSelection(defaultReportSelection(project.type))}
+              onClick={() =>
+                setSelection(defaultReportSelection(project.type, project.data))
+              }
             >
               Tout inclure
             </Button>

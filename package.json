@@ -4,6 +4,9 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
+    "prepare:ec2": "node tools/prepare-ec2.mjs",
+    "predev": "npm run prepare:ec2",
+    "prebuild": "npm run prepare:ec2",
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
@@ -12,7 +15,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "check": "tsc -b",
-    "icons": "tauri icon tools/app-icon.json"
+    "icons": "tauri icon tools/app-icon.json",
+    "test:ec2": "python3 -m unittest discover -s tests/ec2 -p test_engine.py && python3 tests/ec2/column_reference.py && python3 tests/ec2/flexion_reference.py"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.4",
@@ -25,6 +29,7 @@
     "mathjax-full": "^3.2.2",
     "next-themes": "^0.4.6",
     "pdfmake": "^0.2.23",
+    "pyodide": "0.27.7",
     "radix-ui": "^1.8.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

@@ -1,0 +1,25 @@
+{
+  "section": {
+    "type": "rect",
+    "b_cm": 30,
+    "h_cm": 50,
+    "d_cm": 45,
+    "dp_cm": 5
+  },
+  "materials": {
+    "fck": 25,
+    "fyk": 500,
+    "alpha_e": 15,
+    "exposure": "XC1",
+    "steel_diagram": "horizontal"
+  },
+  "options": {
+    "n_files": 2
+  },
+  "loads": {
+    "NEd_kN": 2300,
+    "MEdG0_kNm": 200,
+    "Nser_kN": 1680,
+    "MserG0_kNm": 146
+  }
+}

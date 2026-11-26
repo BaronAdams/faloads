@@ -1,0 +1,35 @@
+{
+  "section": {
+    "type": "rect",
+    "b_cm": 40,
+    "h_cm": 40,
+    "d_cm": 35,
+    "dp_cm": 5
+  },
+  "materials": {
+    "fck": 25,
+    "fyk": 500,
+    "alpha_e": 15,
+    "exposure": "XC1"
+  },
+  "loads": {
+    "NEd_kN": 300,
+    "MEdG0_kNm": 28.8,
+    "Nser_kN": 105,
+    "MserG0_kNm": 10.08
+  },
+  "slenderness": {
+    "l0_m": 12.0,
+    "braced": true,
+    "b_cm": 40,
+    "imperfection": "l0/400",
+    "symmetric_reinforcement": true,
+    "phi_ef": 2.0,
+    "method": "rigidite",
+    "c0": 8.0
+  },
+  "options": {
+    "n_files": 2,
+    "els_check": false
+  }
+}
