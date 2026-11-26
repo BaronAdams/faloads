@@ -570,14 +570,16 @@ export function buildRCReport(
           b,
           ["Appui", "lbd (mm)", "Disponible (mm)", "État"],
           r.bars.flatMap((s: any, i: number) =>
-            ["left_end", "right_end"]
-              .filter((k) => s.bottom[k])
-              .map((k) => [
-                `${i + 1} / ${k === "left_end" ? "gauche" : "droite"}`,
-                s.bottom[k].lbd_mm,
-                s.bottom[k].available_mm,
-                s.bottom[k].fits ? "Satisfait" : "À corriger",
-              ]),
+            ["bottom", "top"].flatMap((nappe) =>
+              ["left_end", "right_end"]
+                .filter((k) => s[nappe][k])
+                .map((k) => [
+                  `${i + 1} / ${nappe === "bottom" ? "bas" : "haut"} / ${k === "left_end" ? "gauche" : "droite"}`,
+                  s[nappe][k].lbd_mm,
+                  s[nappe][k].available_mm,
+                  s[nappe][k].fits ? "Satisfait" : "À corriger",
+                ]),
+            ),
           ),
         );
         if (r.flange.length) {

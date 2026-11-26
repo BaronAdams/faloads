@@ -422,15 +422,19 @@ export function RCResults({
                   Abscisses depuis le nœud de calcul. Longueurs à confirmer sur
                   le plan d’exécution, notamment les barres communes sur appuis.
                 </p>
-                {["left_end", "right_end"].map(
-                  (k) =>
-                    s.bottom[k] && (
-                      <p key={k}>
-                        Ancrage {k === "left_end" ? "gauche" : "droit"} :{" "}
-                        {s.bottom[k].lbd_mm} mm / disponible{" "}
-                        {fmt(s.bottom[k].available_mm, 0)} mm
-                      </p>
-                    ),
+                {["bottom", "top"].flatMap((nappe) =>
+                  ["left_end", "right_end"].map(
+                    (k) =>
+                      s[nappe][k] && (
+                        <p key={`${nappe}-${k}`}>
+                          Ancrage{" "}
+                          {nappe === "bottom" ? "inférieur" : "supérieur"}{" "}
+                          {k === "left_end" ? "gauche" : "droit"} :{" "}
+                          {s[nappe][k].lbd_mm} mm / disponible{" "}
+                          {fmt(s[nappe][k].available_mm, 0)} mm
+                        </p>
+                      ),
+                  ),
                 )}
               </Disclosure>
             ))}

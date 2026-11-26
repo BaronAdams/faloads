@@ -117,6 +117,29 @@ class EC2(unittest.TestCase):
         self.assertEqual(r['method'],'plastic')
         self.beam['materials']['steelClass']='B';self.beam['analysis']['patterned']=True
         self.assertFalse(compute(self.beam)['all_ok'])
+    def test_a_span_entirely_in_hogging_is_not_designed_with_a_fake_sagging_moment(self):
+        m=self.beam;m['section'].update(bw_cm=100,h_cm=100);m['detailing'].update(phi_l_mm=25,cnom_mm=40,branches=4)
+        m['analysis']['patterned']=False;m['spans']=[dict(m['spans'][0],g_kN_m=g,q_kN_m=0) for g in [500,0,500]]
+        m['supports']=[dict(m['supports'][0],width_m=1) for _ in range(4)]
+        r=compute(m)
+        self.assertLess(max(c['maxima'][1] for c in r['cases']),0)
+        self.assertEqual(r['spans'][1]['MEd_kNm'],0)
+        self.assertGreater(r['supports'][1]['MEd_kNm'],0)
+        self.assertGreaterEqual(r['bars'][1]['bottom']['groups'][0]['area_mm2'],r['spans'][1]['As_min_mm2'])
+        self.assertGreaterEqual(r['spans'][1]['compression']['area_mm2'],r['spans'][1]['As2_req_mm2'])
+
+    def test_fixed_end_top_anchors_cannot_be_silently_ignored(self):
+        m=self.beam
+        for support in m['supports']:support['condition']='fixed'
+        r=compute(m)
+        anchors=[r['bars'][0]['top'][side] for side in ['left_end','right_end']]
+        self.assertTrue(all(a['lbd_mm']>0 for a in anchors))
+        if any(not a['fits'] for a in anchors):self.assertFalse(r['all_ok'])
+        self.assertEqual(sum(c['name'].startswith('Ancrage droit supérieur disponible') for c in r['checks']),2)
+        for support in m['supports']:support['width_m']=1
+        wide=compute(m)
+        self.assertTrue(all(wide['bars'][0]['top'][side]['fits'] for side in ['left_end','right_end']))
+
     def test_actual_compression_bars_remain_continuous_in_a_doubly_reinforced_span(self):
         m=self.beam;m['section'].update(bw_cm=35,h_cm=65);m['detailing'].update(phi_l_mm=20,cnom_mm=40)
         m['materials']['exposure']='XD2';m['spans'][0].update(ln_m=6,g_kN_m=20,q_kN_m=70)

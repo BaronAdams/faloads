@@ -200,6 +200,7 @@ def bar_schedule(layout,cases,i,L,ln,mat,shift,lever,sign,support_area,cap=None,
                 if demand_minimum_margin(groups,cases,i,L,shift,sign,lever,mat['fyd'],cap)>=-1e-7:hi=mid
                 else:lo=mid
             group['end_m']=hi
+    groups=[g for g in groups if g['filant'] or g['end_m']-g['start_m']>1e-6]
     for g in groups:
         # End extensions are measured from the clear faces for physical lengths.
         g['length_m']=ln+2*la if g['filant'] else max(0,g['end_m']-g['start_m'])
@@ -354,6 +355,7 @@ def run(model):
            'Les diagrammes d’équilibre sont distincts des moments réduits d’écrêtage servant au ferraillage.',
            'La répartition des cadres enveloppe les besoins par dessous : grille commerciale Caquot ou pas direct de 5 mm, sans combinaison des deux méthodes.',
            'Les arrêts de barres sont contrôlés par une enveloppe de capacités avec rampes d’ancrage. Les longueurs filantes utilisent les portées aux nus.']
+    if opts['construction']=='monolithic':notes.append('Nappe supérieure conservée filante pour couvrir les minima de construction sur les appuis solidaires.')
     warnings=[];checks=list(redchecks) if active=='elastic' else []
     for i,l in enumerate(L):
         checks.append(check('Domaine de poutre : leff/h ≥ 3 — '+spans[i]['name'],l/h,3,l/h>=3))
@@ -374,11 +376,11 @@ def run(model):
         support_design.append(des);support_clipping.append(theory-max(values))
     flex_spans=[];flex_supports=[];shears=[];bars=[]
     for i,l in enumerate(L):
-        M=max(c['maxima'][i] for c in cases)
+        M=max(0,max(c['maxima'][i] for c in cases))
         if active=='plastic':M=max(M,plastic_cap[i])
-        Ms=max(c['maxima'][i] for c in S)
+        Ms=max(0,max(c['maxima'][i] for c in S))
         design=design_section(sec,mat,det,M,Ms,False,model['serviceChecks'])
-        design.update(id='span:'+str(i),label=spans[i]['name'],x_m=peak(max(cases,key=lambda c:c['maxima'][i])['q'][i],l,*max(cases,key=lambda c:c['maxima'][i])['moments'][i:i+2])[1])
+        design.update(id='span:'+str(i),label=spans[i]['name'],x_m=(l/2 if M<=0 else max(min(supports[i]['width_m']/2,h/2),min(l-min(supports[i+1]['width_m']/2,h/2),peak(max(cases,key=lambda c:c['maxima'][i])['q'][i],l,*max(cases,key=lambda c:c['maxima'][i])['moments'][i:i+2])[1]))))
         flex_spans.append(design)
     for j in range(n+1):
         Ms=max(0,max(-c['moments'][j] for c in S))
@@ -425,11 +427,13 @@ def run(model):
             force=max(0,critical['VEd_kN']*1000*critical['shift_mm']/critical['z_mm']+M_signed*1e6/critical['z_mm'])
             need=max(force/mat['fyd'],opts.get('beta2',.25)*design['tension']['area_mm2'],flex_supports[j]['As2_req_mm2'])
             end_areas.append(need)
-        lower=bar_schedule(design['tension'],cases,i,l,spans[i]['ln_m'],mat,shift,design['z_mm'],1,max(end_areas),None,det['cnom_mm'])
+        lower=bar_schedule(design['tension'],cases,i,l,spans[i]['ln_m'],mat,shift,design['z_mm'],1,max(max(end_areas),design['As_min_mm2']),None,det['cnom_mm'])
         # Top bars also carry the compression reinforcement required in span.
         top_layout=max([design['compression'],flex_supports[i]['tension'],flex_supports[i+1]['tension']],key=lambda v:v['area_mm2'])
         top_lev=min(flex_supports[i]['z_mm'],flex_supports[i+1]['z_mm'])
-        upper=bar_schedule(top_layout,cases,i,l,spans[i]['ln_m'],mat,shift,top_lev,-1,design['As2_req_mm2'],max(support_design[i],support_design[i+1]),det['cnom_mm'])
+        top_min=max(design['As2_req_mm2'],flex_supports[i]['As_min_mm2'],flex_supports[i+1]['As_min_mm2'])
+        if opts['construction']=='monolithic':top_min=top_layout['area_mm2']
+        upper=bar_schedule(top_layout,cases,i,l,spans[i]['ln_m'],mat,shift,top_lev,-1,top_min,max(support_design[i],support_design[i+1]),det['cnom_mm'])
         for side,need in enumerate(end_areas):
             j=i+side
             base=lower['groups'][0]['area_mm2']
@@ -456,8 +460,29 @@ def run(model):
                 checks.append(check('Ancrage droit disponible — appui '+str(j+1),a['lbd_mm'],a['available_mm'],a['fits'],'mm'))
                 checks.append(check('Bielle d’about — appui '+str(j+1),stress,cap,stress<=cap,'MPa'))
                 lower['left_end' if side==0 else 'right_end']=a
-        for group in lower['groups']:
+        for side in range(2):
+            j=i+side
+            if j not in (0,n):continue
+            face=min(supports[j]['width_m']/2,h/2)
+            x=face if side==0 else l-face
+            anchored=[g for g in upper['groups'] if g['start_m']-1e-8<=x<=g['end_m']+1e-8]
+            As=sum(g['area_mm2'] for g in anchored)
+            if As<=0:raise ValueError('Aucune barre supérieure ne rejoint l’appui de rive.')
+            sigma=support_design[j]*1e6/(flex_supports[j]['z_mm']*As)
+            if flex_supports[j]['service']:sigma=max(sigma,flex_supports[j]['service']['sigma_s_MPa'])
+            checks.append(check('Acier supérieur réellement ancré — appui '+str(j+1),As,flex_supports[j]['As1_req_mm2'],As>=flex_supports[j]['As1_req_mm2']-1e-8,'mm²'))
+            a=anchorage(mat,top_layout['phi_mm'],sigma,det['cnom_mm'],top_layout['clear_min_mm'],good_bond=False)
+            a['available_mm']=supports[j]['width_m']*1000-det['cnom_mm'];a['fits']=a['available_mm']>=a['lbd_mm']
+            a['anchored_mm2']=As
+            upper['left_end' if side==0 else 'right_end']=a
+            checks.append(check('Ancrage droit supérieur disponible — appui '+str(j+1),a['lbd_mm'],a['available_mm'],a['fits'],'mm'))
+            for group in anchored:
+                if side==0:group['start_m']=face-a['lbd_mm']/1000
+                else:group['end_m']=l-face+a['lbd_mm']/1000
+        for group in lower['groups']+upper['groups']:
             group['length_m']=group['end_m']-group['start_m']
+        upper['margin_kNm']=demand_minimum_margin(upper['groups'],cases,i,l,shift,-1,top_lev,mat['fyd'],max(support_design[i],support_design[i+1]),domain=(min(supports[i]['width_m']/2,h/2),l-min(supports[i+1]['width_m']/2,h/2)))
+        upper['optimised']=upper['optimised'] and upper['margin_kNm']>=-1e-5
         lower['margin_kNm']=demand_minimum_margin(lower['groups'],cases,i,l,shift,1,design['z_mm'],mat['fyd'],domain=(min(supports[i]['width_m']/2,h/2),l-min(supports[i+1]['width_m']/2,h/2)))
         # The design tie force controls end anchorage. The moment-shift model
         # is conservative but must never be presented as a verified cut plan
@@ -493,7 +518,7 @@ def run(model):
     if opts['method'] in ('plastic','compare'):
         plastic_checks.append(check('Analyse plastique : acier B ou C',mat['steel_class'],['B','C'],mat['steel_class'] in ('B','C')))
         for i,l in enumerate(L):
-            Ms=max(c['maxima'][i] for c in S)
+            Ms=max(0,max(c['maxima'][i] for c in S))
             pd=design_section(sec,mat,det,plastic_cap[i],Ms,False,model['serviceChecks'])
             ed=design_section(sec,mat,det,max(c['maxima'][i] for c in elastic),Ms,False,model['serviceChecks'])
             comparison.append(dict(span=i,elastic_kNm=max(c['maxima'][i] for c in elastic),plastic_kNm=plastic_cap[i],elastic_As_mm2=ed['As1_req_mm2'],plastic_As_mm2=pd['As1_req_mm2']))
