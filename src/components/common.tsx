@@ -1,4 +1,6 @@
 import { compactNumber } from "@/lib/compact-number";
+import { useProjectAutosave } from "@/lib/use-project-autosave";
+import { ReportButton } from "./report-button";
 import {
   Dialog,
   DialogContent,
@@ -419,13 +421,14 @@ export function ProjectHeader({
     [created, setCreated] = useState(!!project || !!initialName),
     [nameDraft, setNameDraft] = useState(project?.name ?? "");
   useEffect(() => {
-    if (!project && initialName) {
-      setName(initialName);
+    if (initialName) {
+      if (!project) setName(initialName);
       const frame = requestAnimationFrame(() => studyAction("name:created"));
       return () => cancelAnimationFrame(frame);
     }
   }, []);
   useEffect(() => setSaved(false), [data, name]);
+  const automatic = useProjectAutosave(project, name, data);
   const save = async () => {
     const invalid = document.querySelector<HTMLInputElement>("input:invalid");
     if (invalid) {
@@ -435,8 +438,15 @@ export function ProjectHeader({
     if (!name.trim()) return toast.error("Donnez un nom à votre projet.");
     setSaving(true);
     try {
+      if (project) {
+        if (await automatic.save()) {
+          setSaved(true);
+          toast.success("Projet enregistré sur cet appareil.");
+        } else toast.error("Enregistrement impossible. Réessayez.");
+        return;
+      }
       const p = {
-        id: project?.id ?? uid(),
+        id: uid(),
         name: name.trim(),
         type,
         updatedAt: new Date().toISOString(),
@@ -456,7 +466,7 @@ export function ProjectHeader({
     }
   };
   const exportStudy = () =>
-    void exportJson(`${name || type}.kalisigma.json`, {
+    void exportJson(`${name || type}.calisigma.json`, {
       format: "structcalc-project",
       version: 1,
       project: {
@@ -490,6 +500,15 @@ export function ProjectHeader({
       )}
       <div className="project-actions">
         {tools}
+        <ReportButton
+          project={{
+            id: project?.id ?? "draft",
+            name: name.trim() || typeInfo(type).label,
+            type,
+            data,
+            updatedAt: project?.updatedAt ?? new Date().toISOString(),
+          }}
+        />
         {extra && (
           <div
             ref={extraRef}
@@ -564,7 +583,7 @@ export function ProjectHeader({
             <IconButton
               label="Exporter le projet"
               onClick={() =>
-                void exportJson(`${name || type}.kalisigma.json`, {
+                void exportJson(`${name || type}.calisigma.json`, {
                   format: "structcalc-project",
                   version: 1,
                   project: {
@@ -582,6 +601,14 @@ export function ProjectHeader({
           </>
         )}
         <Button
+          data-autosave-status={temporary ? "temporary" : automatic.status}
+          title={
+            automatic.status === "saved"
+              ? "Enregistré automatiquement sur cet appareil"
+              : automatic.status === "error"
+                ? "Sauvegarde impossible : réessayez"
+                : "Enregistrement automatique actif"
+          }
           aria-label={
             saving
               ? "Enregistrement en cours"
@@ -595,17 +622,30 @@ export function ProjectHeader({
         >
           {saving ? (
             <LoaderCircle className="animate-spin" />
-          ) : saved ? (
+          ) : saved || (project && automatic.status === "saved") ? (
             <Check />
           ) : (
             <Save />
           )}
           {!workbench && (
             <span className="button-text">
-              {saved ? "Enregistré" : "Enregistrer"}
+              {saved || (project && automatic.status === "saved")
+                ? "Enregistré"
+                : "Enregistrer"}
             </span>
           )}
         </Button>
+        {project && (
+          <span className="sr-only" role="status">
+            {temporary
+              ? "Session temporaire, sauvegarde désactivée"
+              : automatic.status === "saved"
+                ? "Projet enregistré automatiquement"
+                : automatic.status === "error"
+                  ? "Modifications non sauvegardées"
+                  : "Enregistrement automatique en cours"}
+          </span>
+        )}
       </div>
     </div>
   );

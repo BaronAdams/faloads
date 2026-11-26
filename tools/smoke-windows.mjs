@@ -104,7 +104,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
     expect(await page.evaluate(() => Boolean(window.__TAURI_INTERNALS__))).toBe(
       true,
     );
-    await expect(page).toHaveTitle("KaliSigma");
+    await expect(page).toHaveTitle("CaliSigma Structural");
     expect(
       await page.evaluate(() =>
         window.__TAURI_INTERNALS__.invoke("desktop_menu_ready"),
@@ -198,7 +198,10 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         (await page.getByRole("dialog").boundingBox()).width,
       ).toBeLessThanOrEqual(600);
       await page
-        .getByRole("button", { name: "Revenir au schéma", exact: true })
+        .getByRole("button", {
+          name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+          exact: true,
+        })
         .click();
       await expect(page.locator(".canvas-result-status")).toContainText(
         "Calcul actualisé",
@@ -358,7 +361,10 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         grid.getByLabel("X · travée 3", { exact: true }),
       ).toBeVisible();
       await grid
-        .getByRole("button", { name: "Revenir au schéma", exact: true })
+        .getByRole("button", {
+          name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+          exact: true,
+        })
         .click();
       // Closing Radix overlays still intercept pointers during their exit animation.
       // Wait for removal before sending the real mouse gesture to WebView2.
@@ -517,7 +523,7 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
           "-NoProfile",
           "-NonInteractive",
           "-Command",
-          "Get-Process KaliSigma,msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Json",
+          "Get-Process 'CaliSigma-Structural',msedgewebview2 -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,MainWindowTitle | ConvertTo-Json",
         ],
         { encoding: "utf8", timeout: 10000 },
       );

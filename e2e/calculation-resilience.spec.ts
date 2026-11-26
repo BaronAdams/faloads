@@ -41,7 +41,10 @@ test("a late calculation never marks a changed model as current", async ({
     .evaluate((el) => (el as HTMLButtonElement).click());
   await page.getByLabel("Longueur L", { exact: true }).fill("9");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await expect(page.locator(".calculation-veil")).toHaveCount(0);
   await expect(page.locator(".canvas-result-status")).toContainText(

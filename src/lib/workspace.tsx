@@ -98,6 +98,29 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     },
     [temporary],
   );
+  const saveProject = useCallback(
+    async (project: Project) => {
+      if (temporary)
+        throw Error("Sauvegarde désactivée dans cette session temporaire.");
+      await update({
+        projects: [
+          project,
+          ...value.current.projects.filter((p) => p.id !== project.id),
+        ],
+      });
+    },
+    [temporary, update],
+  );
+  const removeProject = useCallback(
+    async (id: string) => {
+      if (temporary)
+        throw Error("Sauvegarde désactivée dans cette session temporaire.");
+      await update({
+        projects: value.current.projects.filter((p) => p.id !== id),
+      });
+    },
+    [temporary, update],
+  );
   if (!workspace)
     return (
       <div className="boot-screen">
@@ -105,7 +128,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         <h1>
           {error
             ? "Vos données n’ont pas pu être ouvertes"
-            : "Ouverture de KaliSigma"}
+            : "Ouverture de CaliSigma Structural"}
         </h1>
         {error ? (
           <>
@@ -138,23 +161,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
         )}
       </div>
     );
-  const saveProject = async (project: Project) => {
-    if (temporary)
-      throw Error("Sauvegarde désactivée dans cette session temporaire.");
-    await update({
-      projects: [
-        project,
-        ...value.current.projects.filter((p) => p.id !== project.id),
-      ],
-    });
-  };
-  const removeProject = async (id: string) => {
-    if (temporary)
-      throw Error("Sauvegarde désactivée dans cette session temporaire.");
-    await update({
-      projects: value.current.projects.filter((p) => p.id !== id),
-    });
-  };
   return (
     <WorkspaceContext
       value={{

@@ -7,8 +7,8 @@ import {
   type Workspace,
 } from "./storage";
 import { beamSchema, frameSchema } from "@/domain/analysis";
-import { predimSchema } from "@/pages/predim-page";
-import { descentSchema } from "@/pages/descent-page";
+import { predimSchema } from "@/domain/predim";
+import { descentSchema } from "@/domain/descent";
 import { buildingSchema } from "@/domain/building";
 import { uid } from "./utils";
 export function validateProject(p: unknown): Project {
@@ -52,7 +52,7 @@ export async function importProjects(
     const parsed = workspaceSchema.safeParse(source);
     if (!parsed.success)
       throw Error(
-        "Choisissez un fichier de projet ou une sauvegarde KaliSigma 0.2.",
+        "Choisissez un fichier de projet ou une sauvegarde CaliSigma Structural 0.2.",
       );
     incoming = parsed.data.projects.map(validateProject);
   } else incoming = [validateProject(source)];

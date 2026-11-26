@@ -22,7 +22,7 @@ import {
   DescentProfile,
   LoadEvolutionChart,
 } from "@/components/descent-graphs";
-import { ArrowLeft, ArrowRight, Check, Plus, Printer } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Panel,
@@ -143,14 +143,6 @@ export function DescentPage({
               value={model.sectionTypes}
               onChange={(sectionTypes) => patch({ sectionTypes })}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Imprimer la fiche"
-              onClick={() => window.print()}
-            >
-              <Printer />
-            </Button>
           </>
         }
       />

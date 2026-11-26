@@ -34,9 +34,9 @@ test.beforeEach(async ({ page }, info) => {
     throw e;
   });
   await page.goto("/");
-  await expect(page).toHaveTitle("KaliSigma");
+  await expect(page).toHaveTitle("CaliSigma Structural");
   await expect(page.locator(".onboarding .brand strong")).toHaveText(
-    "KaliSigma",
+    "CaliSigma Structural",
   );
   await expect(page.locator(".onboarding .brand img")).toHaveAttribute(
     "src",

@@ -26,6 +26,7 @@ legacy/flutter/windows/
 legacy/flutter/web/
 
 native-test-results/
+.impeccable/review/
 artifacts/
 src-tauri/icons/android/
 src-tauri/icons/ios/

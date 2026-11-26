@@ -1,8 +1,11 @@
-import { sectionTypesSchema, sectionCatalogue } from "@/domain/section-types";
+import {
+  predimSchema,
+  predimDefaults,
+  type PredimModel,
+} from "@/domain/predim";
 import { SectionTypes } from "@/components/desktop-tools";
 import { useEffect, useMemo, useState } from "react";
-import { z } from "zod";
-import { Printer, BookmarkPlus } from "lucide-react";
+import { BookmarkPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -34,56 +37,7 @@ import { typeInfo, type ProjectType } from "@/domain/projects";
 import { useWorkspace } from "@/lib/workspace";
 import { fmt, uid } from "@/lib/utils";
 import { type Project } from "@/lib/storage";
-export const predimSchema = z.object({
-  sectionTypes: sectionTypesSchema,
-  n: z.number().nonnegative().max(1e8),
-  length: z.number().positive().max(1000),
-  height: z.number().positive().max(1000),
-  g: z.number().nonnegative().max(1e6),
-  q: z.number().nonnegative().max(1e6),
-  concrete: z.enum(["C20/25", "C25/30", "C30/37", "C35/45"]),
-  code: z.enum(["ec2", "bael91"]),
-  support: z.enum(["isostatique", "continue_", "console"]),
-  full: z.boolean(),
-  soil: z.number().positive().max(1e6),
-  supportCm: z.number().positive().max(1000),
-  footing: z.enum(["isolee", "filante"]),
-  gamma: z.number().positive().max(100),
-  phi: z.number().min(0).max(60),
-  width: z.number().positive().max(1000),
-});
-export type PredimModel = z.infer<typeof predimSchema>;
-export function predimDefaults(
-  type: ProjectType,
-  code: Code = "ec2",
-  concrete = "C25/30",
-): PredimModel {
-  return {
-    sectionTypes: sectionCatalogue(),
-    n: type === "column" ? 800 : 500,
-    length:
-      type === "wall"
-        ? 2.5
-        : type === "balcony"
-          ? 1.2
-          : type === "stairs"
-            ? 4.2
-            : 4.5,
-    height: type === "stairs" ? 2.7 : 2.5,
-    g: 3,
-    q: type === "beam-size" ? 25 : 1.5,
-    concrete: concrete as PredimModel["concrete"],
-    code,
-    support: "isostatique",
-    full: false,
-    soil: 200,
-    supportCm: 30,
-    footing: "isolee",
-    gamma: 18,
-    phi: 30,
-    width: 1,
-  };
-}
+export { predimSchema, predimDefaults } from "@/domain/predim";
 export function PredimPage({
   type,
   project,
@@ -235,16 +189,6 @@ export function PredimPage({
         data={model}
         name={name}
         setName={setName}
-        extra={
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Imprimer la fiche"
-            onClick={() => window.print()}
-          >
-            <Printer />
-          </Button>
-        }
       />
       <div className="two-columns">
         <Panel
@@ -254,7 +198,15 @@ export function PredimPage({
           <form
             data-tour="predim-inputs"
             className="form-stack"
-            onSubmit={(e) => e.preventDefault()}
+            onSubmit={(e) => {
+              e.preventDefault();
+              const invalid =
+                e.currentTarget.querySelector<HTMLInputElement>(
+                  "input:invalid",
+                );
+              if (invalid) return invalid.reportValidity();
+              toast.success("Données validées. Résultats actualisés.");
+            }}
           >
             {(type === "column" || type === "wall" || type === "footing") && (
               <Numeric
@@ -427,6 +379,7 @@ export function PredimPage({
                 />
               </>
             )}
+            <Button type="submit">Valider les données</Button>
           </form>
         </Panel>
         <div className="result-stack">

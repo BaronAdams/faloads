@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -201,12 +202,16 @@ export function DetailDialog({
   title,
   children,
   description,
+  confirmation = false,
+  confirmLabel = "Valider et fermer",
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   title: string;
   children: ReactNode;
   description?: string;
+  confirmation?: boolean;
+  confirmLabel?: string;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -226,6 +231,24 @@ export function DetailDialog({
           </DialogDescription>
         </DialogHeader>
         {children}
+        {confirmation && (
+          <DialogFooter>
+            <Button
+              onClick={(event) => {
+                const invalid = event.currentTarget
+                  .closest('[role="dialog"]')
+                  ?.querySelector<HTMLInputElement>("input:invalid");
+                if (invalid) {
+                  invalid.reportValidity();
+                  return;
+                }
+                onOpenChange(false);
+              }}
+            >
+              {confirmLabel}
+            </Button>
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -254,6 +277,7 @@ export function SectionTypes({
         open={open}
         onOpenChange={setOpen}
         title="Dimensions types du projet"
+        confirmation
       >
         <p className="hint">
           Ces sections appartiennent uniquement à cette étude. Sélectionnez
@@ -320,7 +344,9 @@ export function SectionTypes({
             return (
               <div className="section-type-row" key={s.id}>
                 <div className="field">
-                  <Label htmlFor={`section-name-${s.id}`}>Nom de la dimension</Label>
+                  <Label htmlFor={`section-name-${s.id}`}>
+                    Nom de la dimension
+                  </Label>
                   <Input
                     id={`section-name-${s.id}`}
                     value={s.name}
@@ -433,6 +459,8 @@ export function ShortcutHelp() {
         open={open}
         onOpenChange={setOpen}
         title="Souris et raccourcis"
+        confirmation
+        confirmLabel="Fermer"
       >
         <dl className="shortcut-list">
           {[
@@ -494,7 +522,12 @@ export function ParameterGroup({
       <IconButton label={title} onClick={() => setOpen(true)}>
         <BookOpen />
       </IconButton>
-      <DetailDialog open={open} onOpenChange={setOpen} title={title}>
+      <DetailDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={title}
+        confirmation
+      >
         {children}
       </DetailDialog>
     </>

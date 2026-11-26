@@ -21,8 +21,8 @@ type Step = { target: string; title: string; text: string; action: string };
 const stepsFor = (type: ProjectType): Step[] => {
   const save: Step = {
     target: "save",
-    title: "Conservez votre étude",
-    text: "Enregistrez ce modèle pour le retrouver dans vos projets. Vous pourrez continuer à le modifier.",
+    title: "Votre étude est conservée",
+    text: "La sauvegarde est automatique sur cet appareil. Le bouton Enregistrer permet aussi de la forcer à tout moment.",
     action: "project:saved",
   };
   if (type === "beam" || type === "frame")
@@ -203,6 +203,14 @@ export function ProjectGuide({
         guides: { ...latest.current, [type]: { step: next, completed } },
       }).catch(() => {});
   };
+  useEffect(() => {
+    if (!active || current?.action !== "project:saved" || temporary) return;
+    const timer = setInterval(() => {
+      if (document.querySelector('[data-autosave-status="saved"]'))
+        studyAction("project:saved");
+    }, 1400);
+    return () => clearInterval(timer);
+  }, [active, current?.action, temporary]);
   useEffect(() => {
     const listener = (event: Event) => {
       const action = (event as CustomEvent<string>).detail;

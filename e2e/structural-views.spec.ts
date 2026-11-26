@@ -74,7 +74,10 @@ for (const kind of ["beam", "frame"] as const) {
     await parameters(page);
     await expect(switcher).not.toBeChecked();
     await page
-      .getByRole("button", { name: "Revenir au schéma", exact: true })
+      .getByRole("button", {
+        name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+        exact: true,
+      })
       .click();
     await page.getByRole("button", { name: "Rotation", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText(

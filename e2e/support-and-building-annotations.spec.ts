@@ -57,7 +57,10 @@ test("The active storey owns the full grid in 2D and 3D, with a stable ribbon", 
   await expect(grid.getByLabel("Y · travée 2", { exact: true })).toBeVisible();
   await grid.getByLabel("X · travée 2", { exact: true }).fill("6,5");
   await grid
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await duplicateLevel(page);
   await expect(
@@ -71,7 +74,10 @@ test("The active storey owns the full grid in 2D and 3D, with a stable ribbon", 
     .getByLabel("X · travée 2", { exact: true })
     .fill("7");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await header.getByRole("button", { name: "3D", exact: true }).click();
   const scene = page.getByTestId("building-3d");
@@ -99,7 +105,10 @@ test("The active storey owns the full grid in 2D and 3D, with a stable ribbon", 
     page.getByRole("dialog").getByLabel("X · travée 2", { exact: true }),
   ).toHaveValue("6,5");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   expect((await header.boundingBox())!.height).toBe(
     info.project.name === "desktop" ? 104 : 128,
@@ -347,7 +356,10 @@ test("The first building guide leads through its complete active-floor grid", as
       : "Revenez au plan",
   );
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(coach).toContainText("Calculez le bâtiment");
