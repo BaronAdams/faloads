@@ -1,0 +1,50 @@
+{
+  "_comment": "Paillé §12.9.1 en VÉRIFICATION : 8HA16 imposés, 4 barres par nappe extrême (k=4, m=0), comme le livre. Livre : EI = 13,7 MN·m², NB = 2,11 MN, MEd = 46 kN·m.",
+  "section": {
+    "b_cm": 60,
+    "h_cm": 40,
+    "dp_cm": 4
+  },
+  "geometry": {
+    "l_m": 4.0,
+    "l0_m": 8.0,
+    "braced": false,
+    "static_scheme": "console"
+  },
+  "materials": {
+    "fck": 30,
+    "fyk": 500,
+    "phi_inf_t0": 2.1
+  },
+  "detailing": {
+    "cnom_mm": 30,
+    "bars": {
+      "phi": 16,
+      "phi_i": 16,
+      "k": 4,
+      "m": 0
+    }
+  },
+  "options": {
+    "second_order_method": "rigidite",
+    "c0": 12
+  },
+  "loads": {
+    "mode": "actions",
+    "self_weight": false,
+    "actions": [
+      {
+        "name": "G",
+        "category": "G",
+        "N_kN": 300
+      },
+      {
+        "name": "Q",
+        "category": "Q",
+        "N_kN": 500,
+        "psi0": 0.7,
+        "psi2": 0.3
+      }
+    ]
+  }
+}

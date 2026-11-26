@@ -1,3 +1,5 @@
+import { RCProjectPage } from "@/pages/rc-project-page";
+import { isRCModel } from "@/domain/rc/model";
 import { DesktopMenu } from "@/components/desktop-menu";
 import { NewStudyDialog } from "@/components/new-study-dialog";
 import { ProjectGuide } from "@/components/project-guide";
@@ -59,7 +61,12 @@ function Shell() {
     ? location.pathname.split("/")[2]
     : workspace.projects.find((p) => location.pathname === `/project/${p.id}`)
         ?.type;
-  const workbench = ["beam", "frame", "building"].includes(projectType ?? "");
+  const workbench =
+    ["beam", "frame", "building"].includes(projectType ?? "") ||
+    isRCModel(
+      workspace.projects.find((p) => location.pathname === `/project/${p.id}`)
+        ?.data,
+    );
   if (!workspace.onboarding) return <Onboarding />;
   return (
     <div
@@ -252,12 +259,16 @@ function ProjectRoute() {
       <DescentPage kind={actual} project={project} />
     ) : actual === "building" ? (
       <BuildingPage project={project} />
+    ) : (actual === "column" || actual === "beam-size") &&
+      isRCModel(project?.data) ? (
+      <RCProjectPage type={actual} project={project} />
     ) : (
       <PredimPage type={actual} project={project} />
     );
   return (
     <ProjectGuide
       type={actual}
+      rc={isRCModel(project?.data)}
       existing={!!project && !location.state?.createdStudy}
     >
       {content}

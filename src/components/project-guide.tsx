@@ -18,7 +18,7 @@ const GuideContext = createContext<{ active: boolean; instruction?: string }>({
 });
 export const useStudyGuide = () => useContext(GuideContext);
 type Step = { target: string; title: string; text: string; action: string };
-const stepsFor = (type: ProjectType): Step[] => {
+const stepsFor = (type: ProjectType, rc = false): Step[] => {
   const save: Step = {
     target: "save",
     title: "Votre étude est conservée",
@@ -70,6 +70,46 @@ const stepsFor = (type: ProjectType): Step[] => {
         target: "results-done",
         title: "Retrouvez votre espace",
         text: "Fermez le panneau. Vous pourrez le rouvrir à tout moment.",
+        action: "results:close",
+      },
+      save,
+    ];
+  if (rc && (type === "column" || type === "beam-size"))
+    return [
+      {
+        target: "parameters",
+        title: "Définissez votre élément BA",
+        text: "Ouvrez les paramètres pour adapter la section et les actions à votre étude.",
+        action: "parameters:open",
+      },
+      {
+        target: "parameters-inputs",
+        title: "Adaptez les données",
+        text: "Les onglets regroupent géométrie, matériaux, actions, armatures et méthode. Modifiez une donnée.",
+        action: "input:edited",
+      },
+      {
+        target: "parameters-done",
+        title: "Appliquez vos paramètres",
+        text: "Appliquez les paramètres. Pour une poutre, précisez aussi sa liaison aux appuis dans Méthode.",
+        action: "parameters:close",
+      },
+      {
+        target: "calculate",
+        title: "Lancez le dimensionnement",
+        text: "Le moteur vérifie l’élément et détermine ses armatures. Les résultats demandent un nouveau calcul après chaque modification.",
+        action: "calculation:complete",
+      },
+      {
+        target: "results",
+        title: "Consultez les contrôles",
+        text: "Le panneau présente les armatures, la démarche, les contrôles et le domaine couvert.",
+        action: "results:open",
+      },
+      {
+        target: "results-done",
+        title: "Explorez le ferraillage",
+        text: "Revenez au schéma pour voir les armatures calculées et, pour la poutre, les enveloppes M et V.",
         action: "results:close",
       },
       save,
@@ -179,18 +219,21 @@ export function ProjectGuide({
   type,
   existing,
   children,
+  rc = false,
 }: {
   type: ProjectType;
   existing: boolean;
+  rc?: boolean;
   children: ReactNode;
 }) {
   const { workspace, update, temporary } = useWorkspace();
-  const progress = workspace.guides[type];
+  const guideKey = rc ? `${type}:ec2-v1` : type;
+  const progress = workspace.guides[guideKey];
   const [started, setStarted] = useState(existing),
     [step, setStep] = useState(0),
     [done, setDone] = useState(progress?.completed ?? false);
   const [rect, setRect] = useState<DOMRect | null>(null);
-  const steps = stepsFor(type),
+  const steps = stepsFor(type, rc),
     active = started && !done && step < steps.length;
   const current = steps[step],
     latest = useRef(workspace.guides);
@@ -200,7 +243,7 @@ export function ProjectGuide({
     setDone(completed);
     if (!temporary)
       void update({
-        guides: { ...latest.current, [type]: { step: next, completed } },
+        guides: { ...latest.current, [guideKey]: { step: next, completed } },
       }).catch(() => {});
   };
   useEffect(() => {

@@ -1,0 +1,30 @@
+{
+  "section": {
+    "type": "rect",
+    "b_cm": 30,
+    "h_cm": 60,
+    "d_cm": 55,
+    "dp_cm": 5
+  },
+  "materials": {
+    "fck": 25,
+    "fyk": 500,
+    "alpha_e": 15,
+    "steel_diagram": "horizontal",
+    "exposure": "XD2",
+    "crack_control": false
+  },
+  "loads": {
+    "NG_kN": -200,
+    "MG_kNm": 20,
+    "NQ_kN": -200,
+    "MQ_kNm": 20
+  },
+  "actual_steel": {
+    "As1_cm2": 9.42,
+    "As2_cm2": 4.62
+  },
+  "options": {
+    "n_files": 3
+  }
+}

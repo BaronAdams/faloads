@@ -508,6 +508,74 @@ for (const [i, mode] of ["default", "compatibility"].entries()) {
         fullPage: true,
       });
     }
+    if (mode === "compatibility") {
+      await page
+        .getByRole("button", { name: "Fermer le panneau", exact: true })
+        .click();
+      for (const type of ["column", "beam-size"]) {
+        await page.evaluate((type) => (location.hash = `/new/${type}`), type);
+        await page
+          .getByLabel("Nom du projet", { exact: true })
+          .fill(`EC2 native ${type}`);
+        await page
+          .getByRole("button", { name: "Créer l’étude", exact: true })
+          .click();
+        await page
+          .getByRole("button", { name: "Explorer librement", exact: true })
+          .click();
+        if (type === "beam-size") {
+          await page
+            .getByRole("button", { name: "Ouvrir les paramètres", exact: true })
+            .click();
+          const form = page.getByRole("dialog");
+          await form
+            .getByRole("button", { name: "Méthode", exact: true })
+            .click();
+          await form
+            .getByRole("combobox", {
+              name: "Liaison de la poutre aux appuis",
+              exact: true,
+            })
+            .click();
+          await page
+            .getByRole("option", { name: "Poutre posée", exact: true })
+            .click();
+          await form
+            .getByRole("button", {
+              name: "Appliquer les paramètres",
+              exact: true,
+            })
+            .click();
+        }
+        await page
+          .getByRole("button", {
+            name: "Calculer le dimensionnement",
+            exact: true,
+          })
+          .click();
+        await expect(page.locator(".rc-workspace-status")).toContainText(
+          "Calcul actualisé",
+          { timeout: 120000 },
+        );
+        await page
+          .getByRole("button", { name: "Ouvrir les résultats", exact: true })
+          .click();
+        await expect(page.getByTestId("rc-results")).toContainText(
+          type === "column" ? "4 HA12" : "2 HA16",
+        );
+        await expect(page.getByTestId("rc-results")).toContainText(
+          "Contrôles calculés satisfaits",
+        );
+        await page.screenshot({
+          path: `native-test-results/windows-ec2-${type}.png`,
+          fullPage: true,
+        });
+        await page
+          .getByRole("button", { name: "Revenir au schéma", exact: true })
+          .click();
+        await checkWorkbenchLayout(page);
+      }
+    }
     await page.evaluate(() => document.fonts.ready);
     if (errors.length) throw Error(errors.join("\n"));
     writeFileSync(

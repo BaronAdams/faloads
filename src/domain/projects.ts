@@ -38,14 +38,14 @@ export const projectTypes = [
     id: "column",
     icon: "06C",
     label: "Poteau",
-    description: "Section de poteau en béton armé sous effort normal",
+    description: "EC2 : compression, flexion composée et stabilité du poteau",
     family: "Dimensionnement Béton Armé",
   },
   {
     id: "beam-size",
     icon: "07B",
     label: "Poutre",
-    description: "Dimensions de poutre en béton armé selon portée et charges",
+    description: "EC2 : flexion, effort tranchant et ferraillage des poutres",
     family: "Dimensionnement Béton Armé",
   },
   {

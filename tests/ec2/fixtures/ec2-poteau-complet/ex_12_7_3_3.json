@@ -1,0 +1,9 @@
+{
+  "_comment": "Paillé ch.12 §12.7.3.3 : poteau 40x45, C25/30, NEd = 3,38 MN (donné), l0 = 1,40 m, encastré sur poutres. Livre : compression simple As = 8,9 cm² ; section sous NEd·2 cm : 9 cm² par face.",
+  "section": {"b_cm": 40, "h_cm": 45, "dp_cm": 4},
+  "geometry": {"l_m": 2.10, "l0_m": 1.40, "braced": true},
+  "materials": {"fck": 25, "fyk": 500, "phi_inf_t0": 2.4},
+  "detailing": {"cnom_mm": 30},
+  "loads": {"mode": "direct",
+            "direct": {"NEd_kN": 3380, "qp": {"N_kN": 1690}}}
+}

@@ -1,0 +1,10 @@
+{
+  "_comment": "Paillé §12.7.3.6 : poteau 42x65 (h=42 dans le plan de flambement), C25/30, NG = 2,2 MN, NQ = 1,6 MN, l = 2,5 m, l0 = 0,7·l = 1,75 m. Livre : compression simple 18,8 cm² ; flexion composée sous 2 cm : 18,7 (haut) + 1,9 (bas), retenu 19/face ; formule AN : 55 cm².",
+  "section": {"b_cm": 65, "h_cm": 42, "dp_cm": 4},
+  "geometry": {"l_m": 2.5, "l0_m": 1.75, "braced": true},
+  "materials": {"fck": 25, "fyk": 500, "phi_inf_t0": 2.4},
+  "detailing": {"cnom_mm": 30},
+  "loads": {"mode": "actions", "self_weight": false,
+            "actions": [{"name": "G", "category": "G", "N_kN": 2200},
+                        {"name": "Q", "category": "Q", "N_kN": 1600, "psi0": 0.7, "psi2": 0.3}]}
+}

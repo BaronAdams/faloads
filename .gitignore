@@ -26,6 +26,7 @@ legacy/flutter/windows/
 legacy/flutter/web/
 
 native-test-results/
+public/ec2-runtime/
 .impeccable/review/
 artifacts/
 src-tauri/icons/android/
@@ -44,3 +45,7 @@ build/
 /macos/
 /windows/
 /web/
+
+# Python reference-engine caches.
+__pycache__/
+*.pyc

@@ -1,0 +1,10 @@
+{
+  "_comment": "Paillé §12.7.3.4 (données corrigées : M0Ed = NEd·2 cm = 19,8 kN·m, le livre écrit 198 par erreur). Poteau 35x60 articulé, l0 = l = 5 m, NG = 400 kN, NQ = 300 kN, C30/37, phi(inf,t0)=3. Livre (erroné) : 11 cm²/face ; données corrigées : As,min.",
+  "section": {"b_cm": 60, "h_cm": 35, "dp_cm": 4},
+  "geometry": {"l_m": 5.0, "l0_m": 5.0, "braced": true},
+  "materials": {"fck": 30, "fyk": 500, "phi_inf_t0": 3},
+  "detailing": {"cnom_mm": 30},
+  "loads": {"mode": "actions", "self_weight": false,
+            "actions": [{"name": "G", "category": "G", "N_kN": 400},
+                        {"name": "Q", "category": "Q", "N_kN": 300, "psi0": 0.7, "psi2": 0.3}]}
+}

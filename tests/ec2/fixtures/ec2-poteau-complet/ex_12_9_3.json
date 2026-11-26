@@ -1,0 +1,11 @@
+{
+  "_comment": "Paillé §12.9.3 : mât 30x50 encastré en pied, l = 5 m, l0 = 10 m, C30/37. NEd = 285 kN, moment en pied 165 kN·m (charges G,Q excentrées de 20 cm + vent). Quasi-permanent : N = 100 kN, M = 20 kN·m. phi(inf,t0) = 2,2. Livre (courbure) : M2 = 28,5, MEd = 199,5 kN·m, As = 8,1 cm² côté tendu ; rigidité : MEd = 190 à 196.",
+  "section": {"b_cm": 30, "h_cm": 50, "dp_cm": 3},
+  "geometry": {"l_m": 5.0, "l0_m": 10.0, "braced": false, "static_scheme": "console"},
+  "materials": {"fck": 30, "fyk": 500, "phi_inf_t0": 2.2},
+  "detailing": {"cnom_mm": 25, "phi_t_mm": 8},
+  "options": {"second_order_method": "courbure", "c_curvature": 10},
+  "loads": {"mode": "direct",
+            "direct": {"NEd_kN": 285, "y": {"M_top_kNm": 0, "M_bottom_kNm": 165},
+                       "qp": {"N_kN": 100, "y": {"M_top_kNm": 0, "M_bottom_kNm": 20}}}}
+}

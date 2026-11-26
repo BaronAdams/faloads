@@ -1,0 +1,13 @@
+{
+  "_comment": "Paillé §12.9.2 : poteau articulé 35x60, l0 = l = 5 m, NG = 400, NQ = 300 kN, force horizontale FQ = 250 kN à mi-hauteur (psi2 = 0), C30/37, phi(inf,t0) = 2,4, courbure c = 10. Livre : M0Ed = 490, M2 = 38,3, MEd = 527 kN·m ; As = 39 (bas) + 19 (haut) cm² (logiciel, asymétrique).",
+  "section": {"b_cm": 60, "h_cm": 35, "dp_cm": 4},
+  "geometry": {"l_m": 5.0, "l0_m": 5.0, "braced": true},
+  "materials": {"fck": 30, "fyk": 500, "phi_inf_t0": 2.4},
+  "detailing": {"cnom_mm": 30},
+  "options": {"second_order_method": "courbure", "c_curvature": 10},
+  "loads": {"mode": "actions", "self_weight": false,
+            "actions": [{"name": "G", "category": "G", "N_kN": 400},
+                        {"name": "Q (axial)", "category": "Q", "N_kN": 300, "psi0": 1.0, "psi2": 0.3},
+                        {"name": "FQ (horizontale)", "category": "Q", "psi0": 1.0, "psi2": 0.0,
+                         "transverse": [{"plane": "y", "type": "point", "z_m": 2.5, "F_kN": 250}]}]}
+}

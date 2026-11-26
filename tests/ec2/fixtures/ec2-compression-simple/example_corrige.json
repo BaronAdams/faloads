@@ -1,0 +1,8 @@
+{
+  "_comment": "Corrigé p.166-174 de 'Pratique de l'Eurocode 2' : poteau 40 cm imposé, NG=1390 kN, NQ=1000 kN, l=2,10 m, C25/30, S500, cnom=30 mm, poteau contreventé encastré (k1=k2=0,1)",
+  "section": {"type": "rect", "b_cm": 40},
+  "loads": {"NG_kN": 1390, "NQ_kN": 1000, "add_self_weight": true},
+  "geometry": {"l_m": 2.10, "braced": true, "k1": 0.1, "k2": 0.1},
+  "materials": {"fck": 25, "fyk": 500},
+  "detailing": {"cnom_mm": 30, "lap": true, "rho1": 100, "good_bond": true}
+}

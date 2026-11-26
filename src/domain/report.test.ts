@@ -1,3 +1,4 @@
+import { predimDefaults } from "./predim";
 import { describe, it, expect } from "vitest";
 import { projectTypes } from "./projects";
 import { projectDefaults } from "./project-defaults";
@@ -19,7 +20,10 @@ const project = (type: Project["type"]): Project => ({
   id: type,
   type,
   name: `Étude ${type}`,
-  data: projectDefaults(type, preferences),
+  data:
+    type === "column" || type === "beam-size"
+      ? predimDefaults(type, preferences.code, preferences.concrete)
+      : projectDefaults(type, preferences),
   updatedAt: "2026-11-26T10:00:00.000Z",
 });
 describe("Type-specific calculation notes", () => {

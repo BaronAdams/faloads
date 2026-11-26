@@ -1,3 +1,4 @@
+import { isRCModel, rcModelSchema } from "@/domain/rc/model";
 import { isTauri } from "@tauri-apps/api/core";
 import type { Project } from "./storage";
 import type { ReportSelection, CalculationReport } from "@/domain/report";
@@ -7,6 +8,20 @@ export async function prepareReport(
   author: string,
 ): Promise<CalculationReport> {
   const generatedAt = new Date().toISOString();
+  if (isRCModel(project.data)) {
+    const model = rcModelSchema.parse(project.data);
+    const { calculateRC } = await import("./rc-engine");
+    const { buildRCReport } = await import("@/domain/rc/report");
+    const result = await calculateRC(model);
+    return buildRCReport(
+      project,
+      model,
+      result,
+      selection,
+      author,
+      generatedAt,
+    );
+  }
   try {
     return await new Promise<CalculationReport>((resolve, reject) => {
       let worker: Worker;

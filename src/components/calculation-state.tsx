@@ -1,6 +1,12 @@
 import { useLayoutEffect, useRef } from "react";
 import { LoaderCircle, CircleCheck, CircleAlert } from "lucide-react";
-export function CalculationOverlay({ busy }: { busy: boolean }) {
+export function CalculationOverlay({
+  busy,
+  description,
+}: {
+  busy: boolean;
+  description?: string;
+}) {
   const overlay = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (!busy || !overlay.current) return;
@@ -30,7 +36,9 @@ export function CalculationOverlay({ busy }: { busy: boolean }) {
       <div className="calculation-message">
         <LoaderCircle className="animate-spin" size={30} />
         <strong>Calcul en cours</strong>
-        <span>Analyse du modèle et préparation des résultats…</span>
+        <span>
+          {description ?? "Analyse du modèle et préparation des résultats…"}
+        </span>
       </div>
     </div>
   ) : null;

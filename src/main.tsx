@@ -14,6 +14,7 @@ import "./styles/study-experience.css";
 import "./styles/desktop-editor.css";
 import "./styles/workbench-header.css";
 import "./styles/structural-navigation.css";
+import "./styles/rc-design.css";
 import { runtime } from "./lib/runtime";
 document.documentElement.dataset.runtime = runtime;
 if (runtime === "desktop") {

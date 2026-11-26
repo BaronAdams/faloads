@@ -1,3 +1,4 @@
+import { requestNewStudy } from "@/components/new-study-dialog";
 import {
   predimSchema,
   predimDefaults,
@@ -190,6 +191,18 @@ export function PredimPage({
         name={name}
         setName={setName}
       />
+      {(type === "column" || type === "beam-size") && (
+        <div className="rc-legacy-notice">
+          <p>
+            Cette étude conserve l’ancien prédimensionnement indicatif. Créez
+            une étude EC2 pour calculer le ferraillage et les vérifications
+            détaillées.
+          </p>
+          <Button variant="outline" onClick={() => requestNewStudy(type)}>
+            Créer une étude EC2
+          </Button>
+        </div>
+      )}
       <div className="two-columns">
         <Panel
           title="Données du projet"

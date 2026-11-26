@@ -1,0 +1,68 @@
+{
+  "kind": "rc-beam",
+  "version": 1,
+  "section": {
+    "type": "rect",
+    "bw_cm": 25,
+    "h_cm": 55,
+    "beff_cm": 100,
+    "hf_cm": 15,
+    "depthMode": "auto",
+    "d_cm": 49.5
+  },
+  "materials": {
+    "fck": 25,
+    "fyk": 500,
+    "steelClass": "B",
+    "diagram": "horizontal",
+    "exposure": "XC1",
+    "alpha_e": 15,
+    "crack_control": false
+  },
+  "detailing": {
+    "cnom_mm": 35,
+    "coverDev_mm": 10,
+    "phi_l_mm": 16,
+    "phi_t_mm": 8,
+    "dg_mm": 20,
+    "branches": 2,
+    "alpha_deg": 90
+  },
+  "spans": [
+    {
+      "id": "s1",
+      "name": "Trav\u00e9e 1",
+      "ln_m": 4.5,
+      "g_kN_m": 8,
+      "q_kN_m": 5
+    }
+  ],
+  "supports": [
+    {
+      "id": "a1",
+      "width_m": 0.3,
+      "condition": "simple"
+    },
+    {
+      "id": "a2",
+      "width_m": 0.3,
+      "condition": "simple"
+    }
+  ],
+  "selfWeight": true,
+  "serviceChecks": true,
+  "analysis": {
+    "method": "elastic",
+    "reference": "elastic",
+    "patterned": true,
+    "redistribution": false,
+    "delta": 0.85,
+    "construction": "posed",
+    "beta2": 0.25,
+    "flange_joint": "monolithic"
+  },
+  "shear": {
+    "method": "variable",
+    "distribution": "caquot"
+  }
+}

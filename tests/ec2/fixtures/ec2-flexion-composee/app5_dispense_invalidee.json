@@ -1,0 +1,31 @@
+{
+  "section": {
+    "type": "rect",
+    "b_cm": 30,
+    "h_cm": 60,
+    "d_cm": 55,
+    "dp_cm": 5
+  },
+  "materials": {
+    "fck": 25,
+    "fyk": 500,
+    "alpha_e": 15,
+    "exposure": "XC1"
+  },
+  "loads": {
+    "NEd_kN": 700,
+    "MEdG0_kNm": 20,
+    "Nser_kN": 466.667,
+    "MserG0_kNm": 13.333
+  },
+  "slenderness": {
+    "l0_m": 3.846042475974493,
+    "braced": true,
+    "b_cm": 30,
+    "imperfection": "l0/400"
+  },
+  "options": {
+    "n_files": 2,
+    "els_check": false
+  }
+}

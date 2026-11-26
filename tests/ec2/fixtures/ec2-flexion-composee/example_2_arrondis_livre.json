@@ -1,0 +1,34 @@
+{
+  "section": {
+    "type": "rect",
+    "b_cm": 50,
+    "h_cm": 50,
+    "d_cm": 45,
+    "dp_cm": 5
+  },
+  "materials": {
+    "fck": 25,
+    "fyk": 500,
+    "alpha_e": 15,
+    "steel_diagram": "horizontal",
+    "exposure": "XD2",
+    "crack_control": false,
+    "fcu_override": 16.7,
+    "fyd_override": 435,
+    "fctm_override": 2.56,
+    "mu_lu_override": 0.227
+  },
+  "loads": {
+    "NEd_kN": -510,
+    "MEdG0_kNm": 198,
+    "Nser_kN": -360,
+    "MserG0_kNm": 140
+  },
+  "actual_steel": {
+    "As1_cm2": 17.08,
+    "As2_cm2": 0.0
+  },
+  "options": {
+    "n_files": 4
+  }
+}
