@@ -187,6 +187,7 @@ test("an undo during a slow native write persists the reverted model", async ({
       },
     });
   });
+  await page.reload();
   await page.goto("/#/new/beam");
   await createStudy(page);
   await page.getByLabel("Longueur L", { exact: true }).fill("9");
