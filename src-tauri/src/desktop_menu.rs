@@ -28,18 +28,18 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     #[cfg(target_os = "macos")]
     menu.append(&Submenu::with_items(
         app,
-        "KaliSigma",
+        "CaliSigma Structural",
         true,
         &[
-            &PredefinedMenuItem::about(app, Some("À propos de KaliSigma"), None)?,
+            &PredefinedMenuItem::about(app, Some("À propos de CaliSigma Structural"), None)?,
             &item(app, "app:settings", "Réglages…", Some("Cmd+,"))?,
             &PredefinedMenuItem::separator(app)?,
             &PredefinedMenuItem::services(app, Some("Services"))?,
-            &PredefinedMenuItem::hide(app, Some("Masquer KaliSigma"))?,
+            &PredefinedMenuItem::hide(app, Some("Masquer CaliSigma Structural"))?,
             &PredefinedMenuItem::hide_others(app, Some("Masquer les autres"))?,
             &PredefinedMenuItem::show_all(app, Some("Tout afficher"))?,
             &PredefinedMenuItem::separator(app)?,
-            &PredefinedMenuItem::quit(app, Some("Quitter KaliSigma"))?,
+            &PredefinedMenuItem::quit(app, Some("Quitter CaliSigma Structural"))?,
         ],
     )?)?;
     let file = Submenu::with_items(
@@ -64,6 +64,12 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
                 Some("CmdOrCtrl+Shift+S"),
             )?,
             &item(app, "file:rename", "Renommer…", None)?,
+            &item(
+                app,
+                "file:report",
+                "Note de calcul PDF…",
+                Some("CmdOrCtrl+P"),
+            )?,
         ],
     )?;
     #[cfg(not(target_os = "macos"))]
@@ -136,7 +142,7 @@ pub fn install(app: &AppHandle) -> tauri::Result<()> {
     #[cfg(not(target_os = "macos"))]
     help.append(&PredefinedMenuItem::about(
         app,
-        Some("À propos de KaliSigma"),
+        Some("À propos de CaliSigma Structural"),
         None,
     )?)?;
     menu.append(&help)?;
@@ -163,6 +169,7 @@ pub fn set_menu_context(app: AppHandle, project: bool, editor: bool) -> tauri::R
             "file:save",
             "file:export",
             "file:rename",
+            "file:report",
             "edit:undo",
             "edit:redo",
             "edit:copy",

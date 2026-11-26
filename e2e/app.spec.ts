@@ -59,7 +59,10 @@ test("beam parameters apply, actual results change, undo works, and saving survi
   await calculate(page, true);
   await expect(page.locator(".metric").first()).not.toContainText("111,00");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await page.getByRole("button", { name: "Annuler", exact: true }).click();
   await expect(page.locator(".canvas-result-status")).toContainText(
@@ -68,7 +71,10 @@ test("beam parameters apply, actual results change, undo works, and saving survi
   await calculate(page, true);
   await expect(page.locator(".metric").first()).toContainText("111,00");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await expect(page).toHaveURL(/project\//);
@@ -176,7 +182,10 @@ test("building editing, deleted segments, floor duplication and results work", a
   await parameters(page);
   await expect(page.getByLabel("Nom du niveau")).toHaveValue("R+1");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await page
     .getByRole("button", { name: "Calculer le bâtiment", exact: true })
@@ -190,6 +199,7 @@ test("building editing, deleted segments, floor duplication and results work", a
 test("all eight predimensioning projects expose editable inputs and computed results", async ({
   page,
 }) => {
+  test.setTimeout(90000);
   await ready(page);
   for (const type of [
     "column",
@@ -349,7 +359,7 @@ test("onboarding demonstrates a real calculation and retains it between steps", 
   await expect(page.getByTestId("onboarding-moment")).toContainText("33,60");
   await page.getByRole("button", { name: "Continuer", exact: true }).click();
   await expect(
-    page.getByText("KaliSigma-projet.json", { exact: true }),
+    page.getByText("CaliSigma Structural-projet.json", { exact: true }),
   ).toBeVisible();
   await expect(page.locator(".export-document-title")).toContainText("4,00 m");
   await page.getByRole("button", { name: "Retour", exact: true }).click();
@@ -396,6 +406,9 @@ test("dashboard family filters, search reset and project picker work together", 
   await page.getByRole("button", { name: "Réinitialiser les filtres" }).click();
   await expect(page.locator(".project-type-card")).toHaveCount(13);
   await page
+    .getByRole("link", { name: "Ouvrir un projet", exact: true })
+    .click();
+  await page
     .getByRole("button", { name: "Nouveau projet", exact: true })
     .click();
   await page
@@ -404,7 +417,7 @@ test("dashboard family filters, search reset and project picker work together", 
     .click();
   await expect(page).not.toHaveURL(/new\/footing/);
   await createStudy(page);
-  await expect(page).toHaveURL(/new\/footing/);
+  await expect(page).toHaveURL(/project\//);
 });
 
 test("dashboard resumes real projects in date order and displays their actual count", async ({

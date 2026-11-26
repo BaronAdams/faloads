@@ -62,7 +62,7 @@ jobs:
         run: bash tools/sign-android.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: kalisigma-tauri-android-arm64
+          name: calisigma-tauri-android-arm64
           path: artifacts/android/
           if-no-files-found: error
           retention-days: 14
@@ -135,16 +135,16 @@ jobs:
           test -n "$APP_PATH"
           APP_EXECUTABLE=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Info.plist")
           APP_DISPLAY_NAME=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleDisplayName' "$APP_PATH/Info.plist" 2>/dev/null || /usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$APP_PATH/Info.plist")
-          test "$APP_DISPLAY_NAME" = 'KaliSigma'
+          test "$APP_DISPLAY_NAME" = 'CaliSigma Structural'
           xcrun lipo "$APP_PATH/$APP_EXECUTABLE" -verify_arch "$IOS_ARCH"
           file "$APP_PATH/$APP_EXECUTABLE"
           xcrun vtool -show-build "$APP_PATH/$APP_EXECUTABLE" > ios-simulator-build.txt
           cat ios-simulator-build.txt
           grep -Eq 'platform[[:space:]]+IOSSIMULATOR' ios-simulator-build.txt
-          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "kalisigma-ios-simulator-$IOS_ARCH.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "calisigma-ios-simulator-$IOS_ARCH.zip"
       - uses: actions/upload-artifact@v4
         with:
-          name: kalisigma-tauri-ios-simulator-${{ env.IOS_ARCH }}
-          path: kalisigma-ios-simulator-*.zip
+          name: calisigma-tauri-ios-simulator-${{ env.IOS_ARCH }}
+          path: calisigma-ios-simulator-*.zip
           if-no-files-found: error
           retention-days: 14

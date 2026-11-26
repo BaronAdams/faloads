@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "KaliSigma",
+  "productName": "CaliSigma Structural",
   "version": "0.2.0",
   "identifier": "com.structcalc.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "KaliSigma",
+        "title": "CaliSigma Structural",
         "width": 1400,
         "height": 920,
         "minWidth": 360,

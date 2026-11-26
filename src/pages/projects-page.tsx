@@ -32,6 +32,8 @@ import { projectTypes, typeInfo } from "@/domain/projects";
 import { exportJson, type Project } from "@/lib/storage";
 import { importProjects } from "@/lib/project-io";
 import { uid } from "@/lib/utils";
+import { requestNewStudy } from "@/components/new-study-dialog";
+import { ProjectPreview } from "@/components/project-preview";
 export function ProjectsPage() {
   const { workspace, saveProject, removeProject, update } = useWorkspace(),
     navigate = useNavigate(),
@@ -74,11 +76,9 @@ export function ProjectsPage() {
             <Upload />
             Importer
           </Button>
-          <Button asChild>
-            <Link to="/">
-              <Plus />
-              Nouveau projet
-            </Link>
+          <Button onClick={() => requestNewStudy()}>
+            <Plus />
+            Nouveau projet
           </Button>
         </div>
       </header>
@@ -120,7 +120,7 @@ export function ProjectsPage() {
                   className="saved-project-main"
                   onClick={() => navigate(`/project/${p.id}`)}
                 >
-                  <ProjectIcon type={p.type} size={52} />
+                  <ProjectPreview project={p} />
                   <div>
                     <h3>{p.name}</h3>
                     <p>{typeInfo(p.type).label}</p>
@@ -159,7 +159,7 @@ export function ProjectsPage() {
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={() =>
-                        void exportJson(`${p.name}.kalisigma.json`, {
+                        void exportJson(`${p.name}.calisigma.json`, {
                           format: "structcalc-project",
                           version: 1,
                           project: p,
@@ -189,8 +189,8 @@ export function ProjectsPage() {
                 : "Aucun projet enregistré"
             }
           >
-            Créez un projet depuis l’espace Calculs, puis utilisez « Enregistrer
-            ».
+            Choisissez « Nouveau projet ». Votre étude sera enregistrée
+            automatiquement sur cet appareil.
           </Empty>
         )}
       </Panel>

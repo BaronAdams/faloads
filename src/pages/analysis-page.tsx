@@ -1434,7 +1434,7 @@ export function AnalysisPage({
             data-tour="parameters-done"
             onClick={() => closeParameters(false)}
           >
-            Revenir au schéma
+            Valider les paramètres
             <X />
           </Button>
         </EditorFooter>

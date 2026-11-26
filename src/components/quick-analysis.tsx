@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { EditorSheet } from "./editor-sheet";
+import { EditorSheet, EditorFooter } from "./editor-sheet";
+import { Button } from "./ui/button";
 import { Numeric, Choice, FormGrid, Metric, Notice } from "./common";
 import { concreteClasses, quickBeam, quickFrame } from "@/domain/engineering";
 export function QuickAnalysis({
@@ -148,6 +149,9 @@ export function QuickAnalysis({
           Q à l’ELS.
         </Notice>
       </div>
+      <EditorFooter>
+        <Button onClick={() => onOpenChange(false)}>Terminer</Button>
+      </EditorFooter>
     </EditorSheet>
   );
 }

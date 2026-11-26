@@ -1637,7 +1637,7 @@ export function BuildingPage({ project }: { project?: Project }) {
         <div className="parameters-sheet-content">{gridFields}</div>
         <EditorFooter>
           <Button data-tour="grid-done" onClick={() => openGrid(false)}>
-            Revenir au schéma
+            Valider la grille
           </Button>
         </EditorFooter>
       </ParametersContainer>
@@ -1652,7 +1652,7 @@ export function BuildingPage({ project }: { project?: Project }) {
             data-tour="parameters-done"
             onClick={() => openParameters(false)}
           >
-            Revenir au schéma
+            Valider les paramètres
           </Button>
         </EditorFooter>
       </ParametersContainer>
@@ -1660,6 +1660,7 @@ export function BuildingPage({ project }: { project?: Project }) {
         open={details && !!selection}
         onOpenChange={setDetails}
         title="Détails de la sélection"
+        confirmation
       >
         <div className="editor-fields">{selectionFields(true)}</div>
       </DetailDialog>

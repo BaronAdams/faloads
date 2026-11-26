@@ -80,7 +80,7 @@ test("asks for a name before navigation and preserves editable text controls", a
   await page
     .getByRole("button", { name: "Explorer librement", exact: true })
     .click();
-  await expect(page).toHaveURL(/new\/beam/);
+  await expect(page).toHaveURL(/project\//);
   expect(
     await page.locator("h1").evaluate((e) => getComputedStyle(e).userSelect),
   ).toBe("none");
@@ -239,7 +239,10 @@ test("cumulates from roof to ground, displays 3D load cases and selects the crit
   await expect(rows.last()).toContainText("RDC");
   await expect(rows.last()).toContainText("1 499,55");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await page
     .getByRole("button", { name: "Poteau le plus chargé", exact: true })

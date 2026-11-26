@@ -1,4 +1,4 @@
-# KaliSigma — Tauri 2 · React · Rust
+# CaliSigma Structural — Tauri 2 · React · Rust
 
 Application de calcul de structures en français pour desktop et mobile. Le front-end utilise **React/Vite, TypeScript, shadcn/ui et Lucide** ; Tauri 2 fournit l’application native, les dialogues de fichiers et le stockage local en Rust.
 
@@ -26,9 +26,11 @@ npm run tauri dev      # application native desktop
 npm run tauri build    # bundles desktop de votre système
 ```
 
-Le navigateur utilise son stockage local ; l’application native utilise un fichier JSON géré par Rust. Les données restent sur l’appareil. Pour Android : JDK 17, SDK/NDK Android et cible Rust `aarch64-linux-android` ; puis `npm run android:init`, `npm run icons` et `npm run tauri android dev`. La commande d’initialisation applique aussi les zones de sécurité de la WebView Android et le nom KaliSigma. Pour iOS, utilisez macOS/Xcode puis `npm run tauri ios init` et `npm run icons`. Générez toujours les icônes après l’initialisation du projet mobile.
+Le navigateur utilise son stockage local ; l’application native utilise un fichier JSON géré par Rust. Les données restent sur l’appareil. Pour Android : JDK 17, SDK/NDK Android et cible Rust `aarch64-linux-android` ; puis `npm run android:init`, `npm run icons` et `npm run tauri android dev`. La commande d’initialisation applique aussi les zones de sécurité de la WebView Android et le nom CaliSigma Structural. Pour iOS, utilisez macOS/Xcode puis `npm run tauri ios init` et `npm run icons`. Générez toujours les icônes après l’initialisation du projet mobile.
 
 Le layout natif desktop dispose d’un atelier distinct du navigateur. Les éditeurs s’ouvrent à gauche sur desktop et en bas sur mobile ; la création, le guide et les espaces de calcul sont illustrés dans les [aperçus du parcours d’étude](docs/study-experience.md). Les [vues de réactions et de diagrammes](docs/structural-result-views.md) présentent les résultats à jour et leurs annotations.
+
+La création et les modifications sont enregistrées automatiquement. Les [aperçus des projets et notes de calcul PDF configurables](docs/projects-and-calculation-notes.md) présentent la bibliothèque, les validations et le choix des étapes du rapport.
 
 ## Builds GitHub Actions
 
@@ -36,11 +38,11 @@ Les workflows s’exécutent sur les pull requests, les pushes sur `main`, et ma
 
 | Plateforme                           | Artefact                                            | Contenu                                                         |
 | ------------------------------------ | --------------------------------------------------- | --------------------------------------------------------------- |
-| Windows 10/11 x64                    | `kalisigma-tauri-windows`                          | Installateur NSIS, EXE portable et lanceur de compatibilité GPU |
-| macOS Intel et Apple Silicon         | `kalisigma-tauri-macos-universal`                  | DMG universel, signature ad hoc                                 |
-| Linux x64                            | `kalisigma-tauri-linux`                            | DEB et AppImage                                                 |
-| Android ARM64, Android 7+            | `kalisigma-tauri-android-arm64`                    | APK signé installable et information de signature               |
-| iOS 16.4+, simulateur Intel ou ARM64 | `kalisigma-tauri-ios-simulator-x86_64` / `…-arm64` | Application `.app` pour simulateur Xcode                        |
+| Windows 10/11 x64                    | `calisigma-tauri-windows`                          | Installateur NSIS, EXE portable et lanceur de compatibilité GPU |
+| macOS Intel et Apple Silicon         | `calisigma-tauri-macos-universal`                  | DMG universel, signature ad hoc                                 |
+| Linux x64                            | `calisigma-tauri-linux`                            | DEB et AppImage                                                 |
+| Android ARM64, Android 7+            | `calisigma-tauri-android-arm64`                    | APK signé installable et information de signature               |
+| iOS 16.4+, simulateur Intel ou ARM64 | `calisigma-tauri-ios-simulator-x86_64` / `…-arm64` | Application `.app` pour simulateur Xcode                        |
 
 **Windows :** privilégiez l’installateur `*-setup.exe`, qui vérifie WebView2 et installe son runtime si nécessaire (Internet requis dans ce cas). L’EXE portable exige WebView2 déjà installé. En cas de problème graphique, le lanceur `Lancer-compatibilite.cmd` démarre WebView2 avec `--disable-gpu`. Ce moteur diffère du moteur de rendu Flutter ; le résultat sur une carte NVIDIA particulière doit être confirmé sur la machine concernée. Le workflow ouvre réellement le build Windows, calcule et sauvegarde un projet, puis le relit après redémarrage en mode de compatibilité.
 

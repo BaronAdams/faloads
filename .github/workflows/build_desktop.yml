@@ -71,17 +71,17 @@ jobs:
           $targetRoot = $metadata.target_directory
           Write-Host "Collecting native packages from $targetRoot"
           $releaseRoot = Join-Path $targetRoot '${{ matrix.target }}/release'
-          $binary = Join-Path $releaseRoot 'kalisigma.exe'
-          $installers = @(Get-ChildItem -Path (Join-Path $releaseRoot 'bundle/nsis') -File -Filter 'KaliSigma*-setup.exe')
-          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw "Missing KaliSigma release executable: $binary" }
+          $binary = Join-Path $releaseRoot 'calisigma.exe'
+          $installers = @(Get-ChildItem -Path (Join-Path $releaseRoot 'bundle/nsis') -File -Filter 'CaliSigma Structural*-setup.exe')
+          if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw "Missing CaliSigma Structural release executable: $binary" }
           if ($installers.Count -eq 0) { throw 'NSIS installer was not generated' }
-          Copy-Item $binary artifacts/windows/KaliSigma.exe
+          Copy-Item $binary artifacts/windows/CaliSigma-Structural.exe
           $installers | ForEach-Object { Copy-Item $_.FullName artifacts/windows/ }
           Copy-Item tools/windows/* artifacts/windows/
       - name: Verify Windows WebView2 release and Rust persistence
         if: runner.os == 'Windows'
         shell: pwsh
-        run: node tools/smoke-windows.mjs artifacts/windows/KaliSigma.exe
+        run: node tools/smoke-windows.mjs "artifacts/windows/CaliSigma-Structural.exe"
       - name: Upload Windows diagnostics
         if: runner.os == 'Windows' && always()
         uses: actions/upload-artifact@v4
@@ -92,7 +92,7 @@ jobs:
       - name: Upload desktop application
         uses: actions/upload-artifact@v4
         with:
-          name: kalisigma-tauri-${{ matrix.platform }}
+          name: calisigma-tauri-${{ matrix.platform }}
           path: |
             artifacts/windows/
             src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg

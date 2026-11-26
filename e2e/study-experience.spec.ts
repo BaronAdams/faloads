@@ -29,7 +29,10 @@ test("explicit naming and action-driven guide complete, persist and replay", asy
     .fill("9");
   await expect(coach).toContainText("Revenez au schéma");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await expect(coach).toContainText("Ajoutez un élément");
   await page.getByRole("button", { name: "Ajouter", exact: true }).click();
@@ -49,10 +52,12 @@ test("explicit naming and action-driven guide complete, persist and replay", asy
     .click();
   await expect(coach).toContainText("Retrouvez votre espace");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
-  await expect(coach).toContainText("Conservez votre étude");
-  await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
+  await expect(coach).toContainText("Votre étude est conservée");
   await expect(page).toHaveURL(/project\//);
   await expect(coach).toHaveCount(0);
   await page.reload();
@@ -89,7 +94,10 @@ test("manual analysis invalidates diagrams and cannot label a failed calculation
   await parameters(page);
   await page.getByLabel("Longueur L", { exact: true }).fill("9");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await expect(page.locator(".canvas-result-status")).toContainText(
     "Calcul non actualisé",

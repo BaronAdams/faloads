@@ -17,6 +17,7 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 import { ProjectIcon } from "./common";
+import { Button } from "./ui/button";
 
 const menus = [
   [
@@ -27,6 +28,7 @@ const menus = [
       ["file:import", "Importer…"],
       ["file:save", "Enregistrer"],
       ["file:export", "Exporter le projet…"],
+      ["file:report", "Note de calcul PDF…"],
       ["file:rename", "Renommer…"],
       ["app:settings", "Paramètres…"],
       ["window:close", "Quitter"],
@@ -68,13 +70,13 @@ const menus = [
     [
       ["help:guide", "Guide de prise en main"],
       ["help:shortcuts", "Raccourcis clavier…"],
-      ["app:about", "À propos de KaliSigma"],
+      ["app:about", "À propos de CaliSigma Structural"],
     ],
   ],
 ] as const;
 const projectOnly = (id: string) =>
   /^(edit:|view:|study:|help:)/.test(id) ||
-  ["file:save", "file:export", "file:rename"].includes(id);
+  ["file:save", "file:export", "file:rename", "file:report"].includes(id);
 
 /** Themed application menus on Windows/Linux; system-wide native menus on macOS. */
 export function DesktopMenu({
@@ -132,7 +134,7 @@ export function DesktopMenu({
       if (
         document.querySelector('[role="dialog"]:not([data-state="closed"])')
       ) {
-        if (key === "f5" || ((event.ctrlKey || event.metaKey) && key === "s"))
+        if (key === "f5" || ((event.ctrlKey || event.metaKey) && ["s","p"].includes(key)))
           event.preventDefault();
         return;
       }
@@ -148,11 +150,13 @@ export function DesktopMenu({
             ? event.shiftKey
               ? "file:export"
               : "file:save"
-            : key === "o"
-              ? "file:open"
-              : key === "n" && event.shiftKey
-                ? "file:new"
-                : undefined
+            : key === "p"
+              ? "file:report"
+              : key === "o"
+                ? "file:open"
+                : key === "n" && event.shiftKey
+                  ? "file:new"
+                  : undefined
           : key === "f5"
             ? "study:calculate"
             : undefined;
@@ -187,7 +191,7 @@ export function DesktopMenu({
       ]),
     ),
     "app:about": () =>
-      toast.info("KaliSigma · Atelier de structure · Version 0.2.0"),
+      toast.info("CaliSigma Structural · Atelier de structure · Version 0.2.0"),
   });
   return (
     <>
@@ -248,6 +252,9 @@ export function DesktopMenu({
               </button>
             ))}
           </div>
+          <Button variant="outline" onClick={() => setPicker(false)}>
+            Annuler
+          </Button>
         </DialogContent>
       </Dialog>
     </>

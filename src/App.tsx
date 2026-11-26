@@ -86,7 +86,7 @@ function Shell() {
             draggable={false}
           />
           <div>
-            <strong>KaliSigma</strong>
+            <strong>CaliSigma Structural</strong>
             <small>Votre atelier de structure</small>
           </div>
         </Link>
@@ -133,7 +133,7 @@ function Shell() {
               alt=""
               draggable={false}
             />
-            <strong>KaliSigma</strong>
+            <strong>CaliSigma Structural</strong>
           </Link>
           <Link to="/profile" aria-label="Mon profil">
             <UserRound size={20} />
@@ -256,7 +256,10 @@ function ProjectRoute() {
       <PredimPage type={actual} project={project} />
     );
   return (
-    <ProjectGuide type={actual} existing={!!project}>
+    <ProjectGuide
+      type={actual}
+      existing={!!project && !location.state?.createdStudy}
+    >
       {content}
     </ProjectGuide>
   );

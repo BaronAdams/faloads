@@ -1,4 +1,5 @@
 import { requestNewStudy } from "@/components/new-study-dialog";
+import { ProjectPreview } from "@/components/project-preview";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -9,6 +10,7 @@ import {
   Search,
   Upload,
   X,
+  FolderOpen,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -107,9 +109,11 @@ export function Dashboard() {
             <Upload size={16} />
             Importer
           </Button>
-          <Button className="dashboard-create" onClick={() => setPicker(true)}>
-            <Plus size={16} />
-            Nouveau projet
+          <Button className="dashboard-create" asChild>
+            <Link to="/projects">
+              <FolderOpen size={16} />
+              Ouvrir un projet
+            </Link>
           </Button>
         </div>
       </header>
@@ -237,7 +241,7 @@ export function Dashboard() {
                     className="recent-project"
                     key={project.id}
                   >
-                    <ProjectIcon type={project.type} size={44} />
+                    <ProjectPreview project={project} />
                     <div>
                       <strong>{project.name}</strong>
                       <small>{typeInfo(project.type).label}</small>
@@ -255,8 +259,8 @@ export function Dashboard() {
                 </div>
                 <h3>Votre première étude</h3>
                 <p>
-                  Choisissez un calcul, puis enregistrez votre modèle. Vous le
-                  retrouverez ici.
+                  Choisissez un calcul. Votre modèle sera enregistré
+                  automatiquement et apparaîtra ici.
                 </p>
                 <Button variant="ghost" onClick={() => setPicker(true)}>
                   Choisir un calcul
@@ -315,6 +319,9 @@ export function Dashboard() {
               </button>
             ))}
           </div>
+          <Button variant="outline" onClick={() => setPicker(false)}>
+            Annuler
+          </Button>
         </DialogContent>
       </Dialog>
     </div>

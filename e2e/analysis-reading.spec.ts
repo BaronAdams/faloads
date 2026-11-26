@@ -79,7 +79,10 @@ test("Windows/Linux themed menus work with keyboard shortcuts and compact dialog
     (await page.getByRole("dialog").boundingBox())!.width,
   ).toBeLessThanOrEqual(600);
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await page.getByTestId("playground").focus();
   await page.keyboard.press("F5");
@@ -232,7 +235,10 @@ for (const kind of ["beam", "frame"] as const) {
       .getByLabel("Limite de déplacement", { exact: true })
       .fill("0.001");
     await settings
-      .getByRole("button", { name: "Revenir au schéma", exact: true })
+      .getByRole("button", {
+        name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+        exact: true,
+      })
       .click();
     await expect(page.locator(".canvas-result-status")).toContainText(
       "Calcul actualisé",

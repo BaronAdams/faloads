@@ -69,7 +69,10 @@ test("native desktop has its own workbench while the browser keeps its sidebar",
     "right",
   );
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await parameters(page);
   await page.getByRole("button", { name: /Force F2/ }).click();
@@ -198,7 +201,10 @@ test("beam and frame vertical springs render, retain stiffness and change actual
   await calculate(page, true);
   await expect(page.locator(".metric").last()).toContainText("Vérifié");
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await page.getByRole("button", { name: "Enregistrer", exact: true }).click();
   await page.reload();
@@ -283,7 +289,10 @@ test("building influence selection highlights only real contributors without ope
     .click();
   await expect(page.getByTestId("building-cumulative")).toBeVisible();
   await page
-    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .getByRole("button", {
+      name: /^(Revenir au schéma|Valider les paramètres|Valider la grille)$/,
+      exact: true,
+    })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   const canvas = page.getByTestId("playground");

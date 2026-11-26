@@ -78,12 +78,24 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
                 />
               </div>
             </div>
+            <Button
+              className="mt-4"
+              onClick={() =>
+                void update({})
+                  .then(() => toast.success("Profil enregistré."))
+                  .catch(() => toast.error("Enregistrement impossible."))
+              }
+            >
+              Valider le profil
+            </Button>
           </Panel>
           <Panel title="Un espace local">
             <div className="profile-mark">
               {workspace.profile.name.slice(0, 1).toUpperCase() || "σ"}
             </div>
-            <h2>{workspace.profile.name || "Votre espace KaliSigma"}</h2>
+            <h2>
+              {workspace.profile.name || "Votre espace CaliSigma Structural"}
+            </h2>
             <p className="muted mt-3">
               {workspace.projects.length} projet
               {workspace.projects.length > 1 ? "s" : ""} enregistré
@@ -208,7 +220,7 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
             <Button
               variant="outline"
               onClick={() =>
-                void exportJson("KaliSigma-sauvegarde.json", {
+                void exportJson("CaliSigma Structural-sauvegarde.json", {
                   format: "structcalc-workspace",
                   version: 1,
                   workspace,
@@ -235,7 +247,7 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
                   })
                   .catch(() =>
                     toast.error(
-                      "Ce fichier ne contient pas une sauvegarde KaliSigma valide.",
+                      "Ce fichier ne contient pas une sauvegarde CaliSigma Structural valide.",
                     ),
                   )
               }
@@ -250,11 +262,20 @@ export function SettingsPage({ profile = false }: { profile?: boolean }) {
           </div>
         </Panel>
       </div>
+      <Button
+        onClick={() =>
+          void update({})
+            .then(() => toast.success("Paramètres enregistrés."))
+            .catch(() => toast.error("Enregistrement impossible."))
+        }
+      >
+        Valider les paramètres
+      </Button>
       <div className="about-card">
         <span className="brand-mark small">σ</span>
         <div>
           <strong>
-            KaliSigma <span className="mono">0.2.0</span>
+            CaliSigma Structural <span className="mono">0.2.0</span>
           </strong>
           <p>
             Calcul de structures et descente de charges · Interface en français

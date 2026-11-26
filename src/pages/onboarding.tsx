@@ -60,7 +60,7 @@ export function Onboarding() {
             alt=""
             draggable={false}
           />
-          <strong>KaliSigma</strong>
+          <strong>CaliSigma Structural</strong>
         </div>
         <Button
           variant="ghost"
@@ -262,7 +262,7 @@ function OnboardingPreview({ step }: { step: number }) {
             </dl>
             <div className="export-file">
               <FileJson size={22} />
-              <span className="mono">KaliSigma-projet.json</span>
+              <span className="mono">CaliSigma Structural-projet.json</span>
             </div>
           </div>
           <p className="export-explanation">

@@ -156,7 +156,7 @@ mod application {
                 set_menu_context
             ])
             .run(tauri::generate_context!())
-            .expect("KaliSigma could not initialize the native runtime");
+            .expect("CaliSigma Structural could not initialize the native runtime");
     }
 }
 
