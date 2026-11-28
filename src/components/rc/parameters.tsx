@@ -221,6 +221,7 @@ export function RCParameters({
                 aria-label="Forme de la section du poteau"
               >
                 <IconButton
+                  type="button"
                   label="Section rectangulaire"
                   aria-pressed={m.section.type === "rect"}
                   variant={m.section.type === "rect" ? "secondary" : "ghost"}
@@ -229,6 +230,7 @@ export function RCParameters({
                   <ProfileIcon shape="rect" />
                 </IconButton>
                 <IconButton
+                  type="button"
                   label="Section circulaire — compression centrée"
                   aria-pressed={m.section.type === "circ"}
                   variant={m.section.type === "circ" ? "secondary" : "ghost"}
@@ -304,6 +306,7 @@ export function RCParameters({
                 aria-label="Forme de la section de poutre"
               >
                 <IconButton
+                  type="button"
                   label="Section rectangulaire"
                   aria-pressed={m.section.type === "rect"}
                   variant={m.section.type === "rect" ? "secondary" : "ghost"}
@@ -312,6 +315,7 @@ export function RCParameters({
                   <ProfileIcon shape="rect" />
                 </IconButton>
                 <IconButton
+                  type="button"
                   label="Section en T"
                   aria-pressed={m.section.type === "t"}
                   variant={m.section.type === "t" ? "secondary" : "ghost"}
@@ -381,6 +385,7 @@ export function RCParameters({
                   <div className="rc-row-heading">
                     <h4>{s.name}</h4>
                     <IconButton
+                      type="button"
                       label={`Supprimer la travée ${i + 1}`}
                       disabled={m.spans.length === 1}
                       onClick={() => {
@@ -412,6 +417,7 @@ export function RCParameters({
                 </div>
               ))}
               <Button
+                type="button"
                 variant="outline"
                 disabled={m.spans.length >= 8}
                 onClick={() => {
@@ -618,6 +624,7 @@ export function RCParameters({
                   />
                 ))}
                 <Button
+                  type="button"
                   variant="outline"
                   disabled={m.loads.actions.length >= 12}
                   onClick={() =>
@@ -997,6 +1004,7 @@ function ActionEditor({
         <h4>{a.name}</h4>
         <div>
           <IconButton
+            type="button"
             label={`Dupliquer l’action ${index + 1}`}
             onClick={onDuplicate}
             disabled={!duplicable}
@@ -1004,6 +1012,7 @@ function ActionEditor({
             <Copy />
           </IconButton>
           <IconButton
+            type="button"
             label={`Supprimer l’action ${index + 1}`}
             onClick={onRemove}
             disabled={!removable}
@@ -1096,6 +1105,7 @@ function ActionEditor({
               />
             </FormGrid>
             <Button
+              type="button"
               variant="ghost"
               onClick={() =>
                 change({ axial: a.axial.filter((t) => t.id !== v.id) })
@@ -1106,6 +1116,7 @@ function ActionEditor({
           </div>
         ))}
         <Button
+          type="button"
           variant="outline"
           disabled={a.axial.length >= 30}
           onClick={() =>
@@ -1182,6 +1193,7 @@ function ActionEditor({
               )}
             </FormGrid>
             <Button
+              type="button"
               variant="ghost"
               onClick={() =>
                 change({
@@ -1194,6 +1206,7 @@ function ActionEditor({
           </div>
         ))}
         <Button
+          type="button"
           variant="outline"
           disabled={a.transverse.length >= 30}
           onClick={() =>

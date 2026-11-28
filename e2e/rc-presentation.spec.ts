@@ -1,9 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { createStudy, parameters } from "./helpers";
-const continuous = JSON.parse(
-  readFileSync("e2e/fixtures/rc-continuous.json", "utf8"),
-);
 async function open(page: any, type = "column") {
   await page.goto("/");
   await page.getByRole("button", { name: "Passer la présentation" }).click();
@@ -66,12 +63,37 @@ test("continuous beams show both envelopes, cutoff curves and actual spacing, an
 }) => {
   test.setTimeout(180000);
   await open(page, "beam-size");
-  await page.evaluate((model: any) => {
-    const w = JSON.parse(localStorage.getItem("structcalc.workspace.v1")!);
-    w.projects[0].data = model;
-    localStorage.setItem("structcalc.workspace.v1", JSON.stringify(w));
-  }, continuous);
-  await page.reload();
+  await parameters(page);
+  const form = page.getByRole("dialog");
+  await form.getByRole("button", { name: "Section en T", exact: true }).click();
+  await expect(form).toBeVisible();
+  await form
+    .getByRole("button", { name: "Section rectangulaire", exact: true })
+    .click();
+  await form
+    .getByRole("button", { name: "Ajouter une travée", exact: true })
+    .click();
+  await expect(form.getByLabel("Portée nue L2", { exact: true })).toBeVisible();
+  await form.getByLabel("Portée nue L2", { exact: true }).fill("4");
+  await form.getByRole("button", { name: "Méthode", exact: true }).click();
+  await form
+    .getByRole("combobox", {
+      name: "Liaison de la poutre aux appuis",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("option", { name: "Poutre solidaire des appuis", exact: true })
+    .click();
+  await form
+    .getByRole("checkbox", {
+      name: "Autoriser la redistribution limitée des moments ELU",
+      exact: true,
+    })
+    .check();
+  await form
+    .getByRole("button", { name: "Appliquer les paramètres", exact: true })
+    .click();
   await calculate(page);
   const gap = page.locator("[data-spacing-mm]").nth(3);
   if (test.info().project.name === "mobile") await gap.tap();

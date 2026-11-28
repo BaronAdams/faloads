@@ -83,7 +83,13 @@ function drawing(
       anchor,
       layer: "TEXT",
     });
-  const dim = (x1: number, x2: number, y: number, label: string) => {
+  const dim = (
+    x1: number,
+    x2: number,
+    y: number,
+    label: string,
+    latex?: string,
+  ) => {
     line(
       [
         [x1, y - 2],
@@ -105,7 +111,7 @@ function drawing(
       ],
       "DIMENSIONS",
     );
-    text((x1 + x2) / 2, y - 3, label, 2.2, undefined, "center");
+    text((x1 + x2) / 2, y - 3, label, 2.2, latex, "center");
   };
   const circle = (x: number, y: number, r: number, layer = "STEEL") =>
     items.push({ kind: "circle", x, y, r, layer });
@@ -507,15 +513,25 @@ export function rcPlans(m: RCModel, r: RCResult, meta: PlanMetadata): RCPlan[] {
       x + w,
       y + h + 20,
       `leff = ${n(L * 1000, 0)} · ln = ${n(span.ln_m * 1000, 0)}`,
+      `$l_{eff}=${n(L * 1000, 0)}\\,\\mathrm{mm}\\quad l_n=${n(span.ln_m * 1000, 0)}\\,\\mathrm{mm}$`,
     );
     const cs = section(d, m, r, r.spans[i], 248, 120);
     d.plan.scale += ` · coupe 1:${cs}`;
     d.text(12, 102, "NOMENCLATURE DES ACIERS LONGITUDINAUX", 3);
-    d.text(
-      12,
-      109,
-      "Nappe / repère     Barres          Début x       Fin x       Longueur",
-      2.2,
+    for (const [xx, label] of [
+      [12, "Nappe / repère"],
+      [66, "Barres"],
+      [100, "Début x"],
+      [126, "Fin x"],
+      [153, "Longueur"],
+    ] as const)
+      d.text(xx, 109, label, 2.2);
+    d.line(
+      [
+        [12, 112],
+        [190, 112],
+      ],
+      "DIMENSIONS",
     );
     const rows = ["top", "bottom"].flatMap((k) =>
       groups[k].groups.map((g: any) => ({ k, g })),

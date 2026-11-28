@@ -1,10 +1,7 @@
 import { chromium, expect } from "@playwright/test";
-import { readFileSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 const dir = "docs/ec2-preview";
 mkdirSync(dir, { recursive: true });
-const beam = JSON.parse(
-  readFileSync("e2e/fixtures/rc-continuous.json", "utf8"),
-);
 const browser = await chromium.launch({
   executablePath:
     process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || "/usr/bin/chromium",
@@ -59,14 +56,43 @@ try {
         .getByRole("button", { name: "Explorer librement", exact: true })
         .click();
       if (type === "beam-size") {
-        await page.evaluate((model) => {
-          const w = JSON.parse(localStorage.getItem("structcalc.workspace.v1"));
-          const id = location.hash.split("/").at(-1);
-          w.projects.find((p) => p.id === id).data = model;
-          localStorage.setItem("structcalc.workspace.v1", JSON.stringify(w));
-        }, beam);
-        await page.reload();
+        await page
+          .getByRole("button", { name: "Ouvrir les paramètres", exact: true })
+          .click();
+        const dialog = page.getByRole("dialog");
+        await dialog
+          .getByRole("button", { name: "Ajouter une travée", exact: true })
+          .click();
+        await dialog.getByLabel("Portée nue L2", { exact: true }).fill("4");
+        await dialog
+          .getByRole("button", { name: "Méthode", exact: true })
+          .click();
+        await dialog
+          .getByRole("combobox", {
+            name: "Liaison de la poutre aux appuis",
+            exact: true,
+          })
+          .click();
+        await page
+          .getByRole("option", {
+            name: "Poutre solidaire des appuis",
+            exact: true,
+          })
+          .click();
+        await dialog
+          .getByRole("checkbox", {
+            name: "Autoriser la redistribution limitée des moments ELU",
+            exact: true,
+          })
+          .check();
+        await dialog
+          .getByRole("button", {
+            name: "Appliquer les paramètres",
+            exact: true,
+          })
+          .click();
       }
+      console.log("CAPTURE", type, mobile ? "mobile" : "desktop");
       await page
         .getByRole("button", {
           name: "Calculer le dimensionnement",

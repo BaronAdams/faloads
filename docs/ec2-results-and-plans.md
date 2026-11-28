@@ -1,6 +1,6 @@
 # Résultats et plans de ferraillage BA
 
-Les projets Poteau BA et Poutre BA répartissent désormais leurs résultats en cinq catégories : synthèse, analyse, longitudinal, cadres et vérifications. Les contrôles en échec restent signalés dès la synthèse et dans l’accès aux vérifications. Chaque changement de catégorie repart en haut des résultats ; chaque ouverture ou changement de page des paramètres repart en haut du formulaire, en conservant les données saisies.
+Les projets Poteau BA et Poutre BA répartissent désormais leurs résultats en cinq catégories : synthèse, analyse, longitudinal, cadres et vérifications. Les contrôles en échec restent signalés dès la synthèse et dans l’accès aux vérifications. Chaque changement de catégorie repart en haut des résultats ; chaque ouverture ou changement de page des paramètres repart en haut du formulaire, en conservant les données saisies. Les boutons d’ajout, de suppression et de choix de section ne soumettent pas le formulaire ; seul le bouton « Appliquer les paramètres » valide les modifications.
 
 ## Lecture du ferraillage
 

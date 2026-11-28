@@ -101,6 +101,7 @@ describe("Reinforcement drawings retain calculated geometry", () => {
         expect(planTikz(plan)).toContain("\\begin{tikzpicture}");
         expect(planTikz(plan, true)).toContain("\\documentclass{standalone}");
         expect(planTikz(plan)).not.toMatch(/NaN|undefined|Infinity/);
+        expect(planTikz(plan)).not.toContain("\\\\");
         expect(
           plan.items.every((item) =>
             item.kind === "line"
