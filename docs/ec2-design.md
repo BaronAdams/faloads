@@ -99,3 +99,5 @@ Les exemples des skills sont conservés dans `tests/ec2/fixtures/`, les référe
 ## Aperçus de l’implantation
 
 Les captures réelles et les deux notes PDF générées par l’application se trouvent dans [ec2-preview](./ec2-preview/). Le script `tools/capture-rc-preview.mjs` permet de les reproduire à partir du serveur Vite local. La barre native est simulée pour la capture de bureau ; le moteur de calcul et les composants affichés sont ceux de l’application.
+
+Les évolutions des résultats par catégories, des enveloppes et de l’épure, ainsi que les plans LaTeX et DXF A4 paysage sont décrites dans [Résultats et plans BA](ec2-results-and-plans.md). Les captures actualisées sont reproductibles avec `tools/capture-rc-presentation.mjs` ; les nouveaux exemples sont `ec2-preview/beam-size-note.pdf` et `ec2-preview/column-note.pdf`.

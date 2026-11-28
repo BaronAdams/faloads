@@ -87,3 +87,35 @@ export async function saveReportPdf(name: string, bytes: Uint8Array) {
   setTimeout(() => URL.revokeObjectURL(url), 10000);
   return true;
 }
+
+export async function saveArtifact(
+  filename: string,
+  bytes: Uint8Array,
+  mime: string,
+  label: string,
+) {
+  filename = filename.replace(/[<>:"/\\|?*\u0000-\u001f]/g, "-").slice(0, 180);
+  if (isTauri()) {
+    const [{ save }, { writeFile }] = await Promise.all([
+      import("@tauri-apps/plugin-dialog"),
+      import("@tauri-apps/plugin-fs"),
+    ]);
+    const extension = filename.split(".").at(-1)!;
+    const path = await save({
+      defaultPath: filename,
+      filters: [{ name: label, extensions: [extension] }],
+    });
+    if (!path) return false;
+    await writeFile(path, bytes);
+    return true;
+  }
+  const url = URL.createObjectURL(
+    new Blob([bytes.slice().buffer], { type: mime }),
+  );
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  return true;
+}

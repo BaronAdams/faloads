@@ -7,7 +7,7 @@ import type {
 import type { Project } from "@/lib/storage";
 import type { RCModel } from "./model";
 import type { RCResult } from "@/lib/rc-engine";
-import { rcDrawing } from "./drawing";
+import { rcPlans } from "./plans";
 const f = (v: unknown): string =>
   typeof v === "number"
     ? Number.isFinite(v)
@@ -55,9 +55,8 @@ export const rcReportSteps = (column: boolean): ReportStep[] => [
   },
   {
     id: "drawing",
-    title: "Schéma de ferraillage",
-    description:
-      "Coupe ou élévation du ferraillage calculé — schéma de principe",
+    title: "Plans de ferraillage et épures",
+    description: "Plans LaTeX A4 paysage, coupes annotées et cartouches",
   },
   {
     id: "checks",
@@ -602,7 +601,11 @@ export function buildRCReport(
     }
   });
   add("drawing", (b) => {
-    b.push({ kind: "svg", svg: rcDrawing(m, r) });
+    const date = new Intl.DateTimeFormat("fr-FR", {
+      dateStyle: "short",
+    }).format(new Date(generatedAt));
+    for (const plan of rcPlans(m, r, { project: project.name, author, date }))
+      b.push({ kind: "plan", plan });
     text(
       b,
       "Schéma de principe établi avec les barres et cadres calculés. Les assemblages, barres communes aux appuis, façonnages et longueurs finales doivent être détaillés sur le plan d’exécution.",

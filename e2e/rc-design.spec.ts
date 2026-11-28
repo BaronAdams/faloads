@@ -173,6 +173,23 @@ test("RC calculations also work in a native WebView without module workers", asy
   await run(page);
   await results(page);
   await expect(page.getByTestId("rc-results")).toContainText("4 HA12");
+  await page
+    .getByRole("button", { name: "Revenir au schéma", exact: true })
+    .click();
+  await page
+    .getByRole("button", {
+      name: "Exporter le plan de ferraillage",
+      exact: true,
+    })
+    .click();
+  const download = page.waitForEvent("download");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Exporter PDF", exact: true })
+    .click();
+  const file = await download;
+  expect(await file.failure()).toBeNull();
+  expect(file.suggestedFilename()).toContain("BA-P01.pdf");
 });
 test("BA forms retain confirmations and fit the mobile viewport", async ({
   page,
