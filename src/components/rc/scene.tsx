@@ -538,15 +538,6 @@ export function RCScene({
                     />
                   ))}
                 </g>
-                <SpacingProbe
-                  positions={r.shear[i].positions_m}
-                  origin={x1}
-                  scale={w / r.effective_lengths_m[i]}
-                  cross={y - depth * 0.35}
-                  extent={depth * 0.7}
-                  phi={m.detailing.phi_t_mm}
-                  units={u}
-                />
                 <g stroke={orange} strokeWidth={1.4 * u}>
                   {r.bars[i].bottom.groups.map((b: any, j: number) => (
                     <line
@@ -581,6 +572,15 @@ export function RCScene({
                     />
                   ))}
                 </g>
+                <SpacingProbe
+                  positions={r.shear[i].positions_m}
+                  origin={x1}
+                  scale={w / r.effective_lengths_m[i]}
+                  cross={y - depth * 0.35}
+                  extent={depth * 0.7}
+                  phi={m.detailing.phi_t_mm}
+                  units={u}
+                />
               </>
             )}
             {r &&

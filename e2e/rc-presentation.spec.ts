@@ -97,8 +97,17 @@ test("continuous beams show both envelopes, cutoff curves and actual spacing, an
   await calculate(page);
   const gap = page.locator("[data-spacing-mm]").nth(3);
   if (test.info().project.name === "mobile") await gap.tap();
-  else await gap.hover();
+  else {
+    const bounds = await gap.boundingBox();
+    await gap.hover({
+      position: { x: bounds!.width / 2, y: bounds!.height - 1 },
+    });
+  }
   await expect(page.getByTestId("rc-spacing-label")).toContainText("mm · HA8");
+  if (test.info().project.name !== "mobile") await gap.click();
+  await expect(
+    page.getByLabel("Portée de la sélection", { exact: true }),
+  ).toBeAttached();
   await page.getByRole("button", { name: "M", exact: true }).click();
   await expect(page.getByTestId("playground")).toContainText(
     "avant redistribution",

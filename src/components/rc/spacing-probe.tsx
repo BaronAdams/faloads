@@ -44,8 +44,7 @@ export function SpacingProbe({
             onPointerLeave={(e) => {
               if (e.pointerType !== "touch") setActive(null);
             }}
-            onPointerDown={(e) => {
-              e.stopPropagation();
+            onPointerDown={() => {
               setActive(active === i ? null : i);
             }}
             onFocus={() => setActive(i)}
