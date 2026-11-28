@@ -4,7 +4,7 @@ Les projets Poteau BA et Poutre BA répartissent désormais leurs résultats en 
 
 ## Lecture du ferraillage
 
-Les barres longitudinales et les cadres utilisent des traits fins. Le profil distingue les repères de la nappe supérieure, au-dessus, de ceux de la nappe inférieure, en dessous. Dans une coupe sur appui, les nappes restent à leur position physique, y compris lorsque la traction est en face supérieure.
+Les barres longitudinales et les cadres utilisent des traits fins. Sur les fenêtres de faible hauteur, la coupe adapte sa taille pour garder les repères lisibles et séparés du profil. Le profil distingue les repères de la nappe supérieure, au-dessus, de ceux de la nappe inférieure, en dessous. Dans une coupe sur appui, les nappes restent à leur position physique, y compris lorsque la traction est en face supérieure.
 
 Le survol d’un intervalle entre deux cadres affiche son pas réel, calculé par différence entre leurs positions, et le diamètre du cadre. Sur téléphone, toucher cet intervalle affiche la même information ; le zoom reste disponible pour les zones denses. Les positions de recouvrement calculées par le skill Poteau sont conservées, avec les positions courantes et nodales.
 

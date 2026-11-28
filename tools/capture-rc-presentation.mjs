@@ -105,6 +105,13 @@ try {
       );
       const base = `${dir}/${type}-${mobile ? "mobile" : "desktop"}`;
       await page.screenshot({ path: base + ".png" });
+      if (!mobile && type === "beam-size") {
+        await page.setViewportSize({ width: 1028, height: 749 });
+        await page.waitForTimeout(200);
+        await page.screenshot({ path: `${dir}/beam-size-short-desktop.png` });
+        await page.setViewportSize({ width: 1440, height: 1000 });
+        await page.waitForTimeout(200);
+      }
       const gap = page.locator("[data-spacing-mm]").nth(6);
       mobile ? await gap.tap() : await gap.hover();
       await expect(page.getByTestId("rc-spacing-label")).toBeVisible();

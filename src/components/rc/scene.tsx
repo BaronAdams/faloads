@@ -182,18 +182,18 @@ export function ReinforcedSection({
           textAnchor="middle"
         >
           <path
-            d={`M${left},${top + H + 8 * scale}v${18 * scale}m${w},${-18 * scale}v${18 * scale}M${left},${top + H + 22 * scale}h${w}`}
+            d={`M${left},${top + H + 8 * labelScale}v${18 * labelScale}m${w},${-18 * labelScale}v${18 * labelScale}M${left},${top + H + 22 * labelScale}h${w}`}
             fill="none"
             stroke="var(--muted-foreground)"
           />
-          <text x={x} y={top + H + 42 * scale}>
+          <text x={x} y={top + H + 42 * labelScale}>
             {circ ? "Ø " : table ? "beff = " : "b = "}
             {fmt(bf / 10, 0)} cm
           </text>
           <text
-            x={left + w + 28 * scale}
+            x={left + w + 28 * labelScale}
             y={y}
-            transform={`rotate(-90 ${left + w + 28 * scale} ${y})`}
+            transform={`rotate(-90 ${left + w + 28 * labelScale} ${y})`}
           >
             {circ ? "" : "h = " + fmt(h / 10, 0) + " cm"}
           </text>
@@ -274,7 +274,7 @@ export function RCScene({
           x={mid}
           y={cy}
           scale={compact ? u * 0.65 : 1}
-          labelScale={compact ? u : 1}
+          labelScale={u}
           labels={annotations}
         />
         <g
@@ -441,6 +441,10 @@ export function RCScene({
       ),
     );
   const amp = (compact ? 110 * u : Math.min(100, H * 0.2)) / max;
+  const detailScale = Math.max(
+    0.2 * u,
+    Math.min(0.85, (H - y - 217 * u) / 230),
+  );
   const selected = selection?.startsWith("support:")
     ? r?.supports?.[Number(selection.split(":")[1])]
     : r?.spans?.[Number(selection?.split(":")[1] ?? 0)];
@@ -767,9 +771,9 @@ export function RCScene({
           result={r}
           design={selected ?? r?.spans?.[0]}
           x={500}
-          y={compact ? y + 185 * u : Math.min(H - 205, y + 210)}
-          scale={compact ? u * 0.55 : 0.85}
-          labelScale={compact ? u : 1}
+          y={compact ? y + 185 * u : y + 112 * u + 115 * detailScale}
+          scale={compact ? u * 0.55 : detailScale}
+          labelScale={u}
           labels={annotations}
         />
       )}

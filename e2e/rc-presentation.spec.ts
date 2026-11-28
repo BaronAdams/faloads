@@ -138,3 +138,43 @@ test("continuous beams show both envelopes, cutoff curves and actual spacing, an
     ),
   ).toBe(true);
 });
+
+test("beam reinforcement legends remain separate in a short desktop window", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name === "mobile", "Desktop height regression");
+  test.setTimeout(120000);
+  await page.setViewportSize({ width: 1028, height: 749 });
+  await open(page, "beam-size");
+  await parameters(page);
+  const form = page.getByRole("dialog");
+  await form.getByRole("button", { name: "Méthode", exact: true }).click();
+  await form
+    .getByRole("combobox", {
+      name: "Liaison de la poutre aux appuis",
+      exact: true,
+    })
+    .click();
+  await page.getByRole("option", { name: "Poutre posée", exact: true }).click();
+  await form
+    .getByRole("button", { name: "Appliquer les paramètres", exact: true })
+    .click();
+  await calculate(page);
+  const upper = await page
+    .locator(".rc-section-drawing text")
+    .filter({ hasText: /haut/ })
+    .boundingBox();
+  const span = await page
+    .locator('[data-element="span:0"] text')
+    .filter({ hasText: /Travée 1/ })
+    .boundingBox();
+  const bottom = await page
+    .locator(".rc-section-drawing text")
+    .filter({ hasText: /cnom/ })
+    .boundingBox();
+  const canvas = await page.getByTestId("playground").boundingBox();
+  expect(upper!.y).toBeGreaterThan(span!.y + span!.height + 4);
+  expect(bottom!.y + bottom!.height).toBeLessThan(
+    canvas!.y + canvas!.height - 8,
+  );
+});
