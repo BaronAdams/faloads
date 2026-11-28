@@ -459,3 +459,91 @@ html[data-runtime="desktop"] .project-workbench-shell .rc-workspace {
     min-height: 480px;
   }
 }
+
+/* Categories stay reachable while a long calculation table scrolls. */
+.rc-result-categories {
+  position: sticky;
+  top: -4px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 0 12px;
+  background: var(--background);
+  border-bottom: 1px solid var(--border);
+}
+.rc-result-categories button {
+  min-height: 36px;
+  font-size: 12px;
+}
+.rc-category-count {
+  color: var(--destructive);
+  font-variant-numeric: tabular-nums;
+}
+.rc-spacing-hit {
+  cursor: help;
+}
+.rc-spacing-hit:focus-visible {
+  outline: none;
+  stroke: var(--primary);
+}
+@media (max-width: 700px) {
+  .rc-result-categories {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .rc-result-categories button {
+    flex: none;
+    min-height: 44px;
+  }
+}
+
+.rc-export-formats {
+  display: grid;
+  gap: 12px;
+  font-size: 13px;
+}
+.rc-export-formats legend {
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+.rc-export-formats label {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  cursor: pointer;
+  min-height: 32px;
+}
+.rc-export-formats input {
+  accent-color: var(--primary);
+  width: 16px;
+  height: 16px;
+}
+.rc-plan-list {
+  display: grid;
+  gap: 4px;
+  max-height: 28dvh;
+  overflow: auto;
+  scrollbar-width: thin;
+}
+.rc-plan-list button {
+  justify-content: flex-start;
+  white-space: normal;
+  height: auto;
+  min-height: 40px;
+  text-align: left;
+}
+.rc-plan-list span {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  flex: none;
+}
+.rc-view-controls {
+  max-width: calc(100% - 40px);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+.rc-view-controls button {
+  flex: none;
+}

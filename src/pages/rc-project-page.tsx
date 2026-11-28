@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useLayoutEffect } from "react";
 import {
   Calculator,
   Settings,
@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { RCScene, type RCView } from "@/components/rc/scene";
 import { RCParameters, rcTabs, type RCTab } from "@/components/rc/parameters";
+import { RCPlanExport } from "@/components/rc/plan-export";
 import { RCResults } from "@/components/rc/results";
 import { ProjectHeader, IconButton, Numeric } from "@/components/common";
 import { RibbonGroup } from "@/components/project-ribbon";
@@ -272,6 +273,20 @@ export function RCProjectPage({
     "view:results": () => showResults(true),
     "study:calculate": () => void run(),
   });
+  const parameterBody = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (!editor) return;
+    const reset = () => {
+      let node: HTMLElement | null = parameterBody.current;
+      while (node && node !== document.body) {
+        node.scrollTop = 0;
+        node = node.parentElement;
+      }
+    };
+    reset();
+    const frame = requestAnimationFrame(reset);
+    return () => cancelAnimationFrame(frame);
+  }, [tab, !!editor]);
   const parameterForm = editor && (
     <form onSubmit={apply} className="rc-parameter-form">
       <nav className="rc-form-tabs" aria-label="Paramètres béton armé">
@@ -287,7 +302,12 @@ export function RCProjectPage({
           </Button>
         ))}
       </nav>
-      <div className="rc-parameter-body" data-tour="parameters-inputs">
+      <div
+        key={tab}
+        ref={parameterBody}
+        className="rc-parameter-body"
+        data-tour="parameters-inputs"
+      >
         <RCParameters model={editor} onChange={setEditor} tab={tab} />
       </div>
       <div className="rc-form-footer" data-tour="parameters-done">
@@ -321,6 +341,7 @@ export function RCProjectPage({
             >
               <Settings />
             </IconButton>
+            <RCPlanExport model={model} result={result} name={name} />
             <div className="project-auxiliary-tools">
               <SectionTypes
                 value={model.sectionTypes}
@@ -472,6 +493,16 @@ export function RCProjectPage({
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => display("V")}>
                         Enveloppe des efforts tranchants V
+                      </DropdownMenuItem>
+                      {result?.redistributed_cases?.length > 0 && (
+                        <DropdownMenuItem
+                          onSelect={() => display("redistributed")}
+                        >
+                          Moments après redistribution
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem onSelect={() => display("cutoff")}>
+                        Épure d’arrêt des barres
                       </DropdownMenuItem>
                     </>
                   )}
@@ -632,6 +663,26 @@ export function RCProjectPage({
                       onClick={() => display("V")}
                     >
                       V
+                    </Button>
+                    {result?.redistributed_cases?.length > 0 && (
+                      <Button
+                        size="sm"
+                        aria-pressed={view === "redistributed"}
+                        variant={
+                          view === "redistributed" ? "secondary" : "ghost"
+                        }
+                        onClick={() => display("redistributed")}
+                      >
+                        M redistrib.
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      aria-pressed={view === "cutoff"}
+                      variant={view === "cutoff" ? "secondary" : "ghost"}
+                      onClick={() => display("cutoff")}
+                    >
+                      Épure
                     </Button>
                   </>
                 )}

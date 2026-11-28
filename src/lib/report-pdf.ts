@@ -65,7 +65,7 @@ const wrap = (s: string) =>
     .replace(/[νγθκαΣψφσ₁₂ₓᵧ→≈]/g, (c) => plainSymbols[c])
     .replace(/[\u202f\u00a0]/g, " ")
     .replace(/\S{24}/g, "$&\u200b");
-function blockContent(block: ReportBlock): Content {
+function blockContent(block: Exclude<ReportBlock, { kind: "plan" }>): Content {
   if (block.kind === "text")
     return { text: wrap(block.text), margin: [0, 4, 0, 8] };
   if (block.kind === "formula") {
@@ -125,6 +125,7 @@ function blockContent(block: ReportBlock): Content {
 }
 export function reportDocument(
   report: CalculationReport,
+  plans?: Map<ReportBlock, string>,
 ): TDocumentDefinitions {
   const date = new Intl.DateTimeFormat("fr-FR", {
     dateStyle: "short",
@@ -154,11 +155,55 @@ export function reportDocument(
       margin: [0, 0, 0, 18],
     },
   ];
-  for (const [i, s] of report.sections.entries())
+  const technical = report.sections.some((s) =>
+    s.blocks.some((b) => b.kind === "plan"),
+  );
+  const sheets: ReportBlock[] = [];
+  for (const [i, s] of report.sections.entries()) {
+    content.push({
+      text: `${i + 1}. ${s.title}`,
+      style: "sectionTitle",
+      headlineLevel: 1,
+      ...(technical &&
+      (i === 0 || ["analysis", "longitudinal", "checks"].includes(s.id))
+        ? { pageBreak: "before" as const }
+        : {}),
+    });
+    for (const block of s.blocks) {
+      if (block.kind === "plan") {
+        sheets.push(block);
+        continue;
+      }
+      content.push(blockContent(block));
+    }
+    if (s.blocks.some((b) => b.kind === "plan"))
+      content.push({
+        text: "Les planches A4 paysage avec cartouche sont jointes en fin de note.",
+        color: "#56637a",
+      });
+  }
+  for (const block of sheets) {
+    if (block.kind !== "plan") continue;
+    const svg = plans?.get(block);
+    if (!svg && plans) throw Error("Le plan LaTeX n’a pas été composé.");
+    // Full-scale A4 sheet: no proportional fit into the portrait text column.
     content.push(
-      { text: `${i + 1}. ${s.title}`, style: "sectionTitle", headlineLevel: 1 },
-      ...s.blocks.map(blockContent),
+      svg
+        ? {
+            svg,
+            width: 841.89,
+            height: 595.28,
+            absolutePosition: { x: 0, y: 0 },
+            pageBreak: "before",
+            pageOrientation: "landscape",
+          }
+        : {
+            text: `Plan LaTeX : ${block.plan.title}`,
+            pageBreak: "before",
+            pageOrientation: "landscape",
+          },
     );
+  }
   return {
     pageSize: "A4",
     pageMargins: [42, 45, 42, 48],
@@ -189,7 +234,7 @@ export function reportDocument(
       },
     },
     footer: (page, total) => ({
-      margin: [42, 12, 42, 0],
+      margin: [42, page > total - sheets.length ? 35 : 12, 42, 0],
       fontSize: 7,
       color: "#56637a",
       columns: [
@@ -230,6 +275,7 @@ async function fontVfs() {
 }
 export async function generateReportPdf(
   report: CalculationReport,
+  onlyPlans = false,
 ): Promise<Uint8Array> {
   const [module, vfs] = await Promise.all([
     import("pdfmake/build/pdfmake"),
@@ -250,7 +296,33 @@ export async function generateReportPdf(
       bolditalics: "JetBrains.ttf",
     },
   };
-  const pdf = pdfMake.createPdf(reportDocument(report), undefined, fonts, vfs);
+  const plans = new Map<ReportBlock, string>();
+  const planBlocks = report.sections
+    .flatMap((s) => s.blocks)
+    .filter((b) => b.kind === "plan");
+  if (planBlocks.length) {
+    const [{ renderTikz }, { planTikz }] = await Promise.all([
+      import("./tikz"),
+      import("@/domain/rc/plans"),
+    ]);
+    for (const block of planBlocks)
+      if (block.kind === "plan")
+        plans.set(block, await renderTikz(planTikz(block.plan)));
+  }
+  const definition = reportDocument(report, plans);
+  if (onlyPlans) {
+    definition.pageOrientation = "landscape";
+    definition.pageMargins = 0;
+    definition.footer = undefined;
+    definition.content = [...plans.values()].map((svg, i) => ({
+      svg,
+      width: 841.89,
+      height: 595.28,
+      absolutePosition: { x: 0, y: 0 },
+      ...(i ? { pageBreak: "before" as const } : {}),
+    }));
+  }
+  const pdf = pdfMake.createPdf(definition, undefined, fonts, vfs);
   return new Promise((resolve, reject) => {
     try {
       const stream = pdf.getStream();

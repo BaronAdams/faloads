@@ -43,7 +43,8 @@ export type ReportBlock =
   | { kind: "text"; text: string }
   | { kind: "formula"; latex: string }
   | { kind: "table"; headers: string[]; rows: string[][] }
-  | { kind: "svg"; svg: string };
+  | { kind: "svg"; svg: string }
+  | { kind: "plan"; plan: import("./rc/plans").RCPlan };
 export type CalculationReport = {
   project: string;
   type: string;

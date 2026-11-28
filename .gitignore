@@ -49,3 +49,4 @@ build/
 # Python reference-engine caches.
 __pycache__/
 *.pyc
+public/tikz-runtime/

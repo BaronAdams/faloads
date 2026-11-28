@@ -495,6 +495,15 @@ def run(model):
         checks.append(check('Enveloppe des arrêts de barres supérieures — '+spans[i]['name'],upper['margin_kNm'],0,upper['margin_kNm']>=-1e-5,'kN·m'))
         if not lower['optimised'] or not upper['optimised']:
             notes.append(spans[i]['name']+' : barres conservées filantes lorsque le modèle conservatif d’arrêt ne permet pas de les raccourcir.')
+        # Plot the same shifted demand and anchorage ramps used by the exact
+        # margin check above; this is presentation data, never a new design.
+        for nappe,sign,lever,cap in [(lower,1,design['z_mm'],None),(upper,-1,top_lev,max(support_design[i],support_design[i+1]))]:
+            xmin=min(supports[i]['width_m']/2,h/2);xmax=l-min(supports[i+1]['width_m']/2,h/2)
+            nappe['domain_m']=[xmin,xmax]
+            plot_x={xmin+(xmax-xmin)*j/160 for j in range(161)}
+            for group in nappe['groups']:
+                plot_x.update(max(xmin,min(xmax,x)) for x in [group['start_m'],group['start_m']+group['anchor_m'],group['end_m']-group['anchor_m'],group['end_m']])
+            nappe['epure']=[dict(x_m=x,demand_kNm=envelope(cases,i,l,x,sign,shift,cap),capacity_kNm=sum(group['area_mm2']*mat['fyd']*lever/1e6*max(0,min(1,(x-group['start_m'])/group['anchor_m'],(group['end_m']-x)/group['anchor_m'])) for group in nappe['groups'])) for x in sorted(plot_x)]
         bars.append(dict(bottom=lower,top=upper))
     # Re-read the physical rods actually present at each positive design point.
     # Cuts may remove top support bars there: ELS must not credit absent steel.
@@ -563,7 +572,7 @@ def run(model):
     checks.append(check('Équilibre vertical global',equilibrium,1e-6,equilibrium<=1e-6,'kN'))
     return dict(kind='rc-beam',materials=mat,effective_lengths_m=L,self_weight_kN_m=25*Ac if model['selfWeight'] else 0,
                 permanent_kN_m=g,variable_kN_m=q,method=active,cases=cases,elastic_cases=U,service_cases=S,
-                redistribution=redtrace,plastic_case=plastic,plastic_checks=plastic_checks,comparison=comparison,
+                redistribution=redtrace,redistributed_cases=elastic if redtrace else [],plastic_case=plastic,plastic_checks=plastic_checks,comparison=comparison,
                 spans=flex_spans,supports=flex_supports,shear=shears,flange=flange_checks,bars=bars,traces=traces,
                 checks=checks,warnings=warnings,notes=notes,limits=limits,
                 all_ok=all(c['ok'] for c in checks),scope_complete=True)

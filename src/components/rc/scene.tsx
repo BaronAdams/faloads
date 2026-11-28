@@ -3,7 +3,10 @@ import type { RCResult } from "@/lib/rc-engine";
 import { useCanvasGeometry } from "@/components/playground";
 import { useCompactViewport } from "@/lib/runtime";
 import { fmt } from "@/lib/utils";
-export type RCView = "structure" | "steel" | "M" | "V";
+import { beamEnvelope, columnStirrups } from "@/domain/rc/visual-data";
+import { SpacingProbe } from "./spacing-probe";
+export type RCView =
+  "structure" | "steel" | "M" | "V" | "redistributed" | "cutoff";
 const blue = "#638deb",
   orange = "#df843e",
   green = "#65b69b";
@@ -124,7 +127,7 @@ export function ReinforcedSection({
             r={w / 2 - cover - phit / 2}
             fill="none"
             stroke={green}
-            strokeWidth={Math.max(1.5 * scale, phit)}
+            strokeWidth={1.25 * scale}
           />
         ) : (
           <rect
@@ -135,7 +138,7 @@ export function ReinforcedSection({
             rx={5 * scale}
             fill="none"
             stroke={green}
-            strokeWidth={Math.max(1.5 * scale, phit)}
+            strokeWidth={1.25 * scale}
           />
         ))}
       {column &&
@@ -196,14 +199,32 @@ export function ReinforcedSection({
           </text>
           {r && (
             <>
-              <text x={x} y={top - 18 * scale}>
+              <text x={x} y={top - 18 * labelScale}>
                 {column
                   ? `${lay.n} barres · HA${lay.phi}${lay.mixed ? ` / HA${lay.phi_i}` : ""}`
                   : design
-                    ? `${design.tension.count} HA${design.tension.phi_mm} ${design.negative ? "en haut" : "en bas"}`
+                    ? `${(design.negative ? design.tension : design.compression).count} HA${(design.negative ? design.tension : design.compression).phi_mm} · haut`
                     : ""}
               </text>
-              <text x={x} y={top + H + 65 * scale} fill={green}>
+              {!column && design && (
+                <text x={x} y={top + H + 62 * labelScale} fill={orange}>
+                  {
+                    (design.negative ? design.compression : design.tension)
+                      .count
+                  }{" "}
+                  HA
+                  {
+                    (design.negative ? design.compression : design.tension)
+                      .phi_mm
+                  }{" "}
+                  · bas
+                </text>
+              )}
+              <text
+                x={x}
+                y={top + H + (column ? 65 : 85) * labelScale}
+                fill={green}
+              >
                 Cadre HA{det.phi_t_mm} · cnom {det.cnom_mm} mm
               </text>
             </>
@@ -243,16 +264,8 @@ export function RCScene({
       ew = (compact ? 40 : 80) * u;
     const s = t?.s_current_cm ?? 20,
       snode = t?.s_node_cm ?? 10,
-      zone = Math.max(m.section.b_cm, m.section.h_cm) / 100,
       scaleY = eh / m.geometry.l_m;
-    const positions: number[] = [];
-    if (r) {
-      let z = 0;
-      while (z < m.geometry.l_m && positions.length < 500) {
-        positions.push(z);
-        z += (z < zone || z > m.geometry.l_m - zone ? snode : s) / 100;
-      }
-    }
+    const positions = r ? columnStirrups(m, r) : [];
     return (
       <g>
         <ReinforcedSection
@@ -283,7 +296,7 @@ export function RCScene({
           />
           {r && view === "steel" && (
             <>
-              <g stroke={orange} strokeWidth={3 * u}>
+              <g stroke={orange} strokeWidth={1.4 * u}>
                 {[ex - ew * 0.31, ex + ew * 0.31].map((x) => (
                   <line
                     key={x}
@@ -294,7 +307,7 @@ export function RCScene({
                   />
                 ))}
               </g>
-              <g stroke={green} strokeWidth={1.5 * u}>
+              <g stroke={green} strokeWidth={1 * u}>
                 {positions.map((z, i) => (
                   <line
                     key={i}
@@ -305,6 +318,16 @@ export function RCScene({
                   />
                 ))}
               </g>
+              <SpacingProbe
+                positions={positions}
+                origin={et + eh}
+                scale={-scaleY}
+                cross={ex - ew * 0.4}
+                extent={ew * 0.8}
+                vertical
+                phi={m.detailing.phi_t_mm}
+                units={u}
+              />
               {lap && (
                 <rect
                   x={ex - ew * 0.45}
@@ -315,6 +338,7 @@ export function RCScene({
                   height={Math.min(lap.l0_cm / 100, m.geometry.l_m) * scaleY}
                   fill={orange}
                   fillOpacity=".09"
+                  pointerEvents="none"
                   stroke={orange}
                   strokeDasharray="5 5"
                 />
@@ -385,10 +409,29 @@ export function RCScene({
     total = lens.reduce((a, b) => a + b, 0),
     xs = [80];
   for (const l of lens) xs.push(xs.at(-1)! + (840 * l) / total);
-  const y = compact ? H * 0.35 : Math.min(240, H * 0.44),
-    depth = Math.min(44 * u, 38),
-    isDiagram = view === "M" || view === "V";
-  const all = r?.traces?.flat() ?? [],
+  const isDiagram = ["M", "V", "redistributed", "cutoff"].includes(view),
+    y = compact ? H * (isDiagram ? 0.5 : 0.35) : Math.min(240, H * 0.44),
+    depth = Math.min(44 * u, 38);
+  const traces = r
+    ? beamEnvelope(
+        r,
+        view === "redistributed"
+          ? "redistributed"
+          : view === "M"
+            ? "elastic"
+            : "design",
+      )
+    : [];
+  const all =
+      view === "cutoff"
+        ? (r?.bars.flatMap((b: any) =>
+            [...b.bottom.epure, ...b.top.epure].map((p: any) => ({
+              ...p,
+              Mmax_kNm: Math.max(p.demand_kNm, p.capacity_kNm),
+              Mmin_kNm: 0,
+            })),
+          ) ?? [])
+        : traces.flat(),
     max = Math.max(
       1,
       ...all.flatMap((p: any) =>
@@ -403,11 +446,46 @@ export function RCScene({
     : r?.spans?.[Number(selection?.split(":")[1] ?? 0)];
   return (
     <g>
+      {isDiagram && (
+        <g fontSize={text} fill="var(--foreground)" textAnchor="middle">
+          <text x={500} y={compact ? 125 * u : y - 155 * u}>
+            {compact
+              ? view === "cutoff"
+                ? "Épure d’arrêt des barres"
+                : view === "redistributed"
+                  ? "M · après redistribution · ELU"
+                  : view === "M"
+                    ? "M · avant redistribution · ELU"
+                    : "V · enveloppe retenue · ELU"
+              : view === "cutoff"
+                ? "Épure d’arrêt · enveloppe décalée (pointillés) / résistance ancrée (orange)"
+                : view === "redistributed"
+                  ? "Enveloppe M après redistribution · ELU"
+                  : view === "M"
+                    ? "Enveloppe M élastique avant redistribution · ELU"
+                    : "Enveloppe V retenue · ELU"}
+            {compact && view === "cutoff" && (
+              <tspan x={500} dy={18 * u}>
+                Bleu : MEd décalé · orange : MRd
+              </tspan>
+            )}
+          </text>
+        </g>
+      )}
       {m.spans.map((s, i) => {
         const x1 = xs[i],
           x2 = xs[i + 1],
           w = x2 - x1;
         const design = r?.spans[i];
+        const plottedPeak = traces[i]
+          ? Math.max(
+              ...traces[i].map((p) =>
+                view === "V"
+                  ? Math.max(Math.abs(p.Vmax_kN), Math.abs(p.Vmin_kN))
+                  : p.Mmax_kNm,
+              ),
+            )
+          : 0;
         return (
           <g
             key={s.id}
@@ -456,7 +534,16 @@ export function RCScene({
                     />
                   ))}
                 </g>
-                <g stroke={orange} strokeWidth={2.5 * u}>
+                <SpacingProbe
+                  positions={r.shear[i].positions_m}
+                  origin={x1}
+                  scale={w / r.effective_lengths_m[i]}
+                  cross={y - depth * 0.35}
+                  extent={depth * 0.7}
+                  phi={m.detailing.phi_t_mm}
+                  units={u}
+                />
+                <g stroke={orange} strokeWidth={1.4 * u}>
                   {r.bars[i].bottom.groups.map((b: any, j: number) => (
                     <line
                       key={`b${j}`}
@@ -494,11 +581,12 @@ export function RCScene({
             )}
             {r &&
               isDiagram &&
+              view !== "cutoff" &&
               [true, false].map((upper) => {
-                const points = r.traces[i].map((p: any) => [
+                const points = traces[i].map((p: any) => [
                   x1 + (w * p.x_m) / r.effective_lengths_m[i],
                   y -
-                    (view === "M"
+                    (view !== "V"
                       ? upper
                         ? p.Mmax_kNm
                         : p.Mmin_kNm
@@ -512,21 +600,96 @@ export function RCScene({
                   <g key={String(upper)}>
                     <polygon
                       points={`${x1},${y} ${line} ${x2},${y}`}
-                      fill={view === "M" ? blue : green}
+                      fill={view !== "V" ? blue : green}
                       fillOpacity=".10"
                     />
                     <polyline
                       points={line}
                       fill="none"
-                      stroke={view === "M" ? blue : green}
+                      stroke={view !== "V" ? blue : green}
                       strokeWidth={1.8 * u}
                     />
                   </g>
                 );
               })}
+            {r &&
+              view === "cutoff" &&
+              (["bottom", "top"] as const).map((nappe) => {
+                const sign = nappe === "bottom" ? 1 : -1;
+                const data = r.bars[i][nappe].epure;
+                return (
+                  <g key={nappe}>
+                    {(["demand_kNm", "capacity_kNm"] as const).map((key) => (
+                      <polyline
+                        key={key}
+                        points={data
+                          .map(
+                            (p: any) =>
+                              `${x1 + (w * p.x_m) / r.effective_lengths_m[i]},${y - sign * p[key] * amp}`,
+                          )
+                          .join(" ")}
+                        fill="none"
+                        stroke={key === "demand_kNm" ? blue : orange}
+                        strokeDasharray={
+                          key === "demand_kNm" ? `${4 * u} ${3 * u}` : undefined
+                        }
+                        strokeWidth={1.4 * u}
+                      />
+                    ))}
+                    {r.bars[i][nappe].groups.map((b: any, j: number) => (
+                      <g
+                        key={j}
+                        stroke={orange}
+                        strokeWidth={u}
+                        fontSize={10 * u}
+                      >
+                        <line
+                          x1={
+                            x1 +
+                            (w * Math.max(0, b.start_m)) /
+                              r.effective_lengths_m[i]
+                          }
+                          x2={
+                            x1 +
+                            (w * Math.min(r.effective_lengths_m[i], b.end_m)) /
+                              r.effective_lengths_m[i]
+                          }
+                          y1={y + sign * (150 + j * 20) * u}
+                          y2={y + sign * (150 + j * 20) * u}
+                        />
+                        <text
+                          stroke="none"
+                          fill={orange}
+                          fontSize={10 * u}
+                          textAnchor="middle"
+                          x={(x1 + x2) / 2}
+                          y={y + sign * (150 + j * 20) * u - 4 * u}
+                        >
+                          {b.count} HA{b.phi_mm} · {fmt(b.length_m, 2)} m
+                        </text>
+                      </g>
+                    ))}
+                  </g>
+                );
+              })}
             {annotations && (
               <g fontSize={text} fill="var(--foreground)" textAnchor="middle">
-                <text x={(x1 + x2) / 2} y={y + (isDiagram ? 145 * u : 70 * u)}>
+                <text
+                  x={(x1 + x2) / 2}
+                  y={
+                    y +
+                    (isDiagram
+                      ? (view === "cutoff"
+                          ? Math.max(
+                              185,
+                              170 +
+                                ((r?.bars[i].bottom.groups.length ?? 1) - 1) *
+                                  20,
+                            )
+                          : 145) * u
+                      : 70 * u)
+                  }
+                >
                   {compact ? `T${i + 1}` : s.name} · {fmt(s.ln_m, 2)} m
                 </text>
                 {!isDiagram && view === "structure" && (
@@ -535,34 +698,28 @@ export function RCScene({
                   </text>
                 )}
                 {view === "steel" && design && (
-                  <text x={(x1 + x2) / 2} y={y - 38 * u} fill={orange}>
-                    {design.tension.count} HA{design.tension.phi_mm}
-                  </text>
+                  <>
+                    <text x={(x1 + x2) / 2} y={y - 38 * u} fill={orange}>
+                      {r.bars[i].top.groups
+                        .map((b: any) => `${b.count} HA${b.phi_mm}`)
+                        .join(" + ")}{" "}
+                      · haut
+                    </text>
+                    <text x={(x1 + x2) / 2} y={y + 48 * u} fill={orange}>
+                      {r.bars[i].bottom.groups
+                        .map((b: any) => `${b.count} HA${b.phi_mm}`)
+                        .join(" + ")}{" "}
+                      · bas
+                    </text>
+                  </>
                 )}
-                {isDiagram && design && (
+                {isDiagram && view !== "cutoff" && design && (
                   <text
                     x={(x1 + x2) / 2}
-                    y={
-                      y -
-                      (view === "M"
-                        ? design.MEd_kNm
-                        : Math.max(
-                            ...r.shear[i].critical.map((s: any) => s.VEd_kN),
-                          )) *
-                        amp -
-                      16 * u
-                    }
-                    fill={view === "M" ? blue : green}
+                    y={y - plottedPeak * amp - 16 * u}
+                    fill={view !== "V" ? blue : green}
                   >
-                    {fmt(
-                      view === "M"
-                        ? design.MEd_kNm
-                        : Math.max(
-                            ...r.shear[i].critical.map((s: any) => s.VEd_kN),
-                          ),
-                      1,
-                    )}{" "}
-                    {view === "M" ? "kN·m" : "kN"}
+                    {fmt(plottedPeak, 1)} {view !== "V" ? "kN·m" : "kN"}
                   </text>
                 )}
               </g>
@@ -610,7 +767,7 @@ export function RCScene({
           result={r}
           design={selected ?? r?.spans?.[0]}
           x={500}
-          y={compact ? y + 185 * u : Math.min(H - 150, y + 210)}
+          y={compact ? y + 185 * u : Math.min(H - 205, y + 210)}
           scale={compact ? u * 0.55 : 0.85}
           labelScale={compact ? u : 1}
           labels={annotations}
